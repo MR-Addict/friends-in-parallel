@@ -87,11 +87,14 @@ export default function App() {
     <>
       <main className="app-shell">
         <header className="brand-header">
-          <h1>
-            <a className="brand" href="/" aria-label="此刻，同频首页">
-              此刻，同频
-            </a>
-          </h1>
+          <div className="brand-copy">
+            <h1>
+              <a className="brand" href="/" aria-label="此刻，同频首页">
+                此刻，同频
+              </a>
+            </h1>
+            <p>各自生活，也在一起。</p>
+          </div>
           <div className="header-actions">
             <button
               className="icon-button"
@@ -113,67 +116,69 @@ export default function App() {
             </button>
           </div>
         </header>
-        <div className="page-intro">
-          <p>各自生活，也在一起。</p>
-        </div>
-        <nav className="day-navigation" aria-label="日期导航">
-          <button
-            className="icon-button"
-            aria-label="前一天"
-            onClick={() => setDate(shiftDate(date, -1))}
-          >
-            <ChevronLeft size={20} />
-          </button>
-          <label className="date-picker">
-            <span>
-              <CalendarDays size={18} />
-              <strong>{date.replaceAll('-', '/')}</strong>
-            </span>
-            <input
-              type="date"
-              aria-label="选择日期"
-              value={date}
-              max={today()}
-              onChange={(e) => {
-                if (e.target.value) setDate(e.target.value);
-              }}
-              aria-haspopup="dialog"
-              aria-expanded={calendarOpen}
-              onClick={(e) => {
-                e.preventDefault();
-                setCalendarOpen(true);
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
+        <section className="day-section" aria-labelledby="browse-date-heading">
+          <div className="section-heading">
+            <h2 id="browse-date-heading">翻看日常</h2>
+            <span>选一天，看看大家的生活</span>
+          </div>
+          <nav className="day-navigation" aria-label="日期导航">
+            <button
+              className="icon-button"
+              aria-label="前一天"
+              onClick={() => setDate(shiftDate(date, -1))}
+            >
+              <ChevronLeft size={20} />
+            </button>
+            <label className="date-picker">
+              <span>
+                <CalendarDays size={18} />
+                <strong>{date.replaceAll('-', '/')}</strong>
+              </span>
+              <input
+                type="date"
+                aria-label="选择日期"
+                value={date}
+                max={today()}
+                onChange={(e) => {
+                  if (e.target.value) setDate(e.target.value);
+                }}
+                aria-haspopup="dialog"
+                aria-expanded={calendarOpen}
+                onClick={(e) => {
                   e.preventDefault();
                   setCalendarOpen(true);
-                }
-              }}
-            />
-          </label>
-          <button
-            className="icon-button"
-            aria-label="后一天"
-            disabled={date >= today()}
-            onClick={() => setDate(shiftDate(date, 1))}
-          >
-            <ChevronRight size={20} />
-          </button>
-          <button
-            className="today-action"
-            aria-label="回到今天"
-            disabled={date === today()}
-            onClick={() => setDate(today())}
-          >
-            今天
-          </button>
-        </nav>
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    setCalendarOpen(true);
+                  }
+                }}
+              />
+            </label>
+            <button
+              className="icon-button"
+              aria-label="后一天"
+              disabled={date >= today()}
+              onClick={() => setDate(shiftDate(date, 1))}
+            >
+              <ChevronRight size={20} />
+            </button>
+            <button
+              className="today-action"
+              aria-label="回到今天"
+              disabled={date === today()}
+              onClick={() => setDate(today())}
+            >
+              今天
+            </button>
+          </nav>
+        </section>
         <Timeline
           entries={entries}
           loading={loading}
           error={error}
           onRefresh={() => setRevision((n) => n + 1)}
-          onCreate={() => setComposer({})}
           onEdit={(entry) => setComposer({ entry })}
           onDelete={(entry) => {
             setDeleteError('');

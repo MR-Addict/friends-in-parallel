@@ -7,7 +7,7 @@ const production = path.basename(here) === 'dist';
 export const publicDir = production
   ? path.join(here, 'public')
   : path.resolve(here, '../../web/public');
-const configDir = production
+export const configDir = production
   ? path.join(here, 'config')
   : path.resolve(here, '../../web/src/config');
 export const people: Person[] = JSON.parse(

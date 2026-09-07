@@ -8,6 +8,8 @@ import {
   Clock,
   LoaderCircle,
   Camera,
+  ChevronRight,
+  MessageSquare,
 } from 'lucide-react';
 import { Modal } from './Modal';
 import { Photo } from './Photo';
@@ -312,128 +314,168 @@ function ComposerEditor({
                   disabled={busy}
                   onClick={() => setStep(1)}
                 >
-                  <ArrowLeft size={15} />
-                  <span className="tiny-dot" style={{ background: personOf(personId).color }} />
-                  {personOf(personId).nickname}
-                  <span className="muted">· 换一位朋友</span>
+                  <span
+                    className="avatar small"
+                    style={{ background: personOf(personId).background }}
+                  >
+                    <img src={`/stickers/fluent/${personOf(personId).avatar}.png`} alt="" />
+                  </span>
+                  <span className="editor-person-copy">
+                    <span>记录的人</span>
+                    <strong>{personOf(personId).nickname}</strong>
+                  </span>
+                  <span className="change-person">
+                    换一位朋友 <ChevronRight size={15} />
+                  </span>
                 </button>
-                <fieldset disabled={busy}>
-                  <legend className="field-label">
-                    留下此刻 <span>照片或表情，都可以</span>
-                  </legend>
-                  <div className="media-tabs">
-                    {(
-                      [
-                        { id: 'photo', label: '照片', Icon: ImagePlus },
-                        { id: 'sticker', label: '表情', Icon: Smile },
-                      ] as const
-                    ).map(({ id, label, Icon }) => (
-                      <button
-                        key={id}
-                        type="button"
-                        className={type === id ? 'active' : ''}
-                        onClick={() => {
-                          setType(id);
-                          setError('');
-                        }}
-                      >
-                        <Icon size={17} />
-                        {label}
-                      </button>
-                    ))}
-                  </div>
-                  {type === 'photo' ? (
-                    <label className={`photo-upload ${file || photo ? 'has-photo' : ''}`}>
-                      <input
-                        type="file"
-                        accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif"
-                        onChange={(e) => {
-                          const f = e.target.files?.[0];
-                          e.target.value = '';
-                          if (!f) return;
-                          setError('');
-                          setFile(f);
-                        }}
-                      />
-                      {file || photo ? (
-                        <>
-                          {photo ? (
-                            <Photo src={photo} alt="照片预览" />
-                          ) : (
-                            <span className="photo-fallback" role="status">
-                              {preview?.file === file && preview?.failed
-                                ? '暂时无法预览，仍可提交由服务器处理'
-                                : '正在生成照片预览…'}
-                            </span>
-                          )}
-                          <span className="replace-photo">
-                            <Camera size={16} /> 换一张照片
-                          </span>
-                        </>
-                      ) : (
-                        <>
-                          <span className="upload-icon">
-                            <ImagePlus size={28} />
-                          </span>
-                          <strong>点这里，放一张此刻的照片</strong>
-                          <small>支持 iPhone 照片 · 最大 20 MB · 上传后自动优化</small>
-                        </>
-                      )}
-                      {file && (
-                        <small>
-                          {file.name} · {(file.size / 1_000_000).toFixed(2)} MB
-                        </small>
-                      )}
-                    </label>
-                  ) : (
-                    <button
-                      type="button"
-                      className="selected-media"
-                      aria-label={stickerId ? '更换表情' : '选择表情'}
-                      onClick={() => setPickerOpen(true)}
-                    >
-                      {stickerId ? (
-                        <img
-                          src={stickers.find((s) => s.id === stickerId)?.file}
-                          alt={stickers.find((s) => s.id === stickerId)?.name}
+                <fieldset disabled={busy} className="editor-sections" aria-label="动态内容">
+                  <section className="editor-section">
+                    <div className="editor-section-heading">
+                      <span className="editor-section-icon">
+                        <ImagePlus size={18} />
+                      </span>
+                      <div>
+                        <h3>留下此刻</h3>
+                        <p>照片或表情，选一种记录</p>
+                      </div>
+                      <span className="field-badge">必选</span>
+                    </div>
+                    <div className="media-tabs">
+                      {(
+                        [
+                          { id: 'photo', label: '照片', Icon: ImagePlus },
+                          { id: 'sticker', label: '表情', Icon: Smile },
+                        ] as const
+                      ).map(({ id, label, Icon }) => (
+                        <button
+                          key={id}
+                          type="button"
+                          className={type === id ? 'active' : ''}
+                          aria-pressed={type === id}
+                          onClick={() => {
+                            setType(id);
+                            setError('');
+                          }}
+                        >
+                          <Icon size={17} />
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                    {type === 'photo' ? (
+                      <label className={`photo-upload ${file || photo ? 'has-photo' : ''}`}>
+                        <input
+                          type="file"
+                          aria-label="上传照片"
+                          accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif"
+                          onChange={(e) => {
+                            const f = e.target.files?.[0];
+                            e.target.value = '';
+                            if (!f) return;
+                            setError('');
+                            setFile(f);
+                          }}
                         />
-                      ) : (
-                        <Smile size={32} />
-                      )}
-                      <span>{stickerId ? '更换表情' : '选择表情'}</span>
-                    </button>
-                  )}
-                  <label className="field-label" htmlFor="description">
-                    想说的话 <span>不写也没关系</span>
-                  </label>
-                  <div className="description-input">
-                    <textarea
-                      id="description"
-                      placeholder="分享一下正在做的事…"
-                      rows={3}
-                      maxLength={500}
-                      value={description}
-                      onChange={(e) => setDescription(e.target.value)}
-                    />
-                    <small>{Array.from(description).length}/500</small>
-                  </div>
-                  <label className="field-label" htmlFor="moment-time">
-                    发生的时间 <span>北京时间 · 可以补记</span>
-                  </label>
-                  <div className="time-input">
-                    <Clock size={18} />
-                    <input
-                      required
-                      type="datetime-local"
-                      id="moment-time"
-                      max={localTime()}
-                      value={time}
-                      onChange={(e) => setTime(e.target.value)}
-                    />
-                    <button type="button" onClick={() => setTime(localTime())}>
-                      现在
-                    </button>
-                  </div>
+                        {file || photo ? (
+                          <>
+                            {photo ? (
+                              <Photo src={photo} alt="照片预览" />
+                            ) : (
+                              <span className="photo-fallback" role="status">
+                                {preview?.file === file && preview?.failed
+                                  ? '暂时无法预览，仍可提交由服务器处理'
+                                  : '正在生成照片预览…'}
+                              </span>
+                            )}
+                            <span className="replace-photo">
+                              <Camera size={16} /> 换一张照片
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            <span className="upload-icon">
+                              <ImagePlus size={28} />
+                            </span>
+                            <strong>点这里，放一张此刻的照片</strong>
+                            <small>支持 iPhone 照片 · 最大 20 MB · 上传后自动优化</small>
+                          </>
+                        )}
+                        {file && (
+                          <small>
+                            {file.name} · {(file.size / 1_000_000).toFixed(2)} MB
+                          </small>
+                        )}
+                      </label>
+                    ) : (
+                      <button
+                        type="button"
+                        className="selected-media"
+                        aria-label={stickerId ? '更换表情' : '选择表情'}
+                        onClick={() => setPickerOpen(true)}
+                      >
+                        {stickerId ? (
+                          <img
+                            src={stickers.find((s) => s.id === stickerId)?.file}
+                            alt={stickers.find((s) => s.id === stickerId)?.name}
+                          />
+                        ) : (
+                          <Smile size={32} />
+                        )}
+                        <span>{stickerId ? '更换表情' : '选择表情'}</span>
+                      </button>
+                    )}
+                  </section>
+                  <section className="editor-section">
+                    <div className="editor-section-heading">
+                      <span className="editor-section-icon">
+                        <MessageSquare size={18} />
+                      </span>
+                      <div>
+                        <h3>
+                          <label htmlFor="description">想说的话</label>
+                        </h3>
+                        <p>给这一刻添几句心情</p>
+                      </div>
+                      <span className="field-badge optional">选填</span>
+                    </div>
+                    <div className="description-input">
+                      <textarea
+                        id="description"
+                        placeholder="分享一下正在做的事…"
+                        rows={3}
+                        maxLength={500}
+                        value={description}
+                        onChange={(e) => setDescription(e.target.value)}
+                      />
+                      <small>{Array.from(description).length}/500</small>
+                    </div>
+                  </section>
+                  <section className="editor-section">
+                    <div className="editor-section-heading">
+                      <span className="editor-section-icon">
+                        <Clock size={18} />
+                      </span>
+                      <div>
+                        <h3>
+                          <label htmlFor="moment-time">发生的时间</label>
+                        </h3>
+                        <p>北京时间 · 也可以补记过去</p>
+                      </div>
+                    </div>
+                    <div className="time-input">
+                      <input
+                        required
+                        type="datetime-local"
+                        id="moment-time"
+                        max={localTime()}
+                        value={time}
+                        onChange={(e) => setTime(e.target.value)}
+                      />
+                      <button type="button" onClick={() => setTime(localTime())}>
+                        现在
+                      </button>
+                    </div>
+                  </section>
                 </fieldset>
                 {error && (
                   <p role="alert" className="error-banner">

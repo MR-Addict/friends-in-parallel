@@ -2,6 +2,7 @@ import { spawn, type ChildProcess } from 'node:child_process';
 import { createServer } from 'node:net';
 import { createRequire } from 'node:module';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { ensureMusic } from './download-music.js';
 
 const web = fileURLToPath(new URL('../apps/web/', import.meta.url));
 const server = fileURLToPath(new URL('../apps/server/', import.meta.url));
@@ -76,6 +77,7 @@ try {
   if (backendPort === frontendPort) throw new Error('Frontend and backend ports must differ.');
   await checkPort(backendPort);
   await checkPort(frontendPort);
+  await ensureMusic();
   start(server, [
     '--env-file-if-exists=../../.env',
     '--watch',

@@ -13,3 +13,4 @@ coverage
 tests
 .DS_Store
 **/*.log
+apps/web/public/music

@@ -1,5 +1,8 @@
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { ensureMusic } from './download-music.js';
+
+await ensureMusic();
 
 // The frontend must finish before the backend copies its static output.
 for (const workspace of ['@parallel/web', '@parallel/server']) {

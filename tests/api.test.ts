@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, rm, readFile, access, writeFile, readdir } from 'node:fs/promises';
+import { mkdtemp, rm, readFile, access, writeFile, readdir, mkdir } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { once } from 'node:events';
@@ -409,6 +410,25 @@ test('Conversion failures neither publish nor replace the existing photo or noti
       }
     }
     assert.equal(notifications.length, 1);
+  } finally {
+    await f.close();
+  }
+});
+
+test('every export request cleans legacy caches while ordinary API and upload requests leave them alone', async () => {
+  const f = await fixture();
+  try {
+    const legacy = path.join(f.dir, 'exports', randomUUID());
+    await mkdir(legacy, { recursive: true });
+    await writeFile(
+      path.join(legacy, 'metadata.json'),
+      JSON.stringify({ expiresAt: new Date(0).toISOString(), pages: 1 }),
+    );
+    await fetch(`${f.origin}/api/entries?date=${date}`);
+    await fetch(`${f.origin}/uploads/missing.png`);
+    await access(legacy);
+    assert.equal((await fetch(`${f.origin}/api/exports/music/unknown`)).status, 404);
+    await assert.rejects(access(legacy));
   } finally {
     await f.close();
   }

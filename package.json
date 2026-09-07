@@ -11,12 +11,13 @@
     "build": "tsx scripts/build.ts",
     "start": "pnpm --filter @parallel/server start",
     "typecheck": "tsc -p tsconfig.scripts.json && pnpm -r run typecheck",
-    "test": "tsx --test tests/*.test.ts",
+    "test": "tsx scripts/download-music.ts && tsx --test tests/*.test.ts",
     "test:e2e": "playwright test",
     "setup:browser": "playwright install chromium",
     "assets:download": "tsx scripts/download-assets.ts",
     "format": "prettier -c --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "assets:music": "tsx scripts/download-music.ts"
   },
   "devDependencies": {
     "@playwright/test": "^1.55.0",

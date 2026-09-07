@@ -9,14 +9,18 @@ import { Store } from './store.js';
 import { validateEntry } from './validation.js';
 import { checkDate, HttpError } from './model.js';
 import { ImageExports, snapshot, streamArchive } from './exports.js';
+import { ExportCache } from './export-cache.js';
+import { VideoExports } from './video-exports.js';
+import { musicBytes, videoMusic, videoSelection } from './video-catalog.js';
 export async function createApp(
   dir = dataDir,
   notify: (entry: Entry) => Promise<void> = createNotifier(),
 ) {
   const store = new Store(dir);
   await store.init();
-  const exports = new ImageExports(dir);
-  await exports.cleanup();
+  const cache = new ExportCache(dir);
+  const exports = new ImageExports(cache);
+  const videos = new VideoExports(cache);
   const app = express();
   app.disable('x-powered-by');
   app.use((_req, res, next) => {
@@ -28,6 +32,10 @@ export async function createApp(
     next();
   });
   app.use(express.json({ limit: '64kb' }));
+  app.use('/api/exports', async (_req, _res, next) => {
+    await cache.cleanup();
+    next();
+  });
   const upload = multer({
     storage: multer.memoryStorage(),
     limits: { fileSize: MAX_PHOTO_BYTES, files: 1, fields: 10, fieldSize: 8192 },
@@ -69,6 +77,27 @@ export async function createApp(
     const date = checkDate(req.body?.date);
     res.json(await exports.generate(await snapshot(store, date), date));
   });
+  app.get('/api/exports/video-options', async (_req, res) => res.json(await videos.options()));
+  app.post('/api/exports/videos', async (req, res) => {
+    const date = checkDate(req.body?.date);
+    videoSelection(req.body?.styleId, req.body?.musicId);
+    const job = await videos.start(
+      await snapshot(store, date),
+      date,
+      req.body.styleId,
+      req.body.musicId,
+    );
+    res.status(job.status === 'ready' ? 200 : 202).json(job);
+  });
+  app.get('/api/exports/videos/:jobId', async (req, res) =>
+    res.json(await videos.status(req.params.jobId)),
+  );
+  app.get('/api/exports/music/:musicId', async (req, res) => {
+    const music = videoMusic.find((item) => item.id === req.params.musicId);
+    if (!music) throw new HttpError(404, '音乐不存在');
+    await musicBytes(music);
+    res.sendFile(path.join(publicDir, music.file));
+  });
   app.get('/api/exports/archive', async (req, res) => {
     const date = checkDate(req.query.date);
     const items = await snapshot(store, date);
@@ -79,7 +108,12 @@ export async function createApp(
     await streamArchive(res, items, date);
   });
   app.get('/api/exports/files/:token/:name', async (req, res) => {
-    const { filename, downloadName } = await exports.file(req.params.token, req.params.name);
+    const { filename, downloadName, release } = await cache.acquireFile(
+      req.params.token,
+      req.params.name,
+    );
+    res.once('finish', release);
+    res.once('close', release);
     if (req.params.name.endsWith('.zip') || req.query.download === '1')
       res.attachment(downloadName);
     res.sendFile(filename);
@@ -130,7 +164,5 @@ export async function createApp(
       });
     },
   );
-  const cleanupTimer = setInterval(() => void exports.cleanup().catch(console.error), 600_000);
-  cleanupTimer.unref();
-  return { app, store, dispose: () => clearInterval(cleanupTimer) };
+  return { app, store, dispose: () => cache.dispose() };
 }

@@ -8,11 +8,19 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/web/package.json ./apps/web/package.json
 COPY apps/server/package.json ./apps/server/package.json
 
+# Music is downloaded from pinned URLs/checksums, independently of app changes.
+FROM node:24-bookworm-slim AS music-assets
+WORKDIR /app
+COPY scripts/download-music.ts ./scripts/download-music.ts
+COPY apps/web/src/config/video-music.json ./apps/web/src/config/video-music.json
+RUN node --experimental-strip-types scripts/download-music.ts
+
 FROM dependencies AS build
 RUN --mount=type=cache,id=parallel-pnpm,target=/pnpm/store \
     pnpm install --frozen-lockfile --store-dir=/pnpm/store
 COPY scripts ./scripts
 COPY apps ./apps
+COPY --from=music-assets /app/apps/web/public/music ./apps/web/public/music
 RUN pnpm build
 
 FROM dependencies AS production-dependencies
@@ -52,7 +60,13 @@ RUN --mount=type=cache,id=parallel-apt-${TARGETARCH},target=/var/cache/apt,shari
     --mount=type=cache,id=parallel-apt-lists-${TARGETARCH},target=/var/lib/apt/lists,sharing=locked \
     apt-get update && apt-get install -y --no-install-recommends libheif-examples
 
-FROM photo-runtime AS runtime
+# Video encoding is independent of application changes and browser downloads.
+FROM photo-runtime AS video-runtime
+RUN --mount=type=cache,id=parallel-apt-${TARGETARCH},target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,id=parallel-apt-lists-${TARGETARCH},target=/var/lib/apt/lists,sharing=locked \
+    apt-get update && apt-get install -y --no-install-recommends ffmpeg
+
+FROM video-runtime AS runtime
 COPY --from=production-dependencies /app/node_modules ./node_modules
 COPY --from=production-dependencies /app/apps/server/node_modules ./apps/server/node_modules
 COPY --from=production-dependencies /app/apps/server/package.json ./apps/server/package.json

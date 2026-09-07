@@ -1,0 +1,124 @@
+import { test, expect } from '@playwright/test';
+
+test.beforeEach(async ({ context }) => {
+  const expiry = Date.now() + 7 * 86400_000;
+  await context.addCookies([
+    {
+      name: 'parallel_access',
+      value: String(expiry),
+      domain: '127.0.0.1',
+      path: '/',
+      expires: expiry / 1000,
+      sameSite: 'Lax',
+    },
+  ]);
+});
+for (const width of [375, 430, 1100]) {
+  test(`video configuration, preview, persistence and real download at ${width}px`, async ({
+    page,
+    request,
+  }) => {
+    const date = '2026-08-25';
+    const entries = await (await request.get(`/api/entries?date=${date}`)).json();
+    for (const entry of entries) await request.delete(`/api/entries/${entry.id}`);
+    await request.post('/api/entries', {
+      data: {
+        personId: 'lu-yuhan',
+        mediaType: 'sticker',
+        stickerId: 'twemoji-1f60a',
+        description: '给未来的我们，留下一点今天的快乐。',
+        occurredAt: `${date}T06:30:00Z`,
+      },
+    });
+    await page.setViewportSize({ width, height: 812 });
+    await page.goto('/');
+    await page.getByLabel('选择日期').fill(date);
+    await page.getByRole('button', { name: '生成今日手账' }).click();
+    const labels = await page.locator('.export-options strong').allTextContents();
+    expect(labels).toEqual(['生成手账长图', '生成回忆视频', '下载素材 ZIP']);
+    await page.getByRole('button', { name: /生成回忆视频/ }).click();
+    await expect(page.locator('.video-style-option')).toHaveCount(12);
+    await expect(page.getByLabel('背景音乐', { exact: true }).locator('option')).toHaveCount(25);
+    await expect(page.getByRole('button', { name: '开始生成视频' })).toBeInViewport();
+    await page.screenshot({ path: `test-results/video-options-${width}.png` });
+    await page.getByRole('button', { name: '试听背景音乐' }).click();
+    await expect(page.getByRole('button', { name: '停止试听' })).toBeVisible();
+    await page.getByLabel('背景音乐', { exact: true }).selectOption('none');
+    await expect(page.getByRole('button', { name: '试听背景音乐' })).toBeDisabled();
+    await page.getByRole('button', { name: /拍立得相册/ }).click();
+    await expect(page.getByLabel('背景音乐', { exact: true })).toHaveValue('daily-beetle');
+    await page.getByLabel('背景音乐', { exact: true }).selectOption('none');
+    await page.getByRole('button', { name: '返回导出选项' }).click();
+    await page.getByRole('button', { name: /生成回忆视频/ }).click();
+    await expect(page.getByLabel('背景音乐', { exact: true })).toHaveValue('none');
+    await expect(page.getByRole('button', { name: /拍立得相册/ })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    const submitted = page.waitForResponse(
+      (response) =>
+        response.url().endsWith('/api/exports/videos') && response.request().method() === 'POST',
+    );
+    await page.getByRole('button', { name: '开始生成视频' }).click();
+    expect((await submitted).status()).toBe(202);
+    await page.getByRole('button', { name: '关闭', exact: true }).click();
+    await page.reload();
+    await page.getByLabel('选择日期').fill(date);
+    await page.getByRole('button', { name: '生成今日手账' }).click();
+    await page.getByRole('button', { name: /生成回忆视频/ }).click();
+    await expect(page.getByRole('link', { name: '下载视频' })).toBeVisible({ timeout: 90000 });
+    await expect(page.getByRole('link', { name: '下载视频' })).toBeInViewport();
+    const video = page.getByLabel('回忆视频预览');
+    await expect
+      .poll(() => video.evaluate((node: HTMLVideoElement) => node.readyState))
+      .toBeGreaterThanOrEqual(1);
+    expect(
+      await video.evaluate((node: HTMLVideoElement) => [node.videoWidth, node.videoHeight]),
+    ).toEqual([1080, 1920]);
+    await video.evaluate(async (node: HTMLVideoElement) => {
+      node.muted = true;
+      await node.play();
+      node.currentTime = 5;
+    });
+    await expect
+      .poll(() => video.evaluate((node: HTMLVideoElement) => node.currentTime))
+      .toBeGreaterThanOrEqual(5);
+    await video.evaluate((node: HTMLVideoElement) => node.pause());
+    await page.screenshot({ path: `test-results/video-ready-${width}.png` });
+    const downloading = page.waitForEvent('download');
+    await page.getByRole('link', { name: '下载视频' }).click();
+    const download = await downloading;
+    expect(download.suggestedFilename()).toBe(`此刻同频-${date}-回忆视频-拍立得相册.mp4`);
+    expect(await download.failure()).toBeNull();
+    await page.getByRole('button', { name: '修改样式与音乐' }).click();
+    await expect(page.getByLabel('背景音乐', { exact: true })).toHaveValue('none');
+  });
+}
+test('video errors and expired tasks preserve selections and permit regeneration', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.goto('/');
+  await page.evaluate(() =>
+    localStorage.setItem(
+      'parallel-video:2026-08-25',
+      JSON.stringify({ jobId: 'old', styleId: 'night', musicId: 'none' }),
+    ),
+  );
+  await page.getByLabel('选择日期').fill('2026-08-25');
+  await page.getByRole('button', { name: '生成今日手账' }).click();
+  await page.getByRole('button', { name: /生成回忆视频/ }).click();
+  await expect(page.getByRole('alert')).toContainText('已过期');
+  await expect(page.getByRole('button', { name: '开始生成视频' })).toBeEnabled();
+  await expect(page.getByRole('button', { name: /夜色留白/ })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+  await expect(page.getByLabel('背景音乐', { exact: true })).toHaveValue('none');
+  await page.route('**/api/exports/videos', (route) =>
+    route.fulfill({ status: 429, json: { error: '另一份手账或视频正在生成，请稍后再试' } }),
+  );
+  await page.getByRole('button', { name: '开始生成视频' }).click();
+  await expect(page.getByRole('alert')).toContainText('稍后再试');
+  await expect(page.getByRole('button', { name: '开始生成视频' })).toBeEnabled();
+});

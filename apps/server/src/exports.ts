@@ -1,12 +1,12 @@
-import { readFile, mkdir, writeFile, rm, readdir, stat } from 'node:fs/promises';
+import { readFile, mkdir, readdir } from 'node:fs/promises';
 import path from 'node:path';
-import { createHash, randomUUID } from 'node:crypto';
 import archiver from 'archiver';
 import { chromium } from 'playwright';
 import type { Response } from 'express';
 import { publicDir, packs, personById, stickerById, emojiSticker } from './config.js';
-import { beijingTime, checkDate, HttpError, type Entry, type Person } from './model.js';
+import { beijingTime, HttpError, type Entry, type Person } from './model.js';
 import type { Store } from './store.js';
+import { ExportCache, contentFingerprint, type CacheWork } from './export-cache.js';
 export function exportFilename(date: string, kind: 'materials' | 'images' | 'image', page = 1) {
   const label =
     kind === 'materials'
@@ -264,62 +264,31 @@ interface ImageExportResult {
   archiveUrl: string;
   expiresAt: string;
 }
-const EXPORT_TTL = 3600_000;
 const exportResult = (token: string, pages: number, expiresAt: string): ImageExportResult => ({
   images: Array.from({ length: pages }, (_, i) => `/api/exports/files/${token}/${i + 1}.png`),
   archiveUrl: `/api/exports/files/${token}/images.zip`,
   expiresAt,
 });
 export class ImageExports {
-  private busy = false;
-  private pending = new Map<string, Promise<ImageExportResult>>();
+  readonly cache: ExportCache;
   readonly dir: string;
-  constructor(dataDir: string) {
-    this.dir = path.join(dataDir, 'exports');
+  constructor(dataDir: string | ExportCache) {
+    this.cache = typeof dataDir === 'string' ? new ExportCache(dataDir) : dataDir;
+    this.dir = this.cache.dir;
   }
-  async cleanup() {
-    await mkdir(this.dir, { recursive: true });
-    for (const name of await readdir(this.dir)) {
-      const dest = path.join(this.dir, name);
-      try {
-        const info = await stat(dest);
-        if (Date.now() - info.mtimeMs > EXPORT_TTL)
-          await rm(dest, { recursive: true, force: true });
-      } catch (error) {
-        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
-      }
-    }
-  }
-  private async cached(key: string): Promise<ImageExportResult | undefined> {
-    await mkdir(this.dir, { recursive: true });
-    for (const token of await readdir(this.dir)) {
-      if (!/^[a-f0-9-]{36}$/.test(token)) continue;
-      try {
-        const dir = path.join(this.dir, token);
-        const meta = JSON.parse(await readFile(path.join(dir, 'metadata.json'), 'utf8'));
-        if (
-          meta.key !== key ||
-          !(Date.parse(meta.expiresAt) > Date.now()) ||
-          !Number.isInteger(meta.pages) ||
-          meta.pages < 1
-        )
-          continue;
-        const names = [
-          ...Array.from({ length: meta.pages }, (_, i) => `${i + 1}.png`),
-          'images.zip',
-        ];
-        const files = await Promise.all(names.map((name) => stat(path.join(dir, name))));
-        if (files.some((file) => !file.isFile() || !file.size)) continue;
-        return exportResult(token, meta.pages, meta.expiresAt);
-      } catch {
-        // Missing, incomplete, expired, or old cache metadata is a cache miss.
-      }
-    }
+  cleanup() {
+    return this.cache.cleanup();
   }
   async generate(items: SnapshotItem[], date: string): Promise<ImageExportResult> {
-    const [font, renderer, licenses] = await Promise.all([
+    const [font, renderer, cacheRenderer, licenses] = await Promise.all([
       readFile(path.join(publicDir, 'fonts/NotoSansCJKsc-Regular.otf')),
       readFile(new URL(import.meta.url)),
+      readFile(
+        new URL(
+          `./export-cache${import.meta.url.endsWith('.ts') ? '.ts' : '.js'}`,
+          import.meta.url,
+        ),
+      ),
       readdir(path.join(publicDir, 'licenses')).then((names) =>
         Promise.all(
           names.sort().map(async (name) => ({
@@ -329,31 +298,22 @@ export class ImageExports {
         ),
       ),
     ]);
-    const hash = createHash('sha256').update(date).update(renderer).update(font);
-    for (const { bytes, ...item } of items) {
-      const { updatedAt: _updatedAt, ...content } = item.entry;
-      hash
-        .update(JSON.stringify({ ...item, entry: content }))
-        .update(createHash('sha256').update(bytes).digest());
-    }
-    for (const license of licenses)
-      hash
-        .update(JSON.stringify(license.name))
-        .update(createHash('sha256').update(license.bytes).digest());
-    const key = hash.digest('hex');
-    const pending = this.pending.get(key);
-    if (pending) return pending;
-    const job = (async () => {
-      const cached = await this.cached(key);
-      if (cached) return cached;
-      return this.render(items, date, key, font, licenses);
-    })();
-    this.pending.set(key, job);
-    try {
-      return await job;
-    } finally {
-      this.pending.delete(key);
-    }
+    const key = contentFingerprint(items, [
+      'images',
+      date,
+      renderer,
+      cacheRenderer,
+      font,
+      ...licenses.flatMap((license) => [license.name, license.bytes]),
+    ]);
+    return this.cache.singleFlight(key, async () => {
+      const cached = await this.cache.find<ImageExportResult>(key, 'images');
+      if (cached) return cached.result;
+      const work = this.cache.reserve(120_000);
+      const job = this.render(items, date, key, font, licenses, work);
+      this.cache.track(work, job);
+      return job;
+    });
   }
   private async render(
     items: SnapshotItem[],
@@ -361,17 +321,23 @@ export class ImageExports {
     key: string,
     font: Buffer,
     licenses: { name: string; bytes: Buffer }[],
+    work: CacheWork,
   ) {
-    if (this.busy) throw new HttpError(429, '另一份手账正在生成，请稍后再试');
-    this.busy = true;
-    const token = randomUUID(),
-      dest = path.join(this.dir, token);
+    const { token, dir: dest } = work;
     let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined;
     let timer: ReturnType<typeof setTimeout> | undefined;
     try {
-      await this.cleanup();
       await mkdir(dest, { recursive: true });
+      work.signal.throwIfAborted();
       browser = await chromium.launch({ headless: true, timeout: 30_000 });
+      const close = () => {
+        void browser?.close().catch(() => {});
+      };
+      work.signal.addEventListener('abort', close, { once: true });
+      if (work.signal.aborted) {
+        close();
+        work.signal.throwIfAborted();
+      }
       timer = setTimeout(() => {
         void browser?.close().catch(() => {});
       }, 90_000);
@@ -465,44 +431,24 @@ export class ImageExports {
         archive.append(license.bytes, { name: `licenses/${license.name}` });
       await archive.finalize();
       await finished;
-      const expiresAt = new Date(Date.now() + EXPORT_TTL).toISOString();
-      await writeFile(
-        path.join(dest, 'metadata.json'),
-        JSON.stringify({ expiresAt, date, key, pages: groups.length }),
+      const names: Record<string, string> = { 'images.zip': exportFilename(date, 'images') };
+      groups.forEach((_, i) => {
+        names[`${i + 1}.png`] = exportFilename(date, 'image', i + 1);
+      });
+      return await this.cache.publish(work, 'images', key, date, names, (expiresAt) =>
+        exportResult(token, groups.length, expiresAt),
       );
-      return exportResult(token, groups.length, expiresAt);
     } catch (e) {
-      await rm(dest, { recursive: true, force: true });
       if (e instanceof HttpError) throw e;
       console.error('Image export failed:', e);
       throw new HttpError(500, '长图生成失败，请确认服务端 Chromium 已安装后重试');
     } finally {
       if (timer) clearTimeout(timer);
       await browser?.close().catch(() => {});
-      this.busy = false;
+      await this.cache.finish(work);
     }
   }
-  async file(token: string, name: string) {
-    if (!/^[a-f0-9-]{36}$/.test(token) || !/^(\d+\.png|images\.zip)$/.test(name))
-      throw new HttpError(404, '文件不存在');
-    const dir = path.join(this.dir, token);
-    try {
-      const meta = JSON.parse(await readFile(path.join(dir, 'metadata.json'), 'utf8'));
-      if (!(Date.parse(meta.expiresAt) > Date.now())) throw new Error('Expired');
-      const filename = path.join(dir, name);
-      await stat(filename);
-      return {
-        filename,
-        downloadName: meta.date
-          ? exportFilename(
-              checkDate(meta.date),
-              name.endsWith('.zip') ? 'images' : 'image',
-              parseInt(name, 10),
-            )
-          : name,
-      };
-    } catch {
-      throw new HttpError(404, '导出已过期，请重新生成');
-    }
+  file(token: string, name: string) {
+    return this.cache.file(token, name);
   }
 }

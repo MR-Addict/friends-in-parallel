@@ -1,0 +1,17 @@
+Music by Kevin MacLeod (https://incompetech.com/)
+Licensed under Creative Commons: By Attribution 4.0
+https://creativecommons.org/licenses/by/4.0/
+
+Official attribution instructions: https://incompetech.com/music/royalty-free/faq.html
+Official catalog: https://incompetech.com/music/royalty-free/full_list.php
+Track-specific source URLs, ISRC identifiers and SHA-256 checksums are recorded
+in the project's video-music.json manifest. Original MP3 files are redistributed
+unmodified. Video exports may trim, loop, normalize loudness and fade the music;
+the exported video includes the selected track's title and attribution.
+
+Included tracks:
+Carefree; Life of Riley; Morning; Bright Wish; Laid Back Guitars; Folk Round;
+Beachfront Celebration; Casa Bossa Nova; Daily Beetle; Easy Lemon; Bossa Antigua;
+Local Forecast; Dreams Become Real; Long Road Ahead; At Rest; Moonlight Hall;
+Monkeys Spinning Monkeys; Fluffing a Duck; Sneaky Snitch; Investigations; Cipher;
+Neon Laser Horizon; Bit Quest; Bit Shift.

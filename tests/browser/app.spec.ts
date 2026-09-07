@@ -383,7 +383,13 @@ test('Legacy emoji editing, picker cancellation and small viewport preserve the 
     true,
   );
   await page.screenshot({ path: 'test-results/composer-small-viewport.png' });
+  const savedResponse = page.waitForResponse(
+    (response) =>
+      response.url().endsWith(`/api/entries/${entry.id}`) &&
+      response.request().method() === 'PATCH',
+  );
   await page.getByRole('button', { name: '保存修改', exact: true }).click();
+  expect((await savedResponse).status()).toBe(200);
   const saved = (await (await request.get('/api/entries?date=2026-08-26')).json()).find(
     (e: { id: string }) => e.id === entry.id,
   );

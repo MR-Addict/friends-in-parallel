@@ -1,6 +1,8 @@
+import { ShareButton } from './ShareButton';
 import { useRef, useState } from 'react';
 import {
   Image,
+  Film,
   FolderArchive,
   ArrowDownToLine,
   LoaderCircle,
@@ -10,10 +12,12 @@ import {
 } from 'lucide-react';
 import { Modal } from './Modal';
 import { ArchiveStep } from './ArchiveStep';
+import { VideoStep } from './VideoStep';
 import { api, type ImageExport } from './lib';
 export function ExportDialog({ date, onClose }: { date: string; onClose: () => void }) {
   const previewRef = useRef<HTMLDivElement>(null);
   const [archiveStep, setArchiveStep] = useState(false);
+  const [videoStep, setVideoStep] = useState(false);
   const [pageIndex, setPageIndex] = useState(0);
   const [busy, setBusy] = useState(''),
     [error, setError] = useState(''),
@@ -55,18 +59,20 @@ export function ExportDialog({ date, onClose }: { date: string; onClose: () => v
   }
   return (
     <Modal
-      title={result ? '手账预览' : '把这一天，收进手账'}
+      title={videoStep ? '把这一天，拍成回忆' : result ? '手账预览' : '把这一天，收进手账'}
       onClose={onClose}
       busy={!!busy}
       wide={!!result}
-      className={result || archiveStep ? 'export-result-modal' : ''}
+      className={result || archiveStep || videoStep ? 'export-result-modal' : ''}
     >
-      {!result && !archiveStep && (
+      {!result && !archiveStep && !videoStep && (
         <p className="export-date">
           {date} <span>· 包含当天全部朋友的动态</span>
         </p>
       )}
-      {archiveStep ? (
+      {videoStep ? (
+        <VideoStep date={date} onBack={() => setVideoStep(false)} />
+      ) : archiveStep ? (
         <ArchiveStep
           date={date}
           busy={!!busy}
@@ -94,6 +100,23 @@ export function ExportDialog({ date, onClose }: { date: string; onClose: () => v
               )}
             </button>
             <button
+              disabled={!!busy}
+              onClick={() => {
+                setVideoStep(true);
+                setError('');
+              }}
+            >
+              <span className="export-icon">
+                <Film size={25} />
+              </span>
+              <div>
+                <strong>生成回忆视频</strong>
+                <small>12 种画面风格 · 24 首配乐 · 收藏完整的一天</small>
+              </div>
+              <ArrowDownToLine size={20} />
+            </button>
+            <button
+              className="export-materials-option"
               disabled={!!busy}
               onClick={() => {
                 setArchiveStep(true);
@@ -165,6 +188,24 @@ export function ExportDialog({ date, onClose }: { date: string; onClose: () => v
               <ArrowDownToLine size={18} />
               {result.images.length === 1 ? '下载图片' : '下载当前图片'}
             </a>
+            <ShareButton
+              label={result.images.length === 1 ? '分享图片' : '分享当前图片'}
+              resource={{
+                url: `${result.images[pageIndex]}?download=1`,
+                filename: `此刻同频-${date}-手账-${String(pageIndex + 1).padStart(2, '0')}.png`,
+                mime: 'image/png',
+              }}
+            />
+            {result.images.length > 1 && (
+              <ShareButton
+                label="分享图片合集"
+                resource={{
+                  url: result.archiveUrl,
+                  filename: `此刻同频-${date}-手账合集.zip`,
+                  mime: 'application/zip',
+                }}
+              />
+            )}
             {result.images.length > 1 && (
               <a href={result.archiveUrl} className="text-button full" download>
                 <FolderArchive size={16} />

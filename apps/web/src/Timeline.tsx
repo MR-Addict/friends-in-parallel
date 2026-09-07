@@ -1,14 +1,14 @@
+import { ShareButton, entryShare } from './ShareButton';
 import { Photo } from './Photo';
 import { useEffect, useState } from 'react';
-import { Plus, Pencil, Trash2, Clock, MoreHorizontal, LoaderCircle, Users } from 'lucide-react';
-import { people, personOf, timeOf, mediaSrc, mediaName, today, localTime, type Entry } from './lib';
+import { Pencil, Trash2, Clock, MoreHorizontal, LoaderCircle, Users } from 'lucide-react';
+import { people, personOf, timeOf, mediaSrc, mediaName, today, type Entry } from './lib';
 import { Modal } from './Modal';
 export function Timeline({
   entries,
   loading,
   error,
   onRefresh,
-  onCreate,
   onEdit,
   onDelete,
   focusId,
@@ -18,7 +18,6 @@ export function Timeline({
   loading: boolean;
   error: string;
   onRefresh: () => void;
-  onCreate: () => void;
   onEdit: (e: Entry) => void;
   onDelete: (e: Entry) => void;
   focusId: string;
@@ -40,44 +39,56 @@ export function Timeline({
     );
   const hours = [...new Set(visible.map((e) => timeOf(e.occurredAt).slice(0, 2)))].sort().reverse();
   return (
-    <section className="timeline-view">
-      <div className="people-filter" aria-label="按人物筛选">
-        <button
-          aria-pressed={filter === 'all'}
-          className={filter === 'all' ? 'active' : ''}
-          onClick={() => setFilter('all')}
-        >
-          <span className="filter-avatar all-friends">
-            <Users size={21} />
-          </span>
-          全部朋友
-        </button>
-        {people.map((p) => (
+    <section className="timeline-view" aria-labelledby="moments-heading">
+      <section className="people-panel" aria-labelledby="friends-heading">
+        <div className="section-heading">
+          <h2 id="friends-heading">朋友们</h2>
+          <span>点头像，看看 TA 的一天</span>
+        </div>
+        <div className="people-filter" role="group" aria-label="按人物筛选">
           <button
-            key={p.id}
-            aria-pressed={filter === p.id}
-            className={filter === p.id ? 'active' : ''}
-            onClick={() => setFilter(p.id)}
+            aria-pressed={filter === 'all'}
+            className={filter === 'all' ? 'active' : ''}
+            onClick={() => setFilter('all')}
           >
-            <span className="filter-avatar" style={{ background: p.background }}>
-              <img src={`/stickers/fluent/${p.avatar}.png`} alt="" />
-              <i className={entries.some((e) => e.personId === p.id) ? 'has-moments' : ''} />
+            <span className="filter-avatar all-friends">
+              <Users size={21} />
             </span>
-            {p.nickname}
+            全部朋友
           </button>
-        ))}
-      </div>
-      <div className="timeline-summary">
-        <span>
-          {loading
-            ? '翻开手账中…'
-            : filter === 'all'
-              ? `${new Set(entries.map((e) => e.personId)).size} 位朋友 · ${entries.length} 个瞬间`
-              : `${personOf(filter).nickname} · ${visible.length} 个瞬间`}
-        </span>
-        <span>
-          {filter === 'all' ? '把平凡的一天，放在一起' : `当天共 ${entries.length} 个瞬间`}
-        </span>
+          {people.map((p) => (
+            <button
+              key={p.id}
+              aria-pressed={filter === p.id}
+              className={filter === p.id ? 'active' : ''}
+              onClick={() => setFilter(p.id)}
+            >
+              <span className="filter-avatar" style={{ background: p.background }}>
+                <img src={`/stickers/fluent/${p.avatar}.png`} alt="" />
+                <i className={entries.some((e) => e.personId === p.id) ? 'has-moments' : ''} />
+              </span>
+              {p.nickname}
+            </button>
+          ))}
+        </div>
+      </section>
+      <div className="timeline-heading">
+        <div className="section-heading">
+          <h2 id="moments-heading">{date === today() ? '今天的瞬间' : '这一天的瞬间'}</h2>
+          <span>从近到远，慢慢回看</span>
+        </div>
+        <div className="timeline-summary" role="status">
+          <span>
+            {loading
+              ? '翻开手账中…'
+              : error
+                ? '暂时没有加载成功'
+                : filter === 'all'
+                  ? `${new Set(entries.map((e) => e.personId)).size} 位朋友 · ${entries.length} 个瞬间`
+                  : `${personOf(filter).nickname} · ${visible.length} 个瞬间`}
+          </span>
+          {!loading && !error && filter !== 'all' && <span>当天共 {entries.length} 个瞬间</span>}
+        </div>
       </div>
       {error ? (
         <div className="empty-state">
@@ -104,10 +115,6 @@ export function Timeline({
               ? '一张照片，或一个表情，都值得留下。'
               : '过去的小事，也可以慢慢补上。'}
           </p>
-          <button className="secondary" onClick={onCreate}>
-            <Plus size={17} />
-            {date === today() ? '记下一刻' : '补记这一天'}
-          </button>
         </div>
       ) : (
         <div className="hour-timeline">
@@ -193,6 +200,7 @@ export function Timeline({
       {actions && (
         <Modal title="动态操作" onClose={() => setActions(undefined)}>
           <div className="entry-options">
+            <ShareButton label="分享动态" {...entryShare(actions)} />
             <button
               className="secondary full"
               aria-label={`编辑${personOf(actions.personId).nickname}的动态`}
@@ -224,14 +232,10 @@ export function Timeline({
           onClose={() => setZoom(undefined)}
         >
           <Photo className="zoom-image" src={mediaSrc(zoom.media)} alt={mediaName(zoom.media)} />
-          {zoom.media.type === 'photo' && (
-            <a
-              href={mediaSrc(zoom.media)}
-              download={`此刻同频-${localTime(zoom.occurredAt).replace('T', '-').replace(':', '-')}-照片.${zoom.media.filename.split('.').pop()}`}
-            >
-              下载照片
-            </a>
-          )}
+          <ShareButton
+            label={zoom.media.type === 'photo' ? '分享照片' : '分享动态'}
+            {...entryShare(zoom)}
+          />
           {zoom.description && <p className="moment-description">{zoom.description}</p>}
         </Modal>
       )}
