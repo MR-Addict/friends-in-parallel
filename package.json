@@ -1,0 +1,31 @@
+{
+  "name": "friends-in-parallel",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.12"
+  },
+  "scripts": {
+    "dev": "pnpm --parallel --filter \"@parallel/*\" run dev",
+    "build": "tsx scripts/build.ts",
+    "start": "pnpm --filter @parallel/server start",
+    "typecheck": "tsc -p tsconfig.scripts.json && pnpm -r run typecheck",
+    "test": "tsx --test tests/*.test.ts",
+    "test:e2e": "playwright test",
+    "setup:browser": "playwright install chromium",
+    "assets:download": "tsx scripts/download-assets.ts",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.55.0",
+    "@types/node": "^22.0.0",
+    "fflate": "^0.8.3",
+    "prettier": "^3.9.6",
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.0",
+    "sharp": "^0.35.4"
+  },
+  "packageManager": "pnpm@12.3.4"
+}

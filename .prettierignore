@@ -1,0 +1,9 @@
+node_modules
+**/dist
+data
+apps/web/public
+apps/web/src/config/stickers.json
+apps/web/src/config/asset-sources.json
+pnpm-lock.yaml
+test-results
+playwright-report

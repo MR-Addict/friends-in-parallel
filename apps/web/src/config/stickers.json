@@ -1,0 +1,606 @@
+{
+  "packs": [
+    {
+      "id": "fluent",
+      "name": "软萌立体",
+      "brand": "Fluent Emoji",
+      "license": "MIT",
+      "source": "https://github.com/microsoft/fluentui-emoji",
+      "ext": "png"
+    },
+    {
+      "id": "twemoji",
+      "name": "糖果扁平",
+      "brand": "Twemoji",
+      "license": "CC BY 4.0",
+      "source": "https://github.com/jdecked/twemoji",
+      "ext": "svg"
+    },
+    {
+      "id": "openmoji",
+      "name": "线条涂鸦",
+      "brand": "OpenMoji",
+      "license": "CC BY-SA 4.0",
+      "source": "https://openmoji.org",
+      "ext": "svg"
+    }
+  ],
+  "stickers": [
+    {
+      "id": "fluent-1f60a",
+      "packId": "fluent",
+      "name": "好开心",
+      "category": "心情",
+      "emoji": "😊",
+      "file": "/stickers/fluent/1f60a.png"
+    },
+    {
+      "id": "twemoji-1f60a",
+      "packId": "twemoji",
+      "name": "好开心",
+      "category": "心情",
+      "emoji": "😊",
+      "file": "/stickers/twemoji/1f60a.svg"
+    },
+    {
+      "id": "openmoji-1f60a",
+      "packId": "openmoji",
+      "name": "好开心",
+      "category": "心情",
+      "emoji": "😊",
+      "file": "/stickers/openmoji/1f60a.svg"
+    },
+    {
+      "id": "fluent-1f602",
+      "packId": "fluent",
+      "name": "笑出眼泪",
+      "category": "心情",
+      "emoji": "😂",
+      "file": "/stickers/fluent/1f602.png"
+    },
+    {
+      "id": "twemoji-1f602",
+      "packId": "twemoji",
+      "name": "笑出眼泪",
+      "category": "心情",
+      "emoji": "😂",
+      "file": "/stickers/twemoji/1f602.svg"
+    },
+    {
+      "id": "openmoji-1f602",
+      "packId": "openmoji",
+      "name": "笑出眼泪",
+      "category": "心情",
+      "emoji": "😂",
+      "file": "/stickers/openmoji/1f602.svg"
+    },
+    {
+      "id": "fluent-1f970",
+      "packId": "fluent",
+      "name": "幸福冒泡",
+      "category": "心情",
+      "emoji": "🥰",
+      "file": "/stickers/fluent/1f970.png"
+    },
+    {
+      "id": "twemoji-1f970",
+      "packId": "twemoji",
+      "name": "幸福冒泡",
+      "category": "心情",
+      "emoji": "🥰",
+      "file": "/stickers/twemoji/1f970.svg"
+    },
+    {
+      "id": "openmoji-1f970",
+      "packId": "openmoji",
+      "name": "幸福冒泡",
+      "category": "心情",
+      "emoji": "🥰",
+      "file": "/stickers/openmoji/1f970.svg"
+    },
+    {
+      "id": "fluent-1f62d",
+      "packId": "fluent",
+      "name": "呜呜呜",
+      "category": "心情",
+      "emoji": "😭",
+      "file": "/stickers/fluent/1f62d.png"
+    },
+    {
+      "id": "twemoji-1f62d",
+      "packId": "twemoji",
+      "name": "呜呜呜",
+      "category": "心情",
+      "emoji": "😭",
+      "file": "/stickers/twemoji/1f62d.svg"
+    },
+    {
+      "id": "openmoji-1f62d",
+      "packId": "openmoji",
+      "name": "呜呜呜",
+      "category": "心情",
+      "emoji": "😭",
+      "file": "/stickers/openmoji/1f62d.svg"
+    },
+    {
+      "id": "fluent-1f60e",
+      "packId": "fluent",
+      "name": "酷一下",
+      "category": "心情",
+      "emoji": "😎",
+      "file": "/stickers/fluent/1f60e.png"
+    },
+    {
+      "id": "twemoji-1f60e",
+      "packId": "twemoji",
+      "name": "酷一下",
+      "category": "心情",
+      "emoji": "😎",
+      "file": "/stickers/twemoji/1f60e.svg"
+    },
+    {
+      "id": "openmoji-1f60e",
+      "packId": "openmoji",
+      "name": "酷一下",
+      "category": "心情",
+      "emoji": "😎",
+      "file": "/stickers/openmoji/1f60e.svg"
+    },
+    {
+      "id": "fluent-1f914",
+      "packId": "fluent",
+      "name": "想一想",
+      "category": "心情",
+      "emoji": "🤔",
+      "file": "/stickers/fluent/1f914.png"
+    },
+    {
+      "id": "twemoji-1f914",
+      "packId": "twemoji",
+      "name": "想一想",
+      "category": "心情",
+      "emoji": "🤔",
+      "file": "/stickers/twemoji/1f914.svg"
+    },
+    {
+      "id": "openmoji-1f914",
+      "packId": "openmoji",
+      "name": "想一想",
+      "category": "心情",
+      "emoji": "🤔",
+      "file": "/stickers/openmoji/1f914.svg"
+    },
+    {
+      "id": "fluent-1f35c",
+      "packId": "fluent",
+      "name": "嗦面时间",
+      "category": "吃喝",
+      "emoji": "🍜",
+      "file": "/stickers/fluent/1f35c.png"
+    },
+    {
+      "id": "twemoji-1f35c",
+      "packId": "twemoji",
+      "name": "嗦面时间",
+      "category": "吃喝",
+      "emoji": "🍜",
+      "file": "/stickers/twemoji/1f35c.svg"
+    },
+    {
+      "id": "openmoji-1f35c",
+      "packId": "openmoji",
+      "name": "嗦面时间",
+      "category": "吃喝",
+      "emoji": "🍜",
+      "file": "/stickers/openmoji/1f35c.svg"
+    },
+    {
+      "id": "fluent-1f354",
+      "packId": "fluent",
+      "name": "汉堡时间",
+      "category": "吃喝",
+      "emoji": "🍔",
+      "file": "/stickers/fluent/1f354.png"
+    },
+    {
+      "id": "twemoji-1f354",
+      "packId": "twemoji",
+      "name": "汉堡时间",
+      "category": "吃喝",
+      "emoji": "🍔",
+      "file": "/stickers/twemoji/1f354.svg"
+    },
+    {
+      "id": "openmoji-1f354",
+      "packId": "openmoji",
+      "name": "汉堡时间",
+      "category": "吃喝",
+      "emoji": "🍔",
+      "file": "/stickers/openmoji/1f354.svg"
+    },
+    {
+      "id": "fluent-1f355",
+      "packId": "fluent",
+      "name": "快乐披萨",
+      "category": "吃喝",
+      "emoji": "🍕",
+      "file": "/stickers/fluent/1f355.png"
+    },
+    {
+      "id": "twemoji-1f355",
+      "packId": "twemoji",
+      "name": "快乐披萨",
+      "category": "吃喝",
+      "emoji": "🍕",
+      "file": "/stickers/twemoji/1f355.svg"
+    },
+    {
+      "id": "openmoji-1f355",
+      "packId": "openmoji",
+      "name": "快乐披萨",
+      "category": "吃喝",
+      "emoji": "🍕",
+      "file": "/stickers/openmoji/1f355.svg"
+    },
+    {
+      "id": "fluent-2615",
+      "packId": "fluent",
+      "name": "咖啡续命",
+      "category": "吃喝",
+      "emoji": "☕",
+      "file": "/stickers/fluent/2615.png"
+    },
+    {
+      "id": "twemoji-2615",
+      "packId": "twemoji",
+      "name": "咖啡续命",
+      "category": "吃喝",
+      "emoji": "☕",
+      "file": "/stickers/twemoji/2615.svg"
+    },
+    {
+      "id": "openmoji-2615",
+      "packId": "openmoji",
+      "name": "咖啡续命",
+      "category": "吃喝",
+      "emoji": "☕",
+      "file": "/stickers/openmoji/2615.svg"
+    },
+    {
+      "id": "fluent-1f370",
+      "packId": "fluent",
+      "name": "吃点甜的",
+      "category": "吃喝",
+      "emoji": "🍰",
+      "file": "/stickers/fluent/1f370.png"
+    },
+    {
+      "id": "twemoji-1f370",
+      "packId": "twemoji",
+      "name": "吃点甜的",
+      "category": "吃喝",
+      "emoji": "🍰",
+      "file": "/stickers/twemoji/1f370.svg"
+    },
+    {
+      "id": "openmoji-1f370",
+      "packId": "openmoji",
+      "name": "吃点甜的",
+      "category": "吃喝",
+      "emoji": "🍰",
+      "file": "/stickers/openmoji/1f370.svg"
+    },
+    {
+      "id": "fluent-1f9cb",
+      "packId": "fluent",
+      "name": "奶茶快乐",
+      "category": "吃喝",
+      "emoji": "🧋",
+      "file": "/stickers/fluent/1f9cb.png"
+    },
+    {
+      "id": "twemoji-1f9cb",
+      "packId": "twemoji",
+      "name": "奶茶快乐",
+      "category": "吃喝",
+      "emoji": "🧋",
+      "file": "/stickers/twemoji/1f9cb.svg"
+    },
+    {
+      "id": "openmoji-1f9cb",
+      "packId": "openmoji",
+      "name": "奶茶快乐",
+      "category": "吃喝",
+      "emoji": "🧋",
+      "file": "/stickers/openmoji/1f9cb.svg"
+    },
+    {
+      "id": "fluent-1f4bb",
+      "packId": "fluent",
+      "name": "努力搬砖",
+      "category": "工作学习",
+      "emoji": "💻",
+      "file": "/stickers/fluent/1f4bb.png"
+    },
+    {
+      "id": "twemoji-1f4bb",
+      "packId": "twemoji",
+      "name": "努力搬砖",
+      "category": "工作学习",
+      "emoji": "💻",
+      "file": "/stickers/twemoji/1f4bb.svg"
+    },
+    {
+      "id": "openmoji-1f4bb",
+      "packId": "openmoji",
+      "name": "努力搬砖",
+      "category": "工作学习",
+      "emoji": "💻",
+      "file": "/stickers/openmoji/1f4bb.svg"
+    },
+    {
+      "id": "fluent-1f4da",
+      "packId": "fluent",
+      "name": "学习一下",
+      "category": "工作学习",
+      "emoji": "📚",
+      "file": "/stickers/fluent/1f4da.png"
+    },
+    {
+      "id": "twemoji-1f4da",
+      "packId": "twemoji",
+      "name": "学习一下",
+      "category": "工作学习",
+      "emoji": "📚",
+      "file": "/stickers/twemoji/1f4da.svg"
+    },
+    {
+      "id": "openmoji-1f4da",
+      "packId": "openmoji",
+      "name": "学习一下",
+      "category": "工作学习",
+      "emoji": "📚",
+      "file": "/stickers/openmoji/1f4da.svg"
+    },
+    {
+      "id": "fluent-1f4dd",
+      "packId": "fluent",
+      "name": "写写画画",
+      "category": "工作学习",
+      "emoji": "📝",
+      "file": "/stickers/fluent/1f4dd.png"
+    },
+    {
+      "id": "twemoji-1f4dd",
+      "packId": "twemoji",
+      "name": "写写画画",
+      "category": "工作学习",
+      "emoji": "📝",
+      "file": "/stickers/twemoji/1f4dd.svg"
+    },
+    {
+      "id": "openmoji-1f4dd",
+      "packId": "openmoji",
+      "name": "写写画画",
+      "category": "工作学习",
+      "emoji": "📝",
+      "file": "/stickers/openmoji/1f4dd.svg"
+    },
+    {
+      "id": "fluent-1f3a8",
+      "packId": "fluent",
+      "name": "灵感来了",
+      "category": "工作学习",
+      "emoji": "🎨",
+      "file": "/stickers/fluent/1f3a8.png"
+    },
+    {
+      "id": "twemoji-1f3a8",
+      "packId": "twemoji",
+      "name": "灵感来了",
+      "category": "工作学习",
+      "emoji": "🎨",
+      "file": "/stickers/twemoji/1f3a8.svg"
+    },
+    {
+      "id": "openmoji-1f3a8",
+      "packId": "openmoji",
+      "name": "灵感来了",
+      "category": "工作学习",
+      "emoji": "🎨",
+      "file": "/stickers/openmoji/1f3a8.svg"
+    },
+    {
+      "id": "fluent-1f4a1",
+      "packId": "fluent",
+      "name": "有个想法",
+      "category": "工作学习",
+      "emoji": "💡",
+      "file": "/stickers/fluent/1f4a1.png"
+    },
+    {
+      "id": "twemoji-1f4a1",
+      "packId": "twemoji",
+      "name": "有个想法",
+      "category": "工作学习",
+      "emoji": "💡",
+      "file": "/stickers/twemoji/1f4a1.svg"
+    },
+    {
+      "id": "openmoji-1f4a1",
+      "packId": "openmoji",
+      "name": "有个想法",
+      "category": "工作学习",
+      "emoji": "💡",
+      "file": "/stickers/openmoji/1f4a1.svg"
+    },
+    {
+      "id": "fluent-1f525",
+      "packId": "fluent",
+      "name": "干劲满满",
+      "category": "工作学习",
+      "emoji": "🔥",
+      "file": "/stickers/fluent/1f525.png"
+    },
+    {
+      "id": "twemoji-1f525",
+      "packId": "twemoji",
+      "name": "干劲满满",
+      "category": "工作学习",
+      "emoji": "🔥",
+      "file": "/stickers/twemoji/1f525.svg"
+    },
+    {
+      "id": "openmoji-1f525",
+      "packId": "openmoji",
+      "name": "干劲满满",
+      "category": "工作学习",
+      "emoji": "🔥",
+      "file": "/stickers/openmoji/1f525.svg"
+    },
+    {
+      "id": "fluent-1f634",
+      "packId": "fluent",
+      "name": "呼呼大睡",
+      "category": "休息玩乐",
+      "emoji": "😴",
+      "file": "/stickers/fluent/1f634.png"
+    },
+    {
+      "id": "twemoji-1f634",
+      "packId": "twemoji",
+      "name": "呼呼大睡",
+      "category": "休息玩乐",
+      "emoji": "😴",
+      "file": "/stickers/twemoji/1f634.svg"
+    },
+    {
+      "id": "openmoji-1f634",
+      "packId": "openmoji",
+      "name": "呼呼大睡",
+      "category": "休息玩乐",
+      "emoji": "😴",
+      "file": "/stickers/openmoji/1f634.svg"
+    },
+    {
+      "id": "fluent-1f3ae",
+      "packId": "fluent",
+      "name": "开一局",
+      "category": "休息玩乐",
+      "emoji": "🎮",
+      "file": "/stickers/fluent/1f3ae.png"
+    },
+    {
+      "id": "twemoji-1f3ae",
+      "packId": "twemoji",
+      "name": "开一局",
+      "category": "休息玩乐",
+      "emoji": "🎮",
+      "file": "/stickers/twemoji/1f3ae.svg"
+    },
+    {
+      "id": "openmoji-1f3ae",
+      "packId": "openmoji",
+      "name": "开一局",
+      "category": "休息玩乐",
+      "emoji": "🎮",
+      "file": "/stickers/openmoji/1f3ae.svg"
+    },
+    {
+      "id": "fluent-1f3a7",
+      "packId": "fluent",
+      "name": "听听音乐",
+      "category": "休息玩乐",
+      "emoji": "🎧",
+      "file": "/stickers/fluent/1f3a7.png"
+    },
+    {
+      "id": "twemoji-1f3a7",
+      "packId": "twemoji",
+      "name": "听听音乐",
+      "category": "休息玩乐",
+      "emoji": "🎧",
+      "file": "/stickers/twemoji/1f3a7.svg"
+    },
+    {
+      "id": "openmoji-1f3a7",
+      "packId": "openmoji",
+      "name": "听听音乐",
+      "category": "休息玩乐",
+      "emoji": "🎧",
+      "file": "/stickers/openmoji/1f3a7.svg"
+    },
+    {
+      "id": "fluent-1f697",
+      "packId": "fluent",
+      "name": "出门兜风",
+      "category": "休息玩乐",
+      "emoji": "🚗",
+      "file": "/stickers/fluent/1f697.png"
+    },
+    {
+      "id": "twemoji-1f697",
+      "packId": "twemoji",
+      "name": "出门兜风",
+      "category": "休息玩乐",
+      "emoji": "🚗",
+      "file": "/stickers/twemoji/1f697.svg"
+    },
+    {
+      "id": "openmoji-1f697",
+      "packId": "openmoji",
+      "name": "出门兜风",
+      "category": "休息玩乐",
+      "emoji": "🚗",
+      "file": "/stickers/openmoji/1f697.svg"
+    },
+    {
+      "id": "fluent-1f3d5",
+      "packId": "fluent",
+      "name": "去野营",
+      "category": "休息玩乐",
+      "emoji": "🏕",
+      "file": "/stickers/fluent/1f3d5.png"
+    },
+    {
+      "id": "twemoji-1f3d5",
+      "packId": "twemoji",
+      "name": "去野营",
+      "category": "休息玩乐",
+      "emoji": "🏕",
+      "file": "/stickers/twemoji/1f3d5.svg"
+    },
+    {
+      "id": "openmoji-1f3d5",
+      "packId": "openmoji",
+      "name": "去野营",
+      "category": "休息玩乐",
+      "emoji": "🏕",
+      "file": "/stickers/openmoji/1f3d5.svg"
+    },
+    {
+      "id": "fluent-1f31b",
+      "packId": "fluent",
+      "name": "晚安啦",
+      "category": "休息玩乐",
+      "emoji": "🌛",
+      "file": "/stickers/fluent/1f31b.png"
+    },
+    {
+      "id": "twemoji-1f31b",
+      "packId": "twemoji",
+      "name": "晚安啦",
+      "category": "休息玩乐",
+      "emoji": "🌛",
+      "file": "/stickers/twemoji/1f31b.svg"
+    },
+    {
+      "id": "openmoji-1f31b",
+      "packId": "openmoji",
+      "name": "晚安啦",
+      "category": "休息玩乐",
+      "emoji": "🌛",
+      "file": "/stickers/openmoji/1f31b.svg"
+    }
+  ]
+}

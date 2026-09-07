@@ -1,0 +1,15 @@
+.git
+.agents
+.codex
+**/node_modules
+**/dist
+.env
+.env.*
+!.env.example
+data
+test-results
+playwright-report
+coverage
+tests
+.DS_Store
+**/*.log
