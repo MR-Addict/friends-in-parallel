@@ -1,5 +1,12 @@
 [
   {
+    "id": "tong-haoran",
+    "nickname": "秃子喵",
+    "color": "#92a582",
+    "background": "#edf1e5",
+    "avatar": "1f438"
+  },
+  {
     "id": "shui-shui",
     "nickname": "水水",
     "color": "#82a4b7",
@@ -26,12 +33,5 @@
     "color": "#d39b96",
     "background": "#faeae6",
     "avatar": "1f98a"
-  },
-  {
-    "id": "tong-haoran",
-    "nickname": "秃子喵",
-    "color": "#92a582",
-    "background": "#edf1e5",
-    "avatar": "1f438"
   }
 ]
