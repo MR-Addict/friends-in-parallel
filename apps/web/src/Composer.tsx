@@ -11,6 +11,7 @@ import {
   Camera,
 } from 'lucide-react';
 import { Modal } from './Modal';
+import { readDraft, writeDraft, type Draft } from './drafts';
 import {
   people,
   packs,
@@ -24,22 +25,52 @@ import {
   type Entry,
   type Sticker,
 } from './lib';
-export function Composer({
-  entry,
-  onClose,
-  onSaved,
-}: {
+interface ComposerProps {
   entry?: Entry;
+  date: string;
   onClose: () => void;
   onSaved: (entry: Entry) => void;
-}) {
-  const [step, setStep] = useState(entry ? 2 : 1),
-    [personId, setPersonId] = useState(entry?.personId || readPreference('parallel.person', ''));
+}
+export function Composer(props: ComposerProps) {
+  const [loaded, setLoaded] = useState<{ draft?: Draft }>();
+  useEffect(() => {
+    let active = true;
+    if (props.entry) setLoaded({});
+    else
+      readDraft(props.date).then((draft) => {
+        if (active) setLoaded({ draft });
+      });
+    return () => {
+      active = false;
+    };
+  }, [props.date, props.entry]);
+  if (!loaded)
+    return (
+      <Modal title="记下一刻" onClose={props.onClose}>
+        <p className="muted">正在打开草稿…</p>
+      </Modal>
+    );
+  return <ComposerEditor {...props} draft={loaded.draft} />;
+}
+function ComposerEditor({
+  entry,
+  date,
+  onClose,
+  onSaved,
+  draft,
+}: ComposerProps & { draft?: Draft }) {
+  const initialPerson = entry?.personId || draft?.personId || readPreference('parallel.person', '');
+  const [step, setStep] = useState(entry || people.some((p) => p.id === initialPerson) ? 2 : 1),
+    [personId, setPersonId] = useState(
+      people.some((p) => p.id === initialPerson) ? initialPerson : '',
+    );
   const [type, setType] = useState<'photo' | 'sticker'>(
-    entry?.media.type === 'photo' ? 'photo' : 'sticker',
+    entry ? (entry.media.type === 'photo' ? 'photo' : 'sticker') : draft?.type || 'sticker',
   );
-  const [description, setDescription] = useState(entry?.description || ''),
-    [time, setTime] = useState(localTime(entry?.occurredAt));
+  const [description, setDescription] = useState(entry?.description ?? draft?.description ?? ''),
+    [time, setTime] = useState(
+      entry ? localTime(entry.occurredAt) : draft?.time || `${date}T${localTime().slice(11)}`,
+    );
   const [pickerOpen, setPickerOpen] = useState(false);
   const legacyEmoji = entry?.media.type === 'emoji' ? entry.media.emoji : '';
   const [stickerId, setStickerId] = useState(
@@ -47,7 +78,7 @@ export function Composer({
       ? entry.media.stickerId
       : entry?.media.type === 'emoji'
         ? stickers.find((s) => s.packId === 'fluent' && s.emoji === legacyEmoji)?.id || ''
-        : '',
+        : draft?.stickerId || '',
   );
   const [pack, setPack] = useState(
     entry?.media.type === 'sticker'
@@ -56,12 +87,24 @@ export function Composer({
   );
   const [category, setCategory] = useState('全部'),
     [search, setSearch] = useState(''),
-    [file, setFile] = useState<File>(),
+    [file, setFile] = useState<File | undefined>(draft?.file),
     [preview, setPreview] = useState('');
   const [recent, setRecent] = useState<string[]>(readPreference('parallel.recent', []));
   const [error, setError] = useState(''),
     [busy, setBusy] = useState(false),
     [progress, setProgress] = useState(0);
+  const [draftStatus, setDraftStatus] = useState('');
+  useEffect(() => {
+    if (entry) return;
+    let active = true;
+    setDraftStatus('正在保存草稿…');
+    void writeDraft(date, { personId, type, description, time, stickerId, file }).then((saved) => {
+      if (active) setDraftStatus(saved ? '草稿已保存在此设备' : '草稿暂存于当前页面，请勿刷新');
+    });
+    return () => {
+      active = false;
+    };
+  }, [date, entry, personId, type, description, time, stickerId, file]);
   useEffect(() => {
     if (!file) {
       setPreview('');
@@ -116,6 +159,7 @@ export function Composer({
     try {
       const saved = await uploadEntry(form, entry?.id, setProgress);
       preference('parallel.person', personId);
+      if (!entry) await writeDraft(date);
       onSaved(saved);
     } catch (e) {
       setError((e as Error).message);
@@ -125,7 +169,9 @@ export function Composer({
   }
   return (
     <Modal
-      title={pickerOpen ? '选择表情' : entry ? '编辑动态' : step === 1 ? '选择人物' : '填写动态'}
+      title={
+        pickerOpen ? '选择表情' : entry ? '编辑动态' : step === 1 ? '这一刻，属于谁' : '记下一刻'
+      }
       className="composer-modal"
       onClose={onClose}
       busy={busy}
@@ -200,14 +246,9 @@ export function Composer({
         </div>
       ) : (
         <>
-          <div className="stepper">
-            <span className={step === 1 ? 'current' : 'done'}>01 选择朋友</span>
-            <i />
-            <span className={step === 2 ? 'current' : ''}>02 记录此刻</span>
-          </div>
           {step === 1 ? (
             <div className="person-step">
-              <p className="muted">这条动态属于谁？</p>
+              <p className="muted person-intro">选好后，下次会直接为你打开编辑页。</p>
               <div className="person-list" role="group" aria-label="选择人物">
                 {people.map((p) => (
                   <button
@@ -259,7 +300,7 @@ export function Composer({
                 </button>
                 <fieldset disabled={busy}>
                   <legend className="field-label">
-                    此刻，在干嘛 <span>选一种方式表达</span>
+                    留下此刻 <span>照片或表情，都可以</span>
                   </legend>
                   <div className="media-tabs">
                     {(
@@ -320,22 +361,51 @@ export function Composer({
                       )}
                     </label>
                   ) : (
-                    <button
-                      type="button"
-                      className="selected-media"
-                      aria-label={stickerId ? '更换表情' : '选择表情'}
-                      onClick={() => setPickerOpen(true)}
-                    >
-                      {stickerId ? (
-                        <img
-                          src={stickers.find((s) => s.id === stickerId)?.file}
-                          alt={stickers.find((s) => s.id === stickerId)?.name}
-                        />
-                      ) : (
-                        <Smile size={32} />
-                      )}
-                      <span>{stickerId ? '更换表情' : '选择表情'}</span>
-                    </button>
+                    <>
+                      <button
+                        type="button"
+                        className="selected-media"
+                        aria-label={stickerId ? '更换表情' : '选择表情'}
+                        onClick={() => setPickerOpen(true)}
+                      >
+                        {stickerId ? (
+                          <img
+                            src={stickers.find((s) => s.id === stickerId)?.file}
+                            alt={stickers.find((s) => s.id === stickerId)?.name}
+                          />
+                        ) : (
+                          <Smile size={32} />
+                        )}
+                        <span>{stickerId ? '更换表情' : '选择表情'}</span>
+                      </button>
+                      <div className="quick-stickers" aria-label="常用表情">
+                        {(recent.length
+                          ? recent
+                              .map((id) => stickers.find((s) => s.id === id))
+                              .filter((s): s is Sticker => !!s)
+                          : stickers.filter((s) => s.packId === 'fluent')
+                        )
+                          .slice(0, 5)
+                          .map((s) => (
+                            <button
+                              type="button"
+                              key={s.id}
+                              aria-label={`快捷表情：${s.name}`}
+                              aria-pressed={stickerId === s.id}
+                              onClick={() => choose(s)}
+                            >
+                              <img src={s.file} alt="" />
+                            </button>
+                          ))}
+                        <button
+                          type="button"
+                          className="more-stickers"
+                          onClick={() => setPickerOpen(true)}
+                        >
+                          更多
+                        </button>
+                      </div>
+                    </>
                   )}
                   <label className="field-label" htmlFor="description">
                     想说的话 <span>不写也没关系</span>
@@ -376,6 +446,24 @@ export function Composer({
                 )}
               </div>
               <div className="composer-footer">
+                {!entry && (
+                  <div className="draft-note">
+                    <span role="status">{draftStatus}</span>
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => {
+                        setDescription('');
+                        setStickerId('');
+                        setFile(undefined);
+                        setType('sticker');
+                        setTime(`${date}T${localTime().slice(11)}`);
+                      }}
+                    >
+                      清空草稿
+                    </button>
+                  </div>
+                )}
                 <button className="primary full" disabled={busy || !ready} type="submit">
                   {busy ? (
                     <>
@@ -384,7 +472,7 @@ export function Composer({
                     </>
                   ) : (
                     <>
-                      {entry ? '保存修改' : '发布动态'}
+                      {entry ? '保存修改' : '发布'}
                       <ArrowRight size={18} />
                     </>
                   )}

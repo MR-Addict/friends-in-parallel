@@ -1,12 +1,23 @@
-import { useState } from 'react';
-import { Image, FolderArchive, ArrowDownToLine, LoaderCircle, ArrowLeft } from 'lucide-react';
+import { useRef, useState } from 'react';
+import {
+  Image,
+  FolderArchive,
+  ArrowDownToLine,
+  LoaderCircle,
+  ArrowLeft,
+  ChevronLeft,
+  ChevronRight,
+} from 'lucide-react';
 import { Modal } from './Modal';
 import { api, type ImageExport } from './lib';
 export function ExportDialog({ date, onClose }: { date: string; onClose: () => void }) {
+  const previewRef = useRef<HTMLDivElement>(null);
+  const [pageIndex, setPageIndex] = useState(0);
   const [busy, setBusy] = useState(''),
     [error, setError] = useState(''),
     [result, setResult] = useState<ImageExport>();
   async function images() {
+    setPageIndex(0);
     setBusy('images');
     setError('');
     try {
@@ -41,20 +52,28 @@ export function ExportDialog({ date, onClose }: { date: string; onClose: () => v
     }
   }
   return (
-    <Modal title="导出当天动态" onClose={onClose} busy={!!busy} wide={!!result}>
-      <p className="export-date">
-        {date} <span>· 包含当天全部朋友的动态</span>
-      </p>
+    <Modal
+      title="把这一天，收进手账"
+      onClose={onClose}
+      busy={!!busy}
+      wide={!!result}
+      className={result ? 'export-result-modal' : ''}
+    >
+      {!result && (
+        <p className="export-date">
+          {date} <span>· 包含当天全部朋友的动态</span>
+        </p>
+      )}
       {!result ? (
         <>
           <div className="export-options">
-            <button disabled={!!busy} onClick={images}>
+            <button disabled={!!busy} aria-busy={busy === 'images'} onClick={images}>
               <span className="export-icon peach">
                 <Image size={25} />
               </span>
               <div>
-                <strong>分享长图</strong>
-                <small>高清 PNG · 可预览、保存和分享</small>
+                <strong>生成手账长图</strong>
+                <small>把大家的瞬间放在一起 · 保存与分享</small>
               </div>
               {busy === 'images' ? (
                 <LoaderCircle size={20} className="spin" />
@@ -62,7 +81,7 @@ export function ExportDialog({ date, onClose }: { date: string; onClose: () => v
                 <ArrowDownToLine size={20} />
               )}
             </button>
-            <button disabled={!!busy} onClick={archive}>
+            <button disabled={!!busy} aria-busy={busy === 'archive'} onClick={archive}>
               <span className="export-icon sage">
                 <FolderArchive size={25} />
               </span>
@@ -77,45 +96,67 @@ export function ExportDialog({ date, onClose }: { date: string; onClose: () => v
               )}
             </button>
           </div>
-          {busy && (
-            <div className="export-progress" role="status">
-              <LoaderCircle size={18} className="spin" />
-              {busy === 'images' ? '正在生成长图…' : '正在整理原始素材…'}
-            </div>
-          )}
           <p className="small-note">图片太长时会分成多张，完整保留每一个瞬间。</p>
         </>
       ) : (
         <>
-          <button className="text-button" onClick={() => setResult(undefined)}>
-            <ArrowLeft size={16} />
-            返回导出选项
-          </button>
-          <p className="preview-help">
-            点击下载图片，或在手机上长按保存。
-            <br />
-            下载链接保留 1 小时，过期后可重新生成。
-          </p>
-          <div className="export-previews">
-            {result.images.map((src, i) => (
-              <figure key={src}>
-                <img src={src} alt={`${date}手账 第${i + 1}张`} />
-                <figcaption>
-                  <span>
-                    第 {i + 1} / {result.images.length} 张
-                  </span>
-                  <a className="primary full" href={`${src}?download=1`} download>
-                    <ArrowDownToLine size={16} />
-                    {result.images.length === 1 ? '下载图片' : `下载第 ${i + 1} 张图片`}
-                  </a>
-                </figcaption>
-              </figure>
-            ))}
+          <div className="export-preview-scroll" ref={previewRef}>
+            <button className="text-button" onClick={() => setResult(undefined)}>
+              <ArrowLeft size={16} />
+              返回导出选项
+            </button>
+            <p className="preview-help">
+              {date} · 包含当天全部朋友的动态
+              <br />
+              可长按图片保存，下载链接保留 1 小时。
+            </p>
+            <div className="export-previews">
+              <img
+                key={result.images[pageIndex]}
+                src={result.images[pageIndex]}
+                alt={`${date}手账 第${pageIndex + 1}张`}
+              />
+            </div>
           </div>
-          <a href={result.archiveUrl} className="text-button full" download>
-            <FolderArchive size={18} />
-            下载图片合集
-          </a>
+          <div className="export-download-bar">
+            {result.images.length > 1 && (
+              <nav className="export-pagination" aria-label="导出图片翻页">
+                <button
+                  className="icon-button"
+                  aria-label="上一张图片"
+                  disabled={pageIndex === 0}
+                  onClick={() => {
+                    setPageIndex((i) => i - 1);
+                    previewRef.current?.scrollTo(0, 0);
+                  }}
+                >
+                  <ChevronLeft size={20} />
+                </button>
+                <span role="status">
+                  第 {pageIndex + 1} / {result.images.length} 张
+                </span>
+                <button
+                  className="icon-button"
+                  aria-label="下一张图片"
+                  disabled={pageIndex === result.images.length - 1}
+                  onClick={() => {
+                    setPageIndex((i) => i + 1);
+                    previewRef.current?.scrollTo(0, 0);
+                  }}
+                >
+                  <ChevronRight size={20} />
+                </button>
+              </nav>
+            )}
+            <a className="primary full" href={`${result.images[pageIndex]}?download=1`} download>
+              <ArrowDownToLine size={18} />
+              {result.images.length === 1 ? '下载图片' : '下载当前图片'}
+            </a>
+            <a href={result.archiveUrl} className="text-button full" download>
+              <FolderArchive size={16} />
+              下载图片合集
+            </a>
+          </div>
         </>
       )}
       {error && (

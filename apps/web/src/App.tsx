@@ -1,10 +1,19 @@
 import { useEffect, useState } from 'react';
-import { Plus, Check, LoaderCircle } from 'lucide-react';
+import {
+  Plus,
+  Check,
+  LoaderCircle,
+  RefreshCw,
+  Download,
+  CalendarDays,
+  ChevronLeft,
+  ChevronRight,
+} from 'lucide-react';
 import { Composer } from './Composer';
 import { Timeline } from './Timeline';
 import { ExportDialog } from './ExportDialog';
 import { Modal } from './Modal';
-import { api, today, dateOf, type Entry } from './lib';
+import { api, today, dateOf, shiftDate, type Entry } from './lib';
 export default function App() {
   const [date, setDate] = useState(today());
   const [entries, setEntries] = useState<Entry[]>([]);
@@ -55,7 +64,7 @@ export default function App() {
     setDate(dateOf(entry.occurredAt));
     setFocusId(entry.id);
     setRevision((n) => n + 1);
-    setToast('动态已发布');
+    setToast(composer?.entry ? '修改已保存' : '这一刻，记下了');
   }
   async function remove() {
     if (!deleteEntry) return;
@@ -76,14 +85,85 @@ export default function App() {
     <>
       <main className="app-shell">
         <header className="brand-header">
-          <a className="brand" href="/" aria-label="此刻，同频首页">
-            此刻，同频
-          </a>
+          <h1>
+            <a className="brand" href="/" aria-label="此刻，同频首页">
+              此刻，同频
+            </a>
+          </h1>
+          <div className="header-actions">
+            <button
+              className="icon-button"
+              aria-label="刷新时间线"
+              onClick={() => setRevision((n) => n + 1)}
+              disabled={loading}
+            >
+              <RefreshCw size={18} className={loading ? 'spin' : ''} />
+            </button>
+            <button
+              className="export-trigger"
+              aria-label="生成今日手账"
+              title="生成所选日期的手账"
+              onClick={() => setExportOpen(true)}
+              disabled={!entries.length || loading || !!error}
+            >
+              <Download size={16} />
+              <span>生成手账</span>
+            </button>
+          </div>
         </header>
+        <div className="page-intro">
+          <p>各自生活，也在一起。</p>
+          <span>朋友们的平行生活手账</span>
+        </div>
+        <nav className="day-navigation" aria-label="日期导航">
+          <button
+            className="icon-button"
+            aria-label="前一天"
+            onClick={() => setDate(shiftDate(date, -1))}
+          >
+            <ChevronLeft size={20} />
+          </button>
+          <label className="date-picker">
+            <span>
+              <CalendarDays size={18} />
+              <strong>{date.replaceAll('-', '/')}</strong>
+            </span>
+            <input
+              type="date"
+              aria-label="选择日期"
+              value={date}
+              max={today()}
+              onChange={(e) => {
+                if (e.target.value) setDate(e.target.value);
+              }}
+              onClick={(e) => {
+                try {
+                  e.currentTarget.showPicker?.();
+                } catch {
+                  /* Native input remains available. */
+                }
+              }}
+            />
+          </label>
+          <button
+            className="icon-button"
+            aria-label="后一天"
+            disabled={date >= today()}
+            onClick={() => setDate(shiftDate(date, 1))}
+          >
+            <ChevronRight size={20} />
+          </button>
+          <button
+            className="today-action"
+            aria-label="回到今天"
+            disabled={date === today()}
+            onClick={() => setDate(today())}
+          >
+            今天
+          </button>
+        </nav>
         <Timeline
           entries={entries}
-          date={date}
-          setDate={setDate}
           loading={loading}
           error={error}
           onRefresh={() => setRevision((n) => n + 1)}
@@ -93,7 +173,7 @@ export default function App() {
             setDeleteError('');
             setDeleteEntry(entry);
           }}
-          onExport={() => setExportOpen(true)}
+          date={date}
           focusId={focusId}
         />
         <footer className="app-footer">
@@ -101,12 +181,21 @@ export default function App() {
           <button onClick={() => setCredits(true)}>素材鸣谢</button>
         </footer>
       </main>
-      <button className="floating-create" aria-label="上传动态" onClick={() => setComposer({})}>
+      <button
+        className="floating-create"
+        aria-label={date === today() ? '记下一刻' : '补记这一天'}
+        onClick={() => setComposer({})}
+      >
         <Plus size={20} />
-        上传动态
+        {date === today() ? '记下一刻' : '补记这一天'}
       </button>
       {composer && (
-        <Composer entry={composer.entry} onClose={() => setComposer(null)} onSaved={saved} />
+        <Composer
+          date={date}
+          entry={composer.entry}
+          onClose={() => setComposer(null)}
+          onSaved={saved}
+        />
       )}
       {exportOpen && <ExportDialog date={date} onClose={() => setExportOpen(false)} />}
       {deleteEntry && (

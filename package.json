@@ -7,7 +7,7 @@
     "node": ">=22.12"
   },
   "scripts": {
-    "dev": "pnpm --parallel --filter \"@parallel/*\" run dev",
+    "dev": "node --import tsx scripts/dev.ts",
     "build": "tsx scripts/build.ts",
     "start": "pnpm --filter @parallel/server start",
     "typecheck": "tsc -p tsconfig.scripts.json && pnpm -r run typecheck",
