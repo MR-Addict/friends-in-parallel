@@ -36,10 +36,35 @@ export async function createApp(
     await cache.cleanup();
     next();
   });
-  const upload = multer({
+  const parseUpload = multer({
     storage: multer.memoryStorage(),
     limits: { fileSize: MAX_PHOTO_BYTES, files: 1, fields: 10, fieldSize: 8192 },
   }).single('photo');
+  const upload: express.RequestHandler = (req, res, next) => {
+    parseUpload(req, res, (error: unknown) => {
+      // Busboy framing errors are plain Errors, not MulterErrors. Keep this
+      // mapping here so unrelated application/storage failures remain 500s.
+      if (
+        error instanceof Error &&
+        [
+          'Unexpected end of form',
+          'Unexpected end of file',
+          'Multipart: Boundary not found',
+          'Malformed part header',
+        ].includes(error.message)
+      ) {
+        console.warn('[upload] Invalid or incomplete multipart request', {
+          method: req.method,
+          reason: error.message,
+          contentLength: req.get('content-length'),
+          complete: req.complete,
+        });
+        next(new HttpError(400, '上传内容不完整或格式有误，请重新选择照片并重试'));
+        return;
+      }
+      next(error);
+    });
+  };
   async function saveEntry(body: Record<string, unknown>, file?: Express.Multer.File, id?: string) {
     const input = await validateEntry(body, file);
     let bytes = file?.buffer;

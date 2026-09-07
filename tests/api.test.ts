@@ -120,6 +120,49 @@ test('Validation rejects future times, unknown assets, oversized descriptions an
     await f.close();
   }
 });
+test('Incomplete multipart uploads return 400 without creating or replacing an entry', async () => {
+  const notifications: Entry[] = [];
+  const f = await fixture(async (entry) => {
+    notifications.push(entry);
+  });
+  try {
+    const { entry } = await post(f.origin);
+    const before = f.store.list(date);
+    const notified = notifications.length;
+    const boundary = 'test-mobile-upload';
+    const body = [
+      `--${boundary}`,
+      'Content-Disposition: form-data; name="photo"; filename="phone.jpg"',
+      'Content-Type: image/jpeg',
+      '',
+      'truncated photo without closing boundary',
+    ].join('\r\n');
+    for (const method of ['POST', 'PATCH']) {
+      for (const contentType of [
+        `multipart/form-data; boundary=${boundary}`,
+        'multipart/form-data',
+      ]) {
+        const res = await fetch(
+          f.origin + '/api/entries' + (method === 'PATCH' ? `/${entry.id}` : ''),
+          {
+            method,
+            headers: { 'content-type': contentType },
+            body,
+            signal: AbortSignal.timeout(5000),
+          },
+        );
+        assert.equal(res.status, 400);
+        assert.match((await res.json()).error, /上传内容不完整/);
+        assert.deepEqual(f.store.list(date), before);
+        assert.deepEqual(await readdir(f.store.uploads), []);
+        assert.equal(notifications.length, notified);
+      }
+    }
+    assert.equal((await post(f.origin)).res.status, 201);
+  } finally {
+    await f.close();
+  }
+});
 test('Stored photo bytes survive export, retained-photo edits work, replacement cleans up', async () => {
   const f = await fixture();
   try {
