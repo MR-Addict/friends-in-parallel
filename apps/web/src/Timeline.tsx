@@ -1,3 +1,4 @@
+import { Photo } from './Photo';
 import { useEffect, useState } from 'react';
 import { Plus, Pencil, Trash2, Clock, MoreHorizontal, LoaderCircle, Users } from 'lucide-react';
 import { people, personOf, timeOf, mediaSrc, mediaName, today, type Entry } from './lib';
@@ -170,7 +171,7 @@ export function Timeline({
                             aria-label={`查看${mediaName(entry.media)}`}
                             onClick={() => setZoom(entry)}
                           >
-                            <img
+                            <Photo
                               src={mediaSrc(entry.media)}
                               alt={mediaName(entry.media)}
                               loading="lazy"
@@ -222,7 +223,12 @@ export function Timeline({
           title={`${personOf(zoom.personId).nickname} · ${timeOf(zoom.occurredAt)}`}
           onClose={() => setZoom(undefined)}
         >
-          <img className="zoom-image" src={mediaSrc(zoom.media)} alt={mediaName(zoom.media)} />
+          <Photo className="zoom-image" src={mediaSrc(zoom.media)} alt={mediaName(zoom.media)} />
+          {zoom.media.type === 'photo' && (
+            <a href={mediaSrc(zoom.media)} download={zoom.media.filename}>
+              下载照片
+            </a>
+          )}
           {zoom.description && <p className="moment-description">{zoom.description}</p>}
         </Modal>
       )}

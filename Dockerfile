@@ -46,7 +46,13 @@ RUN node /opt/browser-tools/playwright-core/cli.js install --only-shell chromium
     && chown node:node /data \
     && chmod -R a+rX /ms-playwright
 
-FROM browser-runtime AS runtime
+# Native HEIC decoder, cached independently of application dependencies.
+FROM browser-runtime AS photo-runtime
+RUN --mount=type=cache,id=parallel-apt-${TARGETARCH},target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,id=parallel-apt-lists-${TARGETARCH},target=/var/lib/apt/lists,sharing=locked \
+    apt-get update && apt-get install -y --no-install-recommends libheif-examples
+
+FROM photo-runtime AS runtime
 COPY --from=production-dependencies /app/node_modules ./node_modules
 COPY --from=production-dependencies /app/apps/server/node_modules ./apps/server/node_modules
 COPY --from=production-dependencies /app/apps/server/package.json ./apps/server/package.json

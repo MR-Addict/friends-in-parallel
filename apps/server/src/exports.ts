@@ -60,11 +60,13 @@ export async function snapshot(store: Store, date: string): Promise<SnapshotItem
         }
         const extension = path.extname(file).slice(1);
         const mime =
-          extension === 'svg'
-            ? 'image/svg+xml'
-            : extension === 'jpg'
-              ? 'image/jpeg'
-              : `image/${extension}`;
+          entry.media.type === 'photo'
+            ? entry.media.mime
+            : extension === 'svg'
+              ? 'image/svg+xml'
+              : extension === 'jpg'
+                ? 'image/jpeg'
+                : `image/${extension}`;
         const pack = s ? packs.find((p) => p.id === s.packId) : undefined;
         return {
           entry,

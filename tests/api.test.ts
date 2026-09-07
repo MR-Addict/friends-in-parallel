@@ -119,7 +119,7 @@ test('Validation rejects future times, unknown assets, oversized descriptions an
     await f.close();
   }
 });
-test('Original photo bytes survive export, retained-photo edits work, replacement cleans up', async () => {
+test('Stored photo bytes survive export, retained-photo edits work, replacement cleans up', async () => {
   const f = await fixture();
   try {
     const bytes = await sharp({
@@ -138,10 +138,10 @@ test('Original photo bytes survive export, retained-photo edits work, replacemen
     assert.equal(entry.media.type, 'photo');
     if (entry.media.type !== 'photo') return;
     const filename = entry.media.filename;
-    assert.deepEqual(
-      Buffer.from(await (await fetch(f.origin + '/uploads/' + filename)).arrayBuffer()),
-      bytes,
+    const storedBytes = Buffer.from(
+      await (await fetch(f.origin + '/uploads/' + filename)).arrayBuffer(),
     );
+    assert.ok(storedBytes.length <= bytes.length);
     const retained = await fetch(f.origin + '/api/entries/' + entry.id, {
       method: 'PATCH',
       headers: { 'content-type': 'application/json' },
@@ -170,7 +170,7 @@ test('Original photo bytes survive export, retained-photo edits work, replacemen
     assert.ok(csv.includes('保留原图'));
     assert.deepEqual(
       Buffer.from(contents[manifest.find((item) => item.mediaType === 'photo')!.path]),
-      bytes,
+      storedBytes,
     );
     const snap = await snapshot(f.store, date);
     await fetch(f.origin + '/api/entries/' + entry.id, {
@@ -179,7 +179,7 @@ test('Original photo bytes survive export, retained-photo edits work, replacemen
       body: JSON.stringify(payload()),
     });
     await assert.rejects(access(path.join(f.store.uploads, filename)));
-    assert.deepEqual(snap.find((i) => i.entry.id === entry.id)?.bytes, bytes);
+    assert.deepEqual(snap.find((i) => i.entry.id === entry.id)?.bytes, storedBytes);
   } finally {
     await f.close();
   }
@@ -306,6 +306,60 @@ test('only successful new publications notify; notification failure preserves th
       204,
     );
     assert.equal(notifications.length, 1);
+  } finally {
+    await f.close();
+  }
+});
+
+test('Failed photo processing saves original bytes up to 20 MiB, including edits and HEIC archives', async () => {
+  const f = await fixture();
+  try {
+    // Recognizable containers with undecodable pixels exercise real failure paths.
+    const originals = [Buffer.alloc(3_500_000), Buffer.alloc(20 * 1024 * 1024)];
+    Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]).copy(originals[0]);
+    Buffer.from([0, 0, 0, 24]).copy(originals[1]);
+    originals[1].write('ftypheic', 4, 'ascii');
+    let id: string | undefined;
+    for (const [index, bytes] of originals.entries()) {
+      const form = new FormData();
+      Object.entries(payload({ mediaType: 'photo' })).forEach(([k, v]) => form.set(k, v));
+      form.set(
+        'photo',
+        new Blob([new Uint8Array(bytes)], { type: 'application/octet-stream' }),
+        'iphone',
+      );
+      const response = await fetch(f.origin + '/api/entries' + (id ? '/' + id : ''), {
+        method: id ? 'PATCH' : 'POST',
+        body: form,
+      });
+      assert.equal(response.status, id ? 200 : 201);
+      const entry = (await response.json()) as Entry;
+      id = entry.id;
+      assert.equal(entry.media.type, 'photo');
+      if (entry.media.type !== 'photo') throw new Error('Expected photo');
+      assert.equal(entry.media.mime, index ? 'image/heic' : 'image/png');
+      assert.deepEqual(
+        Buffer.from(
+          await (await fetch(f.origin + '/uploads/' + entry.media.filename)).arrayBuffer(),
+        ),
+        bytes,
+      );
+      const retained = await fetch(f.origin + '/api/entries/' + id, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(payload({ mediaType: 'photo', filename: entry.media.filename })),
+      });
+      assert.equal(retained.status, 200);
+    }
+    const snap = await snapshot(f.store, date);
+    assert.equal(snap[0].mime, 'image/heic');
+    const zip = unzipSync(
+      new Uint8Array(
+        await (await fetch(f.origin + '/api/exports/archive?date=' + date)).arrayBuffer(),
+      ),
+    );
+    const manifest = JSON.parse(strFromU8(zip['manifest.json']));
+    assert.deepEqual(Buffer.from(zip[manifest[0].path]), originals[1]);
   } finally {
     await f.close();
   }

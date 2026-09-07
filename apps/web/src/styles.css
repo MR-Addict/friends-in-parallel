@@ -1252,3 +1252,11 @@ textarea {
   color: var(--muted);
   margin: 8px 0;
 }
+
+.photo-fallback {
+  display: block;
+  padding: 2rem 1rem;
+  color: var(--muted, #777);
+  font-size: 14px;
+  text-align: center;
+}

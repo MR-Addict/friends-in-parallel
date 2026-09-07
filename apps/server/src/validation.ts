@@ -1,4 +1,4 @@
-import sharp, { type Metadata } from 'sharp';
+import { photoExtension, PHOTO_MIMES, MAX_PHOTO_BYTES, type PhotoExtension } from './photos.js';
 import { randomUUID } from 'node:crypto';
 import { people, stickerById, emojiSticker } from './config.js';
 import { checkDate, HttpError, type Media, type Entry } from './model.js';
@@ -23,36 +23,24 @@ export async function validateEntry(
   let media: Media;
   if (mediaType === 'photo') {
     if (file) {
-      let metadata: Metadata;
-      try {
-        metadata = await sharp(file.buffer, { limitInputPixels: 80_000_000 }).metadata();
-      } catch {
-        throw new HttpError(400, '照片无法读取，请使用 JPEG、PNG 或 WebP');
-      }
-      const formats: Record<string, string> = {
-        jpeg: 'image/jpeg',
-        png: 'image/png',
-        webp: 'image/webp',
-      };
-      if (
-        !metadata.format ||
-        !formats[metadata.format] ||
-        formats[metadata.format] !== file.mimetype
-      )
-        throw new HttpError(400, '仅支持 JPEG、PNG、WebP 图片');
+      if (file.buffer.length > MAX_PHOTO_BYTES) throw new HttpError(400, '照片不能超过 20 MB');
+      const extension = photoExtension(file.buffer);
       media = {
         type: 'photo',
-        filename: `${randomUUID()}.${metadata.format === 'jpeg' ? 'jpg' : metadata.format}`,
-        mime: formats[metadata.format],
+        filename: `${randomUUID()}.${extension}`,
+        mime: PHOTO_MIMES[extension],
       };
     } else {
-      if (typeof body.filename !== 'string' || !/^[a-f0-9-]+\.(jpg|png|webp)$/.test(body.filename))
+      if (
+        typeof body.filename !== 'string' ||
+        !/^[a-f0-9-]+\.(jpg|png|webp|heic|heif)$/.test(body.filename)
+      )
         throw new HttpError(400, '请选择照片');
-      const extension = body.filename.split('.').pop();
+      const extension = body.filename.split('.').pop() as PhotoExtension;
       media = {
         type: 'photo',
         filename: body.filename,
-        mime: extension === 'jpg' ? 'image/jpeg' : `image/${extension}`,
+        mime: PHOTO_MIMES[extension],
       };
     }
   } else if (mediaType === 'emoji') {

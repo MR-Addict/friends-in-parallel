@@ -74,7 +74,7 @@ docker run -d --name friends-in-parallel \
 - 普通改动继续使用 `docker build -t friends-in-parallel .`，保留同一个 Docker builder 的缓存，不需要 `--no-cache` 或清理构建缓存。
 - pnpm 下载目录使用 BuildKit cache mount，本地依赖变化后仍可复用已下载包；GitHub Actions 另用每架构独立的 `type=gha,mode=max` 层缓存（cache mount 本身不会由 GHA 自动保存）。
 - Chromium 和 Linux 库独立成层，只依赖基础镜像及锁定的 `playwright-core` 文件。修改页面或添加其他依赖时，可继续复用浏览器安装层；升级 Playwright 后会自动安装匹配的浏览器。
-- 运行镜像仅安装服务端生产依赖；HEIC 转换库等前端依赖只保留构建后的网页文件。
+- 运行镜像仅安装服务端生产依赖；前端依赖只保留构建后的网页文件，HEIC 解码使用独立缓存的原生 libheif 工具。
 - Linux 库安装与 Chromium 下载分开缓存；APT 下载目录按架构缓存，失败重试可复用已下载的安装包。
 - 首次构建、基础镜像或 Playwright 更新仍需下载。可用 `docker build --progress=plain -t friends-in-parallel .` 查看哪些步骤标记为 `CACHED`。
 
@@ -119,7 +119,7 @@ IMAGE=friends-in-parallel:local docker compose up -d --pull never
 「表情」统一包含三套素材，独立选择页提供套餐、搜索、分类和最近使用，选好即返回编辑器；新动态使用 `sticker` 存储。旧 `emoji` 动态仍可展示和导出，编辑保存时转为对应的微软素材，无需迁移历史数据。时间线的编辑、删除入口位于动态卡片的「更多操作」菜单。首页按发生时间从新到旧排列，小时及小时内的动态均倒序，不受人物配置顺序影响。表情与描述横向排列，照片保留完整大图。导出预览底部固定「下载图片」主按钮，多张时可翻页并下载当前图片，图片合集作为次要下载选项。
 
 - 人物：陆语涵、水水、童浩然、蔡建文、甲醛。
-- 照片：JPEG、PNG、WebP，最大 20 MB，服务器保留原文件。暂不支持 HEIC 与动画 GIF。
+- 照片：JPEG、PNG、WebP、HEIC/HEIF，服务端上传上限 20 MB；服务器尽力转换、压缩，失败则保留原文件。暂不支持动画 GIF。
 - 描述最多 500 字；允许补记，禁止未来时间。
 - 发布后跳转到相应日期，并定位新动态；返回人物步骤保留填写内容。
 - 首页时间线按北京时间分小时，小时从新到旧，小时内所有人物的动态按发生时间倒序。可切换日期、筛选人物、编辑与删除。
@@ -169,7 +169,7 @@ parallel-2026-08-29-materials.zip
 └── licenses/
 ```
 
-包含上传文件（网页新上传照片为优化后的版本）、实际选用的贴纸、Emoji PNG，以及 JSON / UTF-8 BOM CSV 清单。清单记录人物 ID、最新昵称、北京时间、描述、素材路径及署名，可用于剪辑视频或整理归档。CSV 对公式起始字符做安全处理；JSON 保留原始文字。
+包含服务器保存的照片（优化成功后的版本，或处理失败时的原文件）、实际选用的贴纸、Emoji PNG，以及 JSON / UTF-8 BOM CSV 清单。清单记录人物 ID、最新昵称、北京时间、描述、素材路径及署名，可用于剪辑视频或整理归档。CSV 对公式起始字符做安全处理；JSON 保留原始文字。
 
 ## 修改人物和素材
 
@@ -217,7 +217,7 @@ pnpm assets:download
 ```text
 data/
 ├── entries.json  # 动态记录
-├── uploads/      # 上传原文件
+├── uploads/      # 优化后的照片，或处理失败时保留的原文件
 └── exports/      # 可重新生成的临时长图及合集
 ```
 
@@ -278,4 +278,8 @@ pnpm dev
 
 ### 照片上传优化
 
-网页支持 JPEG、PNG、WebP 和 iPhone HEIC/HEIF 照片（原图最大 50 MB）。选择后先在设备本地转换和压缩，再保存草稿或上传：最长边默认 2560px，以 85% 质量优先编码 WebP，不支持时使用 JPEG；超过 3 MB 时降低质量并逐步缩小尺寸。小于 3 MB 的照片也尝试优化，若原文件更小则保留原文件。HEIC 解码器按需加载；转换失败可重试，之前选择的照片会保留。新上传的照片及导出素材使用优化版，历史照片不受影响。
+浏览器直接上传原文件，服务端通过 Multer 限制为 20 MiB（界面显示 20 MB）。3 MB 仅为优化目标：Sharp/libvips 自动纠正方向、最长边默认缩至 2560px，以 WebP 85% 质量编码；仍过大时尝试降低质量及尺寸。小图也尝试压缩，但不会用更大的结果替换普通 JPEG/PNG/WebP。HEIC/HEIF 先由原生 libheif 解码，再用 Sharp 优化。
+
+转换、压缩失败、处理超时或解码器缺失时，动态仍正常保存，原文件字节和格式保持不变。超过 3 MB 的结果不会导致发布失败；唯一文件大小硬限制为服务器的 20 MiB。仍会拒绝无法识别为支持的图片容器的内容。HEIC 原件可能无法在浏览器预览，可以打开照片详情下载；素材 ZIP 保留实际存储的文件，长图导出仍要求图片可正常解码。
+
+Docker 自动安装 `libheif-examples`，该层与应用代码独立缓存。直接运行 Node 时需安装 libheif 命令行工具（Debian/Ubuntu: `apt-get install libheif-examples`；macOS: `brew install libheif`），确保 `heif-convert` 在 PATH 中。无需浏览器端转换库。

@@ -2,6 +2,7 @@ import express from 'express';
 import { createNotifier } from './notifications.js';
 import type { Entry } from './model.js';
 import multer from 'multer';
+import { optimizePhoto, MAX_PHOTO_BYTES, type PhotoExtension } from './photos.js';
 import path from 'node:path';
 import { dataDir, publicDir } from './config.js';
 import { Store } from './store.js';
@@ -29,15 +30,27 @@ export async function createApp(
   app.use(express.json({ limit: '64kb' }));
   const upload = multer({
     storage: multer.memoryStorage(),
-    limits: { fileSize: 20 * 1024 * 1024, files: 1, fields: 10, fieldSize: 8192 },
+    limits: { fileSize: MAX_PHOTO_BYTES, files: 1, fields: 10, fieldSize: 8192 },
   }).single('photo');
+  async function saveEntry(body: Record<string, unknown>, file?: Express.Multer.File, id?: string) {
+    const input = await validateEntry(body, file);
+    let bytes = file?.buffer;
+    if (file && input.media.type === 'photo') {
+      const extension = input.media.filename.split('.').pop() as PhotoExtension;
+      const optimized = await optimizePhoto(file.buffer, extension);
+      bytes = optimized.bytes;
+      input.media.filename = input.media.filename.replace(/\.[^.]+$/, `.${optimized.extension}`);
+      input.media.mime = optimized.mime;
+    }
+    return store.save(input, bytes, id);
+  }
   app.get('/api/entry-dates', (req, res) => {
     const first = checkDate(`${req.query.month}-01`);
     res.json(store.dateCounts(first.slice(0, 7)));
   });
   app.get('/api/entries', (req, res) => res.json(store.list(checkDate(req.query.date))));
   app.post('/api/entries', upload, async (req, res) => {
-    const entry = await store.save(await validateEntry(req.body || {}, req.file), req.file?.buffer);
+    const entry = await saveEntry(req.body || {}, req.file);
     res.status(201).json(entry);
     void Promise.resolve()
       .then(() => notify(entry))
@@ -46,13 +59,7 @@ export async function createApp(
       });
   });
   app.patch('/api/entries/:id', upload, async (req, res) =>
-    res.json(
-      await store.save(
-        await validateEntry(req.body || {}, req.file),
-        req.file?.buffer,
-        String(req.params.id),
-      ),
-    ),
+    res.json(await saveEntry(req.body || {}, req.file, String(req.params.id))),
   );
   app.delete('/api/entries/:id', async (req, res) => {
     await store.delete(req.params.id);

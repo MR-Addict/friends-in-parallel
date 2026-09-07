@@ -11,7 +11,7 @@ import {
   Camera,
 } from 'lucide-react';
 import { Modal } from './Modal';
-import { preparePhoto } from './photos';
+import { Photo } from './Photo';
 import { readDraft, writeDraft, type Draft } from './drafts';
 import {
   people,
@@ -94,8 +94,6 @@ function ComposerEditor({
   const [error, setError] = useState(''),
     [busy, setBusy] = useState(false),
     [progress, setProgress] = useState(0);
-  const [processing, setProcessing] = useState(false);
-  const [photoStatus, setPhotoStatus] = useState('');
   const [draftStatus, setDraftStatus] = useState('');
   const [undo, setUndo] = useState<{ draft: Draft; clearedTime: string }>();
   useEffect(() => {
@@ -157,7 +155,7 @@ function ComposerEditor({
   const ready = type === 'photo' ? !!photo : !!stickerId;
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (processing || busy) return;
+    if (busy) return;
     setError('');
     if (!ready) {
       setError('先选择一份素材吧');
@@ -196,7 +194,7 @@ function ComposerEditor({
       }
       className="composer-modal"
       onClose={onClose}
-      busy={busy || processing}
+      busy={busy}
     >
       {pickerOpen ? (
         <div className="picker-page">
@@ -312,7 +310,7 @@ function ComposerEditor({
                 <button
                   type="button"
                   className="back-person"
-                  disabled={busy || processing}
+                  disabled={busy}
                   onClick={() => setStep(1)}
                 >
                   <ArrowLeft size={15} />
@@ -320,7 +318,7 @@ function ComposerEditor({
                   {personOf(personId).nickname}
                   <span className="muted">· 换一位朋友</span>
                 </button>
-                <fieldset disabled={busy || processing}>
+                <fieldset disabled={busy}>
                   <legend className="field-label">
                     留下此刻 <span>照片或表情，都可以</span>
                   </legend>
@@ -350,29 +348,17 @@ function ComposerEditor({
                       <input
                         type="file"
                         accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif"
-                        onChange={async (e) => {
+                        onChange={(e) => {
                           const f = e.target.files?.[0];
                           e.target.value = '';
                           if (!f) return;
                           setError('');
-                          setPhotoStatus('');
-                          setProcessing(true);
-                          try {
-                            const optimized = await preparePhoto(f);
-                            setFile(optimized);
-                            setPhotoStatus(
-                              `已优化 · ${(optimized.size / 1_000_000).toFixed(2)} MB`,
-                            );
-                          } catch (error) {
-                            setError((error as Error).message);
-                          } finally {
-                            setProcessing(false);
-                          }
+                          setFile(f);
                         }}
                       />
                       {photo ? (
                         <>
-                          <img src={photo} alt="照片预览" />
+                          <Photo src={photo} alt="照片预览" />
                           <span className="replace-photo">
                             <Camera size={16} /> 换一张照片
                           </span>
@@ -383,12 +369,14 @@ function ComposerEditor({
                             <ImagePlus size={28} />
                           </span>
                           <strong>点这里，放一张此刻的照片</strong>
-                          <small>支持 iPhone 照片 · 自动压缩至 3 MB 以内</small>
+                          <small>支持 iPhone 照片 · 最大 20 MB · 上传后自动优化</small>
                         </>
                       )}
-                      <small role="status">
-                        {processing ? '正在转换并压缩照片…' : photoStatus}
-                      </small>
+                      {file && (
+                        <small>
+                          {file.name} · {(file.size / 1_000_000).toFixed(2)} MB
+                        </small>
+                      )}
                     </label>
                   ) : (
                     <>
@@ -482,7 +470,7 @@ function ComposerEditor({
                     {undo ? (
                       <button
                         type="button"
-                        disabled={busy || processing}
+                        disabled={busy}
                         onClick={() => {
                           const previous = undo.draft;
                           setPersonId(previous.personId);
@@ -500,7 +488,7 @@ function ComposerEditor({
                     ) : (
                       <button
                         type="button"
-                        disabled={busy || processing || (!description && !stickerId && !file)}
+                        disabled={busy || (!description && !stickerId && !file)}
                         onClick={() => {
                           const clearedTime = `${date}T${localTime().slice(11)}`;
                           setUndo({
@@ -520,15 +508,11 @@ function ComposerEditor({
                     )}
                   </div>
                 )}
-                <button
-                  className="primary full"
-                  disabled={busy || processing || !ready}
-                  type="submit"
-                >
+                <button className="primary full" disabled={busy || !ready} type="submit">
                   {busy ? (
                     <>
                       <LoaderCircle className="spin" size={18} />
-                      {progress < 100 ? `正在上传 ${progress}%` : '正在保存…'}
+                      {progress < 100 ? `正在上传 ${progress}%` : '正在优化并保存…'}
                     </>
                   ) : (
                     <>
