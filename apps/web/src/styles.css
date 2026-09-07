@@ -1059,7 +1059,7 @@ textarea {
   flex: 1 0 44px;
   flex-direction: column;
   gap: 8px;
-  padding: 8px 2px;
+  padding: 8px;
   font-size: 11px;
   border-radius: 12px;
   color: var(--muted);

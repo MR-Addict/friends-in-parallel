@@ -19,6 +19,7 @@ import {
   videoTemplate,
   loadVideoScene,
   renderVideo,
+  measureVideoScene,
 } from '../apps/server/src/video-renderer.js';
 import { publicDir } from '../apps/server/src/config.js';
 import { snapshot, ImageExports } from '../apps/server/src/exports.js';
@@ -137,27 +138,37 @@ test('video layouts preserve 500 characters, blank lines, emoji and all media wi
     assert.ok(entries.length > 1);
     assert.equal(
       entries
-        .filter((scene) => scene.itemIndex === 0)
-        .map((scene) => scene.text)
+        .flatMap((scene) => scene.entries || [])
+        .filter((entry) => entry.itemIndex === 0)
+        .map((entry) => entry.text)
         .join(''),
       text,
     );
-    assert.deepEqual([...new Set(entries.map((scene) => scene.itemIndex))], [0, 1, 2, 3, 4]);
+    assert.deepEqual(
+      [
+        ...new Set(entries.flatMap((scene) => scene.entries!.map((entry) => entry.itemIndex))),
+      ].sort(),
+      [0, 1, 2, 3, 4],
+    );
     assert.equal(scenes[1].title, '14:00');
     for (const scene of entries) {
       await loadVideoScene(page, scene, f.items, date, style);
-      assert.equal(await page.locator('.copy').textContent(), scene.text);
-      const ink = await page.locator('.frame').evaluate((node) => getComputedStyle(node).color);
-      assert.equal(
-        await page.locator('.copy').evaluate((node) => getComputedStyle(node).color),
-        ink,
-      );
-      if (['cinema', 'film', 'night', 'neon', 'pixel'].includes(style.id))
-        assert.notEqual(ink, 'rgb(0, 0, 0)');
-      assert.ok(await page.locator('.copy').evaluate((node) => node.scrollHeight <= 576));
-      assert.ok(
-        await page.locator('.card').evaluate((node) => node.getBoundingClientRect().bottom < 1820),
-      );
+      for (const entry of scene.entries!) {
+        const card = page.locator(`[data-item-index="${entry.itemIndex}"]`);
+        assert.equal(await card.locator('.copy').textContent(), entry.text);
+        const ink = await page.locator('.frame').evaluate((node) => getComputedStyle(node).color);
+        assert.equal(
+          await card.locator('.copy').evaluate((node) => getComputedStyle(node).color),
+          ink,
+        );
+        if (['cinema', 'film', 'night', 'neon', 'pixel'].includes(style.id))
+          assert.notEqual(ink, 'rgb(0, 0, 0)');
+        assert.equal(
+          await card.locator('img').evaluate((node) => getComputedStyle(node).objectFit),
+          'contain',
+        );
+      }
+      assert.ok((await measureVideoScene(page)).fits, `${style.id}: scene must fit`);
     }
     assert.ok(!videoTemplate(entries[0], f.items, date, style).includes('文字<&>'));
   }
@@ -165,8 +176,9 @@ test('video layouts preserve 500 characters, blank lines, emoji and all media wi
   const long = await videoScenes(page, f.items, date, videoStyles[0]);
   assert.equal(
     long
-      .filter((scene) => scene.itemIndex === 0)
-      .map((scene) => scene.text)
+      .flatMap((scene) => scene.entries || [])
+      .filter((entry) => entry.itemIndex === 0)
+      .map((entry) => entry.text)
       .join(''),
     '字'.repeat(500),
   );

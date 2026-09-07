@@ -71,11 +71,17 @@ export class VideoExports {
     const [font, audio, ...sources] = await Promise.all([
       readFile(path.join(publicDir, 'fonts/NotoSansCJKsc-Regular.otf')),
       music ? musicBytes(music) : Promise.resolve(undefined),
-      ...['video-exports', 'video-renderer', 'video-process', 'exports', 'export-cache'].map(
-        (name) =>
-          readFile(
-            new URL(`./${name}${import.meta.url.endsWith('.ts') ? '.ts' : '.js'}`, import.meta.url),
-          ),
+      ...[
+        'video-exports',
+        'video-renderer',
+        'video-layout',
+        'video-process',
+        'exports',
+        'export-cache',
+      ].map((name) =>
+        readFile(
+          new URL(`./${name}${import.meta.url.endsWith('.ts') ? '.ts' : '.js'}`, import.meta.url),
+        ),
       ),
       readdir(path.join(publicDir, 'licenses')).then(async (names) =>
         Buffer.concat(

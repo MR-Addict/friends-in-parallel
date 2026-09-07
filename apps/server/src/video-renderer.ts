@@ -1,6 +1,16 @@
 import { mkdir, writeFile, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { chromium, type Page } from 'playwright';
+import {
+  balancedPages,
+  videoGroups,
+  mediaShapes,
+  layoutCandidates,
+  layoutSeed,
+  chooseLayout,
+  type LayoutCandidate,
+  type LayoutSlot,
+} from './video-layout.js';
 import { beijingTime } from './model.js';
 import type { SnapshotItem } from './exports.js';
 import type { VideoStyle } from './video-types.js';
@@ -11,13 +21,20 @@ import type { CacheWork } from './export-cache.js';
 export const VIDEO_WIDTH = 1080,
   VIDEO_HEIGHT = 1920,
   VIDEO_FPS = 30;
+export interface SceneEntry {
+  itemIndex: number;
+  text: string;
+  continuation: number;
+}
 export interface VideoScene {
-  kind: 'title' | 'hour' | 'entry' | 'credits';
+  kind: 'title' | 'entry' | 'credits';
   title: string;
   text: string;
   duration: number;
-  itemIndex?: number;
-  continuation?: number;
+  entries?: SceneEntry[];
+  layout?: LayoutCandidate;
+  pageNumber?: number;
+  pageCount?: number;
 }
 const escape = (text: string) =>
   text.replace(
@@ -54,17 +71,120 @@ const styles = `
 .pixel{background-image:linear-gradient(#8eedb210 2px,transparent 2px),linear-gradient(90deg,#8eedb210 2px,transparent 2px);background-size:64px 64px}.pixel .card{border:8px solid #8eedb2;border-radius:0;box-shadow:12px 12px #151832}.pixel .media-box{border-radius:0}.pixel .person{background:#25284c;padding:12px}.pixel .media-box{height:636px}.pixel .ornament{border:24px solid var(--accent);border-radius:0;width:260px;height:260px;transform:rotate(0deg)}
 `;
 
+const collageStyles = `
+.frame.entry{display:block;padding-bottom:80px}
+.entry .rule{margin-bottom:22px}
+.scene-heading{height:62px;margin:0 0 22px;display:flex;align-items:center;justify-content:space-between;font-size:38px;font-weight:400;letter-spacing:2px}
+.scene-heading small{font-size:24px;color:var(--accent)}
+.board{width:920px;height:1400px;position:relative}
+.entry .board .card{position:absolute;margin:0;padding:24px;display:flex;flex-direction:column;transform:none;min-width:0;border-radius:18px}
+.entry .board .person{font-size:24px;line-height:1.4;margin:0 0 16px;gap:8px;flex-shrink:0;flex-wrap:wrap;padding:0;border:0;background:none}
+.entry .board .person i{width:10px;height:10px}
+.entry .board .person time{font-size:24px;padding:0;border:0;transform:none}
+.entry .board .media-box{height:auto;min-height:150px;flex:1 1 0;border:0;border-radius:8px;position:relative}
+.entry .board .media-box img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
+.entry .board .media-box.sticker{background:transparent}
+.entry .board .media-box.sticker img{inset:50% auto auto 50%;transform:translate(-50%,-50%);max-width:320px;max-height:320px;width:85%;height:85%}
+.entry .board .copy{font-size:28px;line-height:1.5;margin:16px 0 0;max-height:none;padding:0;border:0;flex-shrink:0}
+.entry .board .copy:empty{display:none}
+.entry .board .continuation{font-size:24px;margin-top:12px;flex-shrink:0}
+.entry .board .card:before{width:90px;height:22px;top:-12px;left:calc(50% - 45px)}
+.entry.polaroid .board .card{box-shadow:6px 8px 0 #bfb0a577;border-radius:0}
+.entry.forest .board .card{border-radius:40px 14px 40px 14px}
+.entry.postcard .board .card{border-width:6px;border-radius:0}
+.entry.minimal .board .card,.entry.cinema .board .card,.entry.film .board .card,.entry.comic .board .card,.entry.pixel .board .card{border-radius:0}
+.entry.candy .board .card,.entry.comic .board .card,.entry.neon .board .card,.entry.pixel .board .card{box-shadow:6px 6px 0 var(--accent)}
+.entry.single .board .copy{font-size:36px;line-height:1.5}
+.entry.single .board .media-box{min-height:300px}
+`;
+
 export function videoTemplate(
   scene: VideoScene,
   items: SnapshotItem[],
   date: string,
   style: VideoStyle,
 ) {
-  const item = scene.itemIndex === undefined ? undefined : items[scene.itemIndex];
-  const body = item
-    ? `<article class="card"><div class="person"><i style="background:${escape(item.person.color)}"></i><strong>${escape(item.person.nickname)}</strong><time>${beijingTime(item.entry.occurredAt)}</time></div><div class="media-box ${item.entry.media.type === 'photo' ? '' : 'sticker'}"><img src="http://render.local/image/${scene.itemIndex}" alt="动态素材"></div><p class="copy">${escape(scene.text)}</p>${scene.continuation ? `<div class="continuation">接着记录 · ${scene.continuation + 1}</div>` : ''}</article>`
-    : `<section class="hero"><div class="eyebrow">${scene.kind === 'credits' ? '这一刻，我们同频' : scene.kind === 'hour' ? '同一小时，各自精彩' : '朋友们的一天'}</div><h1>${escape(scene.title)}</h1><p>${escape(scene.text)}</p></section>`;
-  return `<!doctype html><html lang="zh-CN"><meta charset="utf-8"><style>${styles}</style><body><main class="frame ${style.id} ${scene.kind}" style="--bg:${style.background};--ink:${style.ink};--paper:${style.paper};--accent:${style.accent}"><div class="ornament"></div><header class="brand"><span>此刻，同频</span><span>${date}</span></header><div class="rule"></div>${body}<footer class="bottom"><span>${escape(style.name)}</span><span>${scene.kind === 'entry' ? '每个瞬间，都值得收藏' : '各自在生活，也在同频'}</span></footer></main></body></html>`;
+  const body =
+    scene.kind === 'entry'
+      ? `<h2 class="scene-heading"><span>${escape(scene.title)}</span><small>${scene.pageCount && scene.pageCount > 1 ? `${scene.pageNumber} / ${scene.pageCount}` : ''}</small></h2><section class="board">${scene
+          .layout!.slots.map((slot: LayoutSlot) => {
+            const entry = scene.entries!.find((entry) => entry.itemIndex === slot.itemIndex)!;
+            const item = items[entry.itemIndex];
+            return `<article class="card" data-item-index="${entry.itemIndex}" style="left:${slot.x}px;top:${slot.y}px;width:${slot.width}px;height:${slot.height}px"><div class="person"><i style="background:${escape(item.person.color)}"></i><strong>${escape(item.person.nickname)}</strong><time>${beijingTime(item.entry.occurredAt)}</time></div><div class="media-box ${item.entry.media.type === 'photo' ? '' : 'sticker'}"><img src="http://render.local/image/${entry.itemIndex}" alt="动态素材"></div><p class="copy">${escape(entry.text)}</p>${entry.continuation ? `<div class="continuation">接着记录 · ${entry.continuation + 1}</div>` : ''}</article>`;
+          })
+          .join('')}</section>`
+      : `<section class="hero"><div class="eyebrow">${scene.kind === 'credits' ? '这一刻，我们同频' : '朋友们的一天'}</div><h1>${escape(scene.title)}</h1><p>${escape(scene.text)}</p></section>`;
+  return `<!doctype html><html lang="zh-CN"><meta charset="utf-8"><style>${styles}${collageStyles}</style><body><main class="frame ${style.id} ${scene.kind} ${scene.entries?.length === 1 ? 'single' : ''}" style="--bg:${style.background};--ink:${style.ink};--paper:${style.paper};--accent:${style.accent}"><div class="ornament"></div><header class="brand"><span>此刻，同频</span><span>${date}</span></header><div class="rule"></div>${body}<footer class="bottom"><span>${escape(style.name)}</span><span>${scene.kind === 'entry' ? '每个瞬间，都值得收藏' : '各自在生活，也在同频'}</span></footer></main></body></html>`;
+}
+
+/** Check actual rendered geometry, including text, all cards and the footer safe area. */
+export async function measureVideoScene(page: Page): Promise<{ fits: boolean; score: number }> {
+  return page.evaluate(() => {
+    const cards = Array.from(document.querySelectorAll<HTMLElement>('.board .card'));
+    if (!cards.length) {
+      const hero = document.querySelector<HTMLElement>('.hero');
+      return {
+        fits:
+          !!hero &&
+          hero.getBoundingClientRect().bottom < 1820 &&
+          hero.scrollHeight <= hero.clientHeight,
+        score: 0,
+      };
+    }
+    const board = document.querySelector('.board')!.getBoundingClientRect();
+    const rectangles = cards.map((card) => card.getBoundingClientRect());
+    let score = 0;
+    let fits = board.bottom < 1820;
+    cards.forEach((card, i) => {
+      const rect = rectangles[i];
+      const media = card.querySelector<HTMLElement>('.media-box')!;
+      const image = media.querySelector('img')!;
+      const box = media.getBoundingClientRect();
+      const ratio = image.naturalWidth / image.naturalHeight;
+      const imageRect = image.getBoundingClientRect();
+      const area =
+        Math.min(imageRect.width, imageRect.height * ratio) *
+        Math.min(imageRect.height, imageRect.width / ratio);
+      score += media.classList.contains('sticker')
+        ? 0.35 - Math.max(0, box.height - 420) / 3000
+        : (area / (920 * 1400)) * 4 + (area / (box.width * box.height)) * 0.4;
+      if (
+        !image.complete ||
+        !image.naturalWidth ||
+        box.height < 149 ||
+        card.scrollHeight > card.clientHeight + 1 ||
+        card.scrollWidth > card.clientWidth + 1 ||
+        rect.left < board.left - 1 ||
+        rect.right > board.right + 1 ||
+        rect.top < board.top - 1 ||
+        rect.bottom > board.bottom + 1
+      )
+        fits = false;
+      for (const child of card.querySelectorAll<HTMLElement>(
+        '.person,.copy,.continuation,.media-box',
+      )) {
+        const childRect = child.getBoundingClientRect();
+        if (
+          childRect.width &&
+          (childRect.bottom > rect.bottom - 12 ||
+            childRect.right > rect.right - 12 ||
+            child.scrollWidth > child.clientWidth + 1)
+        )
+          fits = false;
+      }
+      for (let j = 0; j < i; j++) {
+        const other = rectangles[j];
+        if (
+          rect.left < other.right - 1 &&
+          rect.right > other.left + 1 &&
+          rect.top < other.bottom - 1 &&
+          rect.bottom > other.top + 1
+        )
+          fits = false;
+      }
+    });
+    return { fits, score };
+  });
 }
 
 export async function loadVideoScene(
@@ -98,55 +218,100 @@ export async function videoScenes(
       duration: 2,
     },
   ];
-  let hour = '';
-  for (let index = 0; index < items.length; index++) {
-    const nextHour = beijingTime(items[index].entry.occurredAt).slice(0, 2);
-    if (nextHour !== hour) {
-      hour = nextHour;
-      scenes.push({
-        kind: 'hour',
-        title: `${hour}:00`,
-        text: `${hour}:00 — ${hour}:59`,
-        duration: 1.5,
-      });
+  const shapes = await mediaShapes(items);
+  const seed = layoutSeed(items, date, style.id);
+  const duration = (entries: SceneEntry[]) =>
+    Math.ceil(
+      Math.max(
+        4,
+        entries.length * 1.5,
+        entries.reduce((n, entry) => n + Array.from(entry.text).length, 0) / 6 + 1,
+      ),
+    );
+  async function arrange(indices: number[], title: string): Promise<VideoScene[]> {
+    const entries = indices.map((itemIndex) => ({
+      itemIndex,
+      text: items[itemIndex].entry.description,
+      continuation: 0,
+    }));
+    const base: VideoScene = {
+      kind: 'entry',
+      title,
+      text: '',
+      entries,
+      duration: duration(entries),
+    };
+    const candidates = layoutCandidates(indices, shapes, items);
+    const fitting: LayoutCandidate[] = [];
+    for (const candidate of candidates) {
+      await loadVideoScene(page, { ...base, layout: candidate }, items, date, style);
+      const measured = await measureVideoScene(page);
+      if (measured.fits) fitting.push({ ...candidate, score: measured.score });
     }
-    const seed: VideoScene = { kind: 'entry', title: '', text: '', duration: 4, itemIndex: index };
-    await loadVideoScene(page, seed, items, date, style);
-    const chunks = await page.evaluate((text) => {
-      const node = document.querySelector<HTMLElement>('.copy')!;
-      const chars = Array.from(
-        new Intl.Segmenter('zh-CN', { granularity: 'grapheme' }).segment(text),
-        (s) => s.segment,
-      );
-      if (!chars.length) return [''];
-      const result: string[] = [];
-      let start = 0;
-      while (start < chars.length) {
-        let low = 1,
-          high = chars.length - start,
-          best = 0;
-        while (low <= high) {
-          const count = Math.floor((low + high) / 2);
-          // A trailing zero-width character makes trailing blank lines measurable.
-          node.textContent = chars.slice(start, start + count).join('') + '\u200b';
-          if (node.scrollHeight <= 576) {
-            best = count;
-            low = count + 1;
-          } else high = count - 1;
-        }
-        if (!best) throw new Error('Text cannot fit video scene');
-        result.push(chars.slice(start, start + best).join(''));
-        start += best;
+    if (fitting.length)
+      return [
+        {
+          ...base,
+          layout: chooseLayout(
+            fitting,
+            `${seed}:${indices.map((i) => items[i].entry.id).join(',')}`,
+          ),
+        },
+      ];
+    if (indices.length > 1) {
+      // Keep page order chronological while reducing density until every card fits.
+      const middle = Math.ceil(indices.length / 2);
+      return [
+        ...(await arrange(indices.slice(0, middle), title)),
+        ...(await arrange(indices.slice(middle), title)),
+      ];
+    }
+    const chunks: VideoScene[] = [];
+    const chars = Array.from(
+      new Intl.Segmenter('zh-CN', { granularity: 'grapheme' }).segment(entries[0].text),
+      (s) => s.segment,
+    );
+    let start = 0;
+    while (start < chars.length) {
+      let low = 1,
+        high = chars.length - start,
+        best = 0;
+      const entry = { ...entries[0], continuation: chunks.length };
+      while (low <= high) {
+        const count = Math.floor((low + high) / 2);
+        // Keep trailing blank lines measurable, without changing the saved text.
+        entry.text = chars.slice(start, start + count).join('') + '\u200b';
+        await loadVideoScene(
+          page,
+          { ...base, entries: [entry], layout: candidates[0] },
+          items,
+          date,
+          style,
+        );
+        if ((await measureVideoScene(page)).fits) {
+          best = count;
+          low = count + 1;
+        } else high = count - 1;
       }
-      return result;
-    }, items[index].entry.description);
-    chunks.forEach((text, continuation) =>
-      scenes.push({
-        ...seed,
-        text,
-        continuation,
-        duration: Math.max(4, Math.ceil(Array.from(text).length / 6) + 1),
-      }),
+      if (!best) throw new Error('Text cannot fit video scene');
+      entry.text = chars.slice(start, start + best).join('');
+      chunks.push({
+        ...base,
+        entries: [{ ...entry }],
+        layout: candidates[0],
+        duration: duration([entry]),
+      });
+      start += best;
+    }
+    if (!chunks.length) throw new Error('Media or person cannot fit video scene');
+    return chunks;
+  }
+  for (const group of videoGroups(items)) {
+    const pages: VideoScene[] = [];
+    for (const indices of balancedPages(group.indices))
+      pages.push(...(await arrange(indices, group.title)));
+    pages.forEach((scene, i) =>
+      scenes.push({ ...scene, pageNumber: i + 1, pageCount: pages.length }),
     );
   }
   const assetCredits = [...new Set(items.map((item) => item.credit).filter(Boolean))];
@@ -224,10 +389,7 @@ export async function renderVideo(
       const scene = scenes[i];
       const frame = path.join(scratch, `${i}.png`);
       await loadVideoScene(page, scene, items, date, style);
-      const fits = await page.evaluate(() => {
-        const content = document.querySelector('.card') || document.querySelector('.hero');
-        return !!content && content.getBoundingClientRect().bottom < 1820;
-      });
+      const { fits } = await measureVideoScene(page);
       if (!fits) throw new Error('Scene content overflows safe area');
       await page.screenshot({ path: frame, type: 'png' });
       if (!i)
