@@ -1,3 +1,4 @@
+import { useExportValidity } from './useExportValidity';
 import { ShareButton } from './ShareButton';
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import {
@@ -33,7 +34,6 @@ export function VideoStep({ date, onBack }: { date: string; onBack: () => void }
   const [error, setError] = useState('');
   const [playing, setPlaying] = useState(false);
   const [reload, setReload] = useState(0);
-  const [expired, setExpired] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const alive = useRef(true);
   const stop = () => {
@@ -83,6 +83,7 @@ export function VideoStep({ date, onBack }: { date: string; onBack: () => void }
           signal: controller.signal,
         });
         const value = await response.json();
+        if (controller.signal.aborted) return;
         if (!response.ok) {
           if (response.status === 404) {
             preference(key, {
@@ -116,13 +117,17 @@ export function VideoStep({ date, onBack }: { date: string; onBack: () => void }
       clearTimeout(timer);
     };
   }, [jobId, key]);
-  useEffect(() => {
-    setExpired(false);
-    if (!job?.result) return;
-    const remaining = Date.parse(job.result.expiresAt) - Date.now();
-    const timer = setTimeout(() => setExpired(true), Math.max(0, remaining));
-    return () => clearTimeout(timer);
-  }, [job?.result]);
+  const validate = useExportValidity(
+    job?.result?.videoUrl,
+    job?.result?.expiresAt,
+    (message) => {
+      setJobId('');
+      setJob(undefined);
+      preference(key, { jobId: '', styleId, musicId });
+      setError(message);
+    },
+    setError,
+  );
   const selected = options?.music.find((music) => music.id === musicId);
   const style = options?.styles.find((style) => style.id === styleId);
   const busy = submitting || job?.status === 'rendering' || (!!jobId && !job);
@@ -131,7 +136,6 @@ export function VideoStep({ date, onBack }: { date: string; onBack: () => void }
     setJobId('');
     setJob(undefined);
     setError('');
-    setExpired(false);
     preference(key, { jobId: '', styleId, musicId });
   }
   async function preview() {
@@ -171,11 +175,10 @@ export function VideoStep({ date, onBack }: { date: string; onBack: () => void }
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ date, styleId, musicId }),
       });
-      preference(key, { jobId: value.jobId, styleId, musicId });
       if (alive.current) {
+        preference(key, { jobId: value.jobId, styleId, musicId });
         setJob(value);
         setJobId(value.jobId);
-        setExpired(false);
       }
     } catch (e) {
       if (alive.current) setError((e as Error).message);
@@ -197,7 +200,8 @@ export function VideoStep({ date, onBack }: { date: string; onBack: () => void }
           返回导出选项
         </button>
         <p className="video-intro">
-          {date} · 全部朋友的完整回顾<span>竖屏 1080p · 长文字会分成续页 · 生成后保留 24 小时</span>
+          {date} · 全部朋友的完整回顾
+          <span>竖屏 1080p · 长文字会分成续页 · 最多保留 24 小时，动态更新后失效</span>
         </p>
         {loading ? (
           <p role="status">
@@ -213,12 +217,30 @@ export function VideoStep({ date, onBack }: { date: string; onBack: () => void }
               className="video-player"
               key={job.result.videoUrl}
               controls
+              onPlay={async (event) => {
+                const player = event.currentTarget;
+                if (player.dataset.validated === 'true') {
+                  delete player.dataset.validated;
+                  return;
+                }
+                player.pause();
+                if (await validate()) {
+                  player.dataset.validated = 'true';
+                  void player.play().catch(() => {
+                    delete player.dataset.validated;
+                  });
+                }
+              }}
               playsInline
               preload="metadata"
               poster={job.result.coverUrl}
               src={job.result.videoUrl}
               aria-label="回忆视频预览"
-              onError={() => setError('视频暂时无法播放，可能已过期，请重新生成')}
+              onError={() => {
+                void validate().then((valid) => {
+                  if (valid) setError('视频暂时无法播放，请重试');
+                });
+              }}
             />
             <p className="small-note">
               {durationLabel(job.result.duration)} · {selected?.title || '无音乐'}
@@ -230,11 +252,6 @@ export function VideoStep({ date, onBack }: { date: string; onBack: () => void }
               })}
               （北京时间）
             </p>
-            {expired && (
-              <p className="error-banner" role="alert">
-                视频已过期，请重新生成
-              </p>
-            )}
           </>
         ) : busy ? (
           <div className="video-progress" role="status" aria-live="polite">
@@ -355,23 +372,19 @@ export function VideoStep({ date, onBack }: { date: string; onBack: () => void }
       <div className="export-download-bar">
         {job?.status === 'ready' && job.result ? (
           <>
-            {!expired && (
-              <ShareButton
-                label="分享视频"
-                variant="primary"
-                resource={{
-                  url: `${job.result.videoUrl}?download=1`,
-                  filename: `和朋友的同一时间-${date}-回忆视频.mp4`,
-                  mime: 'video/mp4',
-                }}
-              />
-            )}
-            <button
-              className={expired ? 'primary full' : 'secondary full video-reconfigure'}
-              onClick={configure}
-            >
+            <ShareButton
+              validate={validate}
+              label="分享视频"
+              variant="primary"
+              resource={{
+                url: `${job.result.videoUrl}?download=1`,
+                filename: `和朋友的同一时间-${date}-回忆视频.mp4`,
+                mime: 'video/mp4',
+              }}
+            />
+            <button className="secondary full video-reconfigure" onClick={configure}>
               <RefreshCw size={16} />
-              {expired ? '重新生成视频' : '修改样式与音乐'}
+              修改样式与音乐
             </button>
           </>
         ) : busy ? (

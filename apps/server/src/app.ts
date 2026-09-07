@@ -18,7 +18,8 @@ export async function createApp(
 ) {
   const store = new Store(dir);
   await store.init();
-  const cache = new ExportCache(dir);
+  const cache = new ExportCache(dir, Date.now, store);
+  store.onDatesChanged = (dates) => cache.invalidate(dates);
   const exports = new ImageExports(cache);
   const videos = new VideoExports(cache);
   const app = express();
@@ -100,7 +101,10 @@ export async function createApp(
   });
   app.post('/api/exports/images', async (req, res) => {
     const date = checkDate(req.body?.date);
-    res.json(await exports.generate(await snapshot(store, date), date));
+    const items = await snapshot(store, date);
+    const result = await exports.generate(items, date);
+    cache.assertCurrent(date, items[0].sourceRevision!);
+    res.json(result);
   });
   app.get('/api/exports/video-options', async (_req, res) => res.json(await videos.options()));
   app.post('/api/exports/videos', async (req, res) => {
@@ -131,6 +135,10 @@ export async function createApp(
       return;
     }
     await streamArchive(res, items, date);
+  });
+  app.get('/api/exports/:token/validity', async (req, res) => {
+    if (!(await cache.read(req.params.token))) throw new HttpError(404, '导出已过期，请重新生成');
+    res.sendStatus(204);
   });
   app.get('/api/exports/files/:token/:name', async (req, res) => {
     const { filename, downloadName, release } = await cache.acquireFile(

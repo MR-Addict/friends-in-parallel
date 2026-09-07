@@ -70,6 +70,7 @@ test.beforeEach(async ({ context, page }) => {
       sameSite: 'Lax',
     },
   ]);
+  await page.route('**/api/exports/*/validity', (route) => route.fulfill({ status: 204 }));
   await page.route('**/api/entries?*', (route) =>
     route.fulfill({
       json: [
@@ -254,6 +255,9 @@ test('paginated image and collection share use current resource', async ({ page 
     .toEqual({ name: `和朋友的同一时间-${date}-手账-02.png`, type: 'image/png', body: 'page2' });
   await expect(page.getByRole('button', { name: '分享图片合集' })).toHaveCount(0);
   await expect(page.getByRole('link', { name: '下载图片合集' })).toBeVisible();
+  await page.route('**/api/exports/*/validity', (route) => route.fulfill({ status: 404 }));
+  await page.getByRole('button', { name: '上一张图片' }).click();
+  await expect(page.locator('.export-previews')).toHaveCount(0);
 });
 
 test('entry menu and photo detail share the original image', async ({ page }) => {
@@ -362,7 +366,7 @@ test('video file shares with server filename and disappears after expiry', async
   result.expiresAt = new Date(Date.now() - 1000).toISOString();
   await page.getByRole('button', { name: '制作回忆' }).click();
   await page.getByRole('button', { name: '生成回忆视频' }).click();
-  await expect(page.getByRole('button', { name: '重新生成视频' })).toBeVisible();
+  await expect(page.getByRole('button', { name: '开始生成视频' })).toBeVisible();
   await expect(page.getByRole('button', { name: '分享视频' })).toHaveCount(0);
 });
 
@@ -457,3 +461,54 @@ for (const width of [375, 430]) {
     await page.screenshot({ path: `test-results/compact-home-${width}.png` });
   });
 }
+
+test('a prepared image is discarded when the next share discovers a changed day', async ({
+  page,
+}) => {
+  await mockShare(page);
+  await openImage(page);
+  await page.evaluate(() => {
+    (window as any).sharing.active = false;
+  });
+  await page.getByRole('button', { name: '分享图片', exact: true }).click();
+  await expect(page.getByRole('button', { name: '分享图片', exact: true })).toBeEnabled();
+  expect(await calls(page)).toHaveLength(0);
+  // Another client changed the day after the first click prepared the file.
+  await page.route('**/api/exports/*/validity', (route) => route.fulfill({ status: 404 }));
+  await page.evaluate(() => {
+    (window as any).sharing.active = true;
+  });
+  await page.getByRole('button', { name: '分享图片', exact: true }).click();
+  await expect(page.locator('.export-previews')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '生成手账长图' })).toBeVisible();
+  await expect(page.getByRole('alert')).toContainText('重新生成');
+  expect(await calls(page)).toHaveLength(0);
+  await page.route('**/api/exports/*/validity', (route) => route.fulfill({ status: 204 }));
+  await page.getByRole('button', { name: '生成手账长图' }).click();
+  await expect(page.locator('.export-previews')).toBeVisible();
+});
+
+test('validation network failures keep the image for retry; confirmed expiry hides it on download', async ({
+  page,
+}) => {
+  await mockShare(page);
+  await openImage(page);
+  await page.route('**/api/exports/*/validity', (route) => route.fulfill({ status: 503 }));
+  await page.getByRole('link', { name: '下载图片', exact: true }).click();
+  await expect(page.getByRole('alert')).toContainText('暂时无法检查');
+  await expect(page.locator('.export-previews')).toBeVisible();
+  await page.route('**/api/exports/*/validity', (route) => route.fulfill({ status: 404 }));
+  await page.getByRole('link', { name: '下载图片', exact: true }).click();
+  await expect(page.locator('.export-previews')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '生成手账长图' })).toBeVisible();
+});
+
+test('the long-image preview disappears at its expiry without polling', async ({ page }) => {
+  await mockShare(page);
+  await page.clock.install();
+  await openImage(page);
+  await expect(page.locator('.export-previews')).toBeVisible();
+  await page.clock.fastForward(61000);
+  await expect(page.locator('.export-previews')).toHaveCount(0);
+  await expect(page.getByRole('alert')).toContainText('已过期');
+});

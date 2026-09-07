@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ArrowLeft,
   ArrowRight,
@@ -75,6 +75,7 @@ function ComposerEditor({
       entry ? localTime(entry.occurredAt) : draft?.time || `${date}T${localTime().slice(11)}`,
     );
   const [pickerOpen, setPickerOpen] = useState(false);
+  const filePickerOpen = useRef(false);
   const legacyEmoji = entry?.media.type === 'emoji' ? entry.media.emoji : '';
   const [stickerId, setStickerId] = useState(
     entry?.media.type === 'sticker'
@@ -117,12 +118,18 @@ function ComposerEditor({
   useEffect(() => {
     if (entry) return;
     let active = true;
-    setDraftStatus('正在保存草稿…');
+    const statusTimer = window.setTimeout(() => {
+      if (active) setDraftStatus('正在保存草稿…');
+    }, 300);
     void writeDraft(date, { personId, type, description, time, stickerId, file }).then((saved) => {
-      if (active) setDraftStatus(saved ? '草稿已保存在此设备' : '草稿暂存于当前页面，请勿刷新');
+      if (active) {
+        window.clearTimeout(statusTimer);
+        setDraftStatus(saved ? '草稿已保存在此设备' : '草稿暂存于当前页面，请勿刷新');
+      }
     });
     return () => {
       active = false;
+      window.clearTimeout(statusTimer);
     };
   }, [date, entry, personId, type, description, time, stickerId, file]);
   useEffect(() => {
@@ -209,6 +216,7 @@ function ComposerEditor({
       className="composer-modal"
       onClose={onClose}
       busy={busy}
+      cancelGuard={filePickerOpen}
     >
       {pickerOpen ? (
         <div className="picker-page">
@@ -366,7 +374,11 @@ function ComposerEditor({
                           type="file"
                           aria-label="上传照片"
                           accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif"
+                          onClick={() => {
+                            filePickerOpen.current = true;
+                          }}
                           onChange={(e) => {
+                            filePickerOpen.current = false;
                             const f = e.target.files?.[0];
                             e.target.value = '';
                             if (!f) return;

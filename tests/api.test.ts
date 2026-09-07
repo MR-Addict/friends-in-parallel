@@ -63,8 +63,8 @@ test('Concurrent publishing persists every entry and supports edit/delete/restar
     const list = (await (await fetch(`${f.origin}/api/entries?date=${date}`)).json()) as Entry[];
     assert.equal(list.length, 12);
     const persisted = JSON.parse(await readFile(path.join(f.dir, 'entries.json'), 'utf8'));
-    assert.equal(persisted.length, 12);
-    assert.equal('nickname' in persisted[0], false);
+    assert.equal(persisted.entries.length, 12);
+    assert.equal('nickname' in persisted.entries[0], false);
     const id = list[0].id;
     const edit = await fetch(f.origin + '/api/entries/' + id, {
       method: 'PATCH',
@@ -433,6 +433,64 @@ test('every export request cleans legacy caches while ordinary API and upload re
     assert.equal((await fetch(`${f.origin}/api/exports/music/unknown`)).status, 404);
     await assert.rejects(access(legacy));
   } finally {
+    await f.close();
+  }
+});
+
+test('validity, video status and every artifact URL reject a changed day', async () => {
+  const f = await fixture();
+  const { ExportCache, contentFingerprint } = await import('../apps/server/src/export-cache.js');
+  const cache = new ExportCache(f.dir, Date.now, f.store);
+  try {
+    const { entry } = await post(f.origin);
+    const tokens: string[] = [];
+    for (const kind of ['images', 'video'] as const) {
+      const work = cache.reserve(10000, date, f.store.revision(date));
+      // Stage outside the server cache: the fixture's publisher is a separate instance.
+      work.dir = path.join(f.dir, `stage-${work.token}`);
+      await mkdir(cache.dir, { recursive: true });
+      await mkdir(work.dir, { recursive: true });
+      const names = kind === 'images' ? ['1.png', 'images.zip'] : ['video.mp4', 'cover.jpg'];
+      for (const name of names) await writeFile(path.join(work.dir, name), 'fixture');
+      await cache.publish(
+        work,
+        kind,
+        contentFingerprint([], [kind]),
+        date,
+        Object.fromEntries(names.map((name) => [name, name])),
+        (expiresAt) => {
+          const prefix = `/api/exports/files/${work.token}/`;
+          return kind === 'images'
+            ? { images: [prefix + '1.png'], archiveUrl: prefix + 'images.zip', expiresAt }
+            : {
+                videoUrl: prefix + 'video.mp4',
+                coverUrl: prefix + 'cover.jpg',
+                duration: 1,
+                styleId: 'paper',
+                musicId: 'none',
+                expiresAt,
+              };
+        },
+      );
+      await cache.finish(work);
+      tokens.push(work.token);
+      assert.equal((await fetch(`${f.origin}/api/exports/${work.token}/validity`)).status, 204);
+      for (const name of names)
+        assert.equal(
+          (await fetch(`${f.origin}/api/exports/files/${work.token}/${name}`)).status,
+          200,
+        );
+    }
+    assert.equal((await fetch(`${f.origin}/api/exports/videos/${tokens[1]}`)).status, 200);
+    await fetch(`${f.origin}/api/entries/${entry.id}`, { method: 'DELETE' });
+    for (const token of tokens) {
+      assert.equal((await fetch(`${f.origin}/api/exports/${token}/validity`)).status, 404);
+      for (const name of ['1.png', 'images.zip', 'video.mp4', 'cover.jpg'])
+        assert.equal((await fetch(`${f.origin}/api/exports/files/${token}/${name}`)).status, 404);
+    }
+    assert.equal((await fetch(`${f.origin}/api/exports/videos/${tokens[1]}`)).status, 404);
+  } finally {
+    await cache.dispose();
     await f.close();
   }
 });

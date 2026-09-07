@@ -109,7 +109,24 @@ for (const width of [375, 430, 1100]) {
     await expect
       .poll(() => page.evaluate(() => (window as any).sharedVideo))
       .toBe(`和朋友的同一时间-${date}-回忆视频.mp4`);
-    await page.getByRole('button', { name: '修改样式与音乐' }).click();
+    if (width === 375) {
+      const latest = await (await request.get(`/api/entries?date=${date}`)).json();
+      const videoUrl = await video.getAttribute('src');
+      await request.delete(`/api/entries/${latest[0].id}`);
+      expect((await request.get(videoUrl!)).status()).toBe(404);
+      // An idle preview stays put until the next interaction checks its version.
+      await expect(video).toBeVisible();
+      await page.getByRole('button', { name: '分享视频' }).click();
+      await expect(video).toHaveCount(0);
+      await expect(page.getByRole('alert')).toContainText('重新生成');
+      const saved = await page.evaluate(
+        (date) => JSON.parse(localStorage.getItem(`parallel-video:${date}`)!),
+        date,
+      );
+      expect(saved.jobId).toBe('');
+    } else {
+      await page.getByRole('button', { name: '修改样式与音乐' }).click();
+    }
     await expect(page.getByLabel('背景音乐', { exact: true })).toHaveValue('none');
   });
 }

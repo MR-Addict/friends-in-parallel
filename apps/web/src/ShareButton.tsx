@@ -8,6 +8,7 @@ type Props = {
   resource?: Resource;
   text?: string;
   disabled?: boolean;
+  validate?: () => Promise<boolean>;
   variant?: 'primary' | 'secondary';
 };
 
@@ -67,7 +68,7 @@ export function ShareButton(props: Props) {
   return <ShareSession key={JSON.stringify([props.resource, props.text])} {...props} />;
 }
 
-function ShareSession({ label, resource, text, disabled, variant = 'secondary' }: Props) {
+function ShareSession({ label, resource, text, disabled, validate, variant = 'secondary' }: Props) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const file = useRef<File | undefined>(undefined);
@@ -97,6 +98,8 @@ function ShareSession({ label, resource, text, disabled, variant = 'secondary' }
     let opening = false;
     let fetched = false;
     try {
+      if (validate && !(await validate())) return;
+      if (!alive.current) return;
       if (resource && !file.current) {
         fetched = true;
         controller.current = new AbortController();

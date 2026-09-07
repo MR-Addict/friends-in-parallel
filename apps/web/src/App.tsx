@@ -62,6 +62,7 @@ export default function App() {
     return () => clearTimeout(id);
   }, [focusId, entries, loading]);
   function saved(entry: Entry) {
+    setExportOpen(false);
     setLastPersonId(entry.personId);
     preference('parallel.lastSubmittedPerson', entry.personId);
     setComposer(null);
@@ -76,6 +77,7 @@ export default function App() {
     setDeleteError('');
     try {
       await api(`/api/entries/${deleteEntry.id}`, { method: 'DELETE' });
+      setExportOpen(false);
       setDeleteEntry(undefined);
       setRevision((n) => n + 1);
       setToast('这条动态已删除');
@@ -178,7 +180,13 @@ export default function App() {
           onSaved={saved}
         />
       )}
-      {exportOpen && <ExportDialog date={date} onClose={() => setExportOpen(false)} />}
+      {exportOpen && (
+        <ExportDialog
+          key={`${date}:${revision}`}
+          date={date}
+          onClose={() => setExportOpen(false)}
+        />
+      )}
       {deleteEntry && (
         <Modal title="要删掉这一刻吗？" onClose={() => setDeleteEntry(undefined)} busy={deleting}>
           <p className="muted">这条动态和上传的照片会被删除，无法撤回。</p>

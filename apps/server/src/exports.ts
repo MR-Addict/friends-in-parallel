@@ -18,6 +18,7 @@ export function exportFilename(date: string, kind: 'materials' | 'images' | 'ima
   return `和朋友的同一时间-${date}-${label}.${kind === 'image' ? 'png' : 'zip'}`;
 }
 export interface SnapshotItem {
+  sourceRevision?: string;
   entry: Entry;
   person: Person;
   bytes: Buffer;
@@ -79,6 +80,7 @@ export async function snapshot(store: Store, date: string): Promise<SnapshotItem
                 : `image/${extension}`;
         const pack = s ? packs.find((p) => p.id === s.packId) : undefined;
         return {
+          sourceRevision: store.revision(date),
           entry,
           person,
           bytes,
@@ -219,10 +221,12 @@ export class ImageExports {
       font,
       ...licenses.flatMap((license) => [license.name, license.bytes]),
     ]);
+    const revision = items[0]?.sourceRevision || 'standalone';
     return this.cache.singleFlight(key, async () => {
+      this.cache.assertCurrent(date, revision);
       const cached = await this.cache.find<ImageExportResult>(key, 'images');
       if (cached) return cached.result;
-      const work = this.cache.reserve(120_000);
+      const work = this.cache.reserve(120_000, date, revision);
       const job = this.render(items, date, key, font, licenses, work);
       this.cache.track(work, job);
       return job;
@@ -312,6 +316,7 @@ export class ImageExports {
         exportResult(token, groups.length, expiresAt),
       );
     } catch (e) {
+      if (work.signal.aborted && work.signal.reason instanceof HttpError) throw work.signal.reason;
       if (e instanceof HttpError) throw e;
       console.error('Image export failed:', e);
       throw new HttpError(500, '长图生成失败，请确认服务端 Chromium 已安装后重试');

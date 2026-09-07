@@ -1,10 +1,15 @@
 import { mkdir, readFile, writeFile, rename, unlink } from 'node:fs/promises';
 import path from 'node:path';
-import { randomUUID } from 'node:crypto';
+import { randomUUID, createHash } from 'node:crypto';
 import type { Entry } from './model.js';
 import { beijingDate, HttpError } from './model.js';
 export class Store {
   private entries: Entry[] = [];
+  private revisions: Record<string, string> = {};
+  onDatesChanged: (dates: string[]) => void = () => {};
+  revision(date: string) {
+    return this.revisions[date] || 'empty';
+  }
   private tail: Promise<unknown> = Promise.resolve();
   readonly uploads: string;
   constructor(readonly dir: string) {
@@ -14,8 +19,27 @@ export class Store {
     await mkdir(this.uploads, { recursive: true });
     try {
       const parsed = JSON.parse(await readFile(path.join(this.dir, 'entries.json'), 'utf8'));
-      if (!Array.isArray(parsed)) throw new Error('Invalid entries.json');
-      this.entries = parsed;
+      if (Array.isArray(parsed)) {
+        this.entries = parsed;
+        // Stable until the first write migrates this legacy array, including across restarts.
+        for (const date of new Set(parsed.map((entry: Entry) => beijingDate(entry.occurredAt)))) {
+          this.revisions[date] =
+            'legacy:' +
+            createHash('sha256')
+              .update(JSON.stringify(this.list(date)))
+              .digest('hex');
+        }
+      } else if (
+        parsed?.version === 1 &&
+        Array.isArray(parsed.entries) &&
+        parsed.revisions &&
+        typeof parsed.revisions === 'object' &&
+        !Array.isArray(parsed.revisions) &&
+        Object.values(parsed.revisions).every((value) => typeof value === 'string')
+      ) {
+        this.entries = parsed.entries;
+        this.revisions = parsed.revisions;
+      } else throw new Error('Invalid entries.json');
     } catch (e) {
       if ((e as NodeJS.ErrnoException).code !== 'ENOENT') throw e;
     }
@@ -40,12 +64,19 @@ export class Store {
     }
     return counts;
   }
-  private async persist(next: Entry[]) {
+  private async persist(next: Entry[], dates: string[]) {
+    const revisions = { ...this.revisions };
+    for (const date of new Set(dates)) revisions[date] = randomUUID();
     const tmp = path.join(this.dir, `entries.${randomUUID()}.tmp`);
     try {
-      await writeFile(tmp, JSON.stringify(next, null, 2) + '\n');
+      await writeFile(
+        tmp,
+        JSON.stringify({ version: 1, entries: next, revisions }, null, 2) + '\n',
+      );
       await rename(tmp, path.join(this.dir, 'entries.json'));
       this.entries = next;
+      this.revisions = revisions;
+      this.onDatesChanged([...new Set(dates)]);
     } finally {
       await unlink(tmp).catch(() => {});
     }
@@ -76,6 +107,7 @@ export class Store {
       try {
         await this.persist(
           previous ? this.entries.map((e) => (e.id === id ? entry : e)) : [...this.entries, entry],
+          [beijingDate(entry.occurredAt), ...(previous ? [beijingDate(previous.occurredAt)] : [])],
         );
       } catch (e) {
         if (added) await unlink(added).catch(() => {});
@@ -93,7 +125,10 @@ export class Store {
     return this.exclusive(async () => {
       const entry = this.entries.find((e) => e.id === id);
       if (!entry) throw new HttpError(404, '这条动态已经不在了');
-      await this.persist(this.entries.filter((e) => e.id !== id));
+      await this.persist(
+        this.entries.filter((e) => e.id !== id),
+        [beijingDate(entry.occurredAt)],
+      );
       if (entry.media.type === 'photo')
         await unlink(path.join(this.uploads, entry.media.filename)).catch(() => {});
     });

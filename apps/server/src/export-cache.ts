@@ -2,13 +2,15 @@ import { mkdir, readFile, writeFile, readdir, lstat, rm, rename } from 'node:fs/
 import { randomUUID, createHash } from 'node:crypto';
 import path from 'node:path';
 import { checkDate, HttpError } from './model.js';
+import type { Store } from './store.js';
 import type { SnapshotItem } from './exports.js';
 
 export const EXPORT_TTL = 86_400_000;
 const TOKEN = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/;
 const FILE = /^(?:[1-9]\d*\.png|images\.zip|video\.mp4|cover\.jpg)$/;
 export interface CacheRecord<T = unknown> {
-  version: 1;
+  version: 2;
+  sourceRevision: string;
   token: string;
   kind: 'images' | 'video';
   key: string;
@@ -22,6 +24,8 @@ export interface CacheWork {
   token: string;
   dir: string;
   signal: AbortSignal;
+  date: string;
+  sourceRevision: string;
 }
 
 export function contentFingerprint(items: SnapshotItem[], parts: (string | Buffer)[]) {
@@ -38,7 +42,13 @@ export function contentFingerprint(items: SnapshotItem[], parts: (string | Buffe
 /** One instance per server: images and videos share admission, persistence and leases. */
 export class ExportCache {
   readonly dir: string;
-  private active?: { token: string; controller: AbortController; finished?: Promise<unknown> };
+  private active?: {
+    token: string;
+    controller: AbortController;
+    date: string;
+    sourceRevision: string;
+    finished?: Promise<unknown>;
+  };
   private pending = new Map<string, Promise<unknown>>();
   private leases = new Map<string, number>();
   private cleaning?: Promise<void>;
@@ -46,8 +56,18 @@ export class ExportCache {
   constructor(
     dataDir: string,
     private now = Date.now,
+    private store?: Store,
   ) {
     this.dir = path.join(dataDir, 'exports');
+  }
+  assertCurrent(date: string, revision: string) {
+    if (this.store && this.store.revision(date) !== revision)
+      throw new HttpError(409, '动态已更新，请重新生成');
+  }
+  invalidate(dates: string[]) {
+    if (this.active && dates.includes(this.active.date))
+      this.active.controller.abort(new HttpError(409, '动态已更新，请重新生成'));
+    void this.cleanup().catch(console.error);
   }
   singleFlight<T>(key: string, run: () => Promise<T>): Promise<T> {
     const existing = this.pending.get(key);
@@ -67,7 +87,8 @@ export class ExportCache {
       if (!(await lstat(folder)).isDirectory()) return;
       const meta = JSON.parse(await readFile(path.join(folder, 'metadata.json'), 'utf8'));
       if (
-        meta.version !== 1 ||
+        meta.version !== 2 ||
+        typeof meta.sourceRevision !== 'string' ||
         meta.token !== token ||
         !['images', 'video'].includes(meta.kind) ||
         !/^[a-f0-9]{64}$/.test(meta.key) ||
@@ -127,6 +148,7 @@ export class ExportCache {
         )
           return;
       }
+      this.assertCurrent(meta.date, meta.sourceRevision);
       return meta;
     } catch {
       return;
@@ -161,7 +183,8 @@ export class ExportCache {
       .catch(() => {});
     return work;
   }
-  reserve(timeoutMs: number): CacheWork {
+  reserve(timeoutMs: number, date = '', sourceRevision = 'standalone'): CacheWork {
+    this.assertCurrent(date, sourceRevision);
     if (this.stopped) throw new HttpError(503, '服务正在重启，请稍后重试');
     if (this.active) throw new HttpError(429, '另一份手账或视频正在生成，请稍后再试');
     const token = randomUUID();
@@ -169,8 +192,14 @@ export class ExportCache {
     const timer = setTimeout(() => controller.abort(new Error('导出生成超时，请重试')), timeoutMs);
     timer.unref();
     controller.signal.addEventListener('abort', () => clearTimeout(timer), { once: true });
-    this.active = { token, controller };
-    return { token, dir: path.join(this.dir, `.tmp-${token}`), signal: controller.signal };
+    this.active = { token, controller, date, sourceRevision };
+    return {
+      token,
+      dir: path.join(this.dir, `.tmp-${token}`),
+      signal: controller.signal,
+      date,
+      sourceRevision,
+    };
   }
   track(work: CacheWork, finished: Promise<unknown>) {
     if (this.active?.token === work.token) this.active.finished = finished;
@@ -195,7 +224,8 @@ export class ExportCache {
     const expiresAt = new Date(Date.parse(completedAt) + EXPORT_TTL).toISOString();
     const value = result(expiresAt);
     const meta: CacheRecord<T> = {
-      version: 1,
+      version: 2,
+      sourceRevision: work.sourceRevision,
       token: work.token,
       kind,
       key,
@@ -206,8 +236,13 @@ export class ExportCache {
       result: value,
     };
     await writeFile(path.join(work.dir, 'metadata.json'), JSON.stringify(meta));
-    work.signal.throwIfAborted();
-    await rename(work.dir, path.join(this.dir, work.token));
+    const commit = async () => {
+      work.signal.throwIfAborted();
+      this.assertCurrent(date, work.sourceRevision);
+      await rename(work.dir, path.join(this.dir, work.token));
+    };
+    if (this.store) await this.store.exclusive(commit);
+    else await commit();
     return value;
   }
   async finish(work: CacheWork) {

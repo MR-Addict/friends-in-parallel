@@ -1,5 +1,6 @@
+import { useExportValidity } from './useExportValidity';
 import { ShareButton } from './ShareButton';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Image,
   Film,
@@ -22,22 +23,50 @@ export function ExportDialog({ date, onClose }: { date: string; onClose: () => v
   const [busy, setBusy] = useState(''),
     [error, setError] = useState(''),
     [result, setResult] = useState<ImageExport>();
+  const alive = useRef(true);
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+    };
+  }, []);
+  const validate = useExportValidity(
+    result?.images[0],
+    result?.expiresAt,
+    (message) => {
+      setResult(undefined);
+      setPageIndex(0);
+      setError(message);
+    },
+    setError,
+  );
+  async function download(event: React.MouseEvent<HTMLAnchorElement>) {
+    event.preventDefault();
+    const href = event.currentTarget.href;
+    if (await validate()) {
+      const link = document.createElement('a');
+      link.href = href;
+      link.download = '';
+      document.body.append(link);
+      link.click();
+      link.remove();
+    }
+  }
   async function images() {
     setPageIndex(0);
     setBusy('images');
     setError('');
     try {
-      setResult(
-        await api<ImageExport>('/api/exports/images', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ date }),
-        }),
-      );
+      const value = await api<ImageExport>('/api/exports/images', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ date }),
+      });
+      if (alive.current) setResult(value);
     } catch (e) {
-      setError((e as Error).message);
+      if (alive.current) setError((e as Error).message);
     } finally {
-      setBusy('');
+      if (alive.current) setBusy('');
     }
   }
   async function archive() {
@@ -52,9 +81,9 @@ export function ExportDialog({ date, onClose }: { date: string; onClose: () => v
       a.click();
       a.remove();
     } catch (e) {
-      setError((e as Error).message);
+      if (alive.current) setError((e as Error).message);
     } finally {
-      setBusy('');
+      if (alive.current) setBusy('');
     }
   }
   return (
@@ -161,8 +190,9 @@ export function ExportDialog({ date, onClose }: { date: string; onClose: () => v
                   className="icon-button"
                   aria-label="上一张图片"
                   disabled={pageIndex === 0}
-                  onClick={() => {
-                    setPageIndex((i) => i - 1);
+                  onClick={async () => {
+                    if (!(await validate())) return;
+                    setPageIndex((i) => Math.max(0, i - 1));
                     previewRef.current?.scrollTo(0, 0);
                   }}
                 >
@@ -175,8 +205,9 @@ export function ExportDialog({ date, onClose }: { date: string; onClose: () => v
                   className="icon-button"
                   aria-label="下一张图片"
                   disabled={pageIndex === result.images.length - 1}
-                  onClick={() => {
-                    setPageIndex((i) => i + 1);
+                  onClick={async () => {
+                    if (!(await validate())) return;
+                    setPageIndex((i) => Math.min(result.images.length - 1, i + 1));
                     previewRef.current?.scrollTo(0, 0);
                   }}
                 >
@@ -184,11 +215,17 @@ export function ExportDialog({ date, onClose }: { date: string; onClose: () => v
                 </button>
               </nav>
             )}
-            <a className="primary full" href={`${result.images[pageIndex]}?download=1`} download>
+            <a
+              onClick={download}
+              className="primary full"
+              href={`${result.images[pageIndex]}?download=1`}
+              download
+            >
               <ArrowDownToLine size={18} />
               {result.images.length === 1 ? '下载图片' : '下载当前图片'}
             </a>
             <ShareButton
+              validate={validate}
               label={result.images.length === 1 ? '分享图片' : '分享当前图片'}
               resource={{
                 url: `${result.images[pageIndex]}?download=1`,
@@ -197,7 +234,7 @@ export function ExportDialog({ date, onClose }: { date: string; onClose: () => v
               }}
             />
             {result.images.length > 1 && (
-              <a href={result.archiveUrl} className="text-button full" download>
+              <a onClick={download} href={result.archiveUrl} className="text-button full" download>
                 <FolderArchive size={16} />
                 下载图片合集
               </a>
