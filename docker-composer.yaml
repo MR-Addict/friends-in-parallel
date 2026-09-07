@@ -1,0 +1,16 @@
+services:
+  app:
+    image: ${IMAGE:-mraddict063/friends-in-parallel:latest}
+    init: true
+    restart: unless-stopped
+    shm_size: 1gb
+    ports:
+      - '4500:4500'
+    environment:
+      PORT: '4500'
+      DATA_DIR: /data
+    volumes:
+      - parallel-data:/data
+
+volumes:
+  parallel-data:

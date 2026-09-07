@@ -20,24 +20,27 @@ RUN pnpm install --prod --frozen-lockfile
 FROM node:24-bookworm-slim AS runtime
 WORKDIR /app
 ENV NODE_ENV=production \
-    PORT=3000 \
     DATA_DIR=/data \
     PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 
 COPY --from=production-dependencies /app/node_modules ./node_modules
 COPY --from=production-dependencies /app/apps/server/node_modules ./apps/server/node_modules
 COPY --from=production-dependencies /app/apps/server/package.json ./apps/server/package.json
-COPY --from=build /app/apps/server/dist ./apps/server/dist
 
 # Match Chromium to the locked Playwright version and include Linux libraries.
-RUN node apps/server/node_modules/playwright/cli.js install --with-deps --only-shell chromium \
+RUN echo 'Acquire::Retries "3";' > /etc/apt/apt.conf.d/80-retries \
+    && node apps/server/node_modules/playwright/cli.js install --with-deps --only-shell chromium \
     && mkdir -p /data \
     && chown node:node /data \
     && chmod -R a+rX /ms-playwright \
     && rm -rf /var/lib/apt/lists/*
 
+# Keep browser installation cached when only application code or the port changes.
+COPY --from=build /app/apps/server/dist ./apps/server/dist
+ENV PORT=4500
+
 USER node
-EXPOSE 3000
+EXPOSE 4500
 VOLUME ["/data"]
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD node -e "fetch('http://127.0.0.1:' + process.env.PORT + '/', {signal: AbortSignal.timeout(3000)}).then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"

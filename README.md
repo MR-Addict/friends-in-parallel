@@ -14,9 +14,9 @@ pnpm setup:browser
 pnpm dev
 ```
 
-打开 [本地开发页面](http://localhost:5173)。前端端口为 5173，后端为 3000，开发代理已配置。手机与电脑处于同一网络时，可通过电脑的局域网 IP 加上 `:5173` 访问。
+打开 [本地开发页面](http://localhost:5173)。前端端口为 5173，后端为 4500，开发代理已配置。手机与电脑处于同一网络时，可通过电脑的局域网 IP 加上 `:5173` 访问。
 
-开发时后端默认使用 3000 端口；修改它时，需同步修改 Vite 的代理配置。
+开发时后端默认使用 4500 端口；修改它时，需同步修改 Vite 的代理配置。
 
 ### 构建与运行
 
@@ -25,7 +25,7 @@ pnpm build
 pnpm start
 ```
 
-打开 [生产模式页面](http://localhost:3000)。根目录构建命令先构建前端，再编译后端，后端构建自动把页面、贴纸、字体与配置复制到 `apps/server/dist`。构建顺序由 `scripts/build.ts` 管理，复制逻辑在 `scripts/copy-web.ts`，均由 tsx 执行，不引入额外 monorepo 构建工具。生产启动仍直接运行编译后的 JavaScript。
+打开 [生产模式页面](http://localhost:4500)。根目录构建命令先构建前端，再编译后端，后端构建自动把页面、贴纸、字体与配置复制到 `apps/server/dist`。构建顺序由 `scripts/build.ts` 管理，复制逻辑在 `scripts/copy-web.ts`，均由 tsx 执行，不引入额外 monorepo 构建工具。生产启动仍直接运行编译后的 JavaScript。
 
 Linux 服务器首次使用长图导出前，安装 Chromium 和所需系统依赖：
 
@@ -41,7 +41,7 @@ pnpm --filter @parallel/server exec playwright install --with-deps chromium
 PORT=8080 DATA_DIR=/absolute/path/to/parallel-data pnpm start
 ```
 
-- `PORT`：默认 3000。
+- `PORT`：默认 4500。
 - `DATA_DIR`：默认仓库根目录的 `data`。生产环境建议使用独立持久目录。
 - 一个 Node 进程负责所有请求，不使用多进程集群。由你选择的进程管理器保持运行即可。
 - 使用公网域名时，可在 Node 前配置 HTTPS 反向代理。上传请求体上限至少 21 MB，长图导出请求超时至少 120 秒。
@@ -54,12 +54,12 @@ PORT=8080 DATA_DIR=/absolute/path/to/parallel-data pnpm start
 docker build -t friends-in-parallel .
 docker run -d --name friends-in-parallel \
   --init --restart unless-stopped --shm-size=1g \
-  -p 3000:3000 \
+  -p 4500:4500 \
   --mount type=volume,source=parallel-data,target=/data \
   friends-in-parallel
 ```
 
-打开 [应用页面](http://localhost:3000)。如果本机 3000 端口已占用，可改为 `-p 8080:3000`，然后访问 8080 端口。
+打开 [应用页面](http://localhost:4500)。如果本机 4500 端口已占用，可改为 `-p 8080:4500`，然后访问 8080 端口。
 
 - 多阶段构建使用 pnpm 锁文件和 TypeScript 构建脚本；最终镜像包含编译后的后端、前端静态资源、生产依赖及匹配版本的 Chromium。
 - 以非 root 的 `node` 用户运行。`/data` 保存记录、照片与临时导出，命名卷在容器重建后继续保留。
@@ -68,6 +68,30 @@ docker run -d --name friends-in-parallel \
 - `.dockerignore` 排除本机依赖、构建产物、数据、环境文件和测试输出，避免将本地数据或配置打入镜像。
 
 如需使用宿主机目录代替命名卷，该目录必须允许容器中的 UID 1000 写入。备份前停止容器，再备份卷里的 `entries.json` 和 `uploads`。
+
+### Docker Compose
+
+`docker-composer.yaml` 使用工作流发布的 `mraddict063/friends-in-parallel:latest` 镜像，主机和容器均使用 4500 端口，并通过命名卷保存数据：
+
+```sh
+docker compose -f docker-composer.yaml pull
+docker compose -f docker-composer.yaml up -d
+```
+
+访问 [应用页面](http://localhost:4500)。更新镜像时重复以上两条命令。普通 `down` 会保留数据卷；不要加 `--volumes`，除非需要删除数据。
+
+如需运行本地构建的镜像：
+
+```sh
+docker build -t friends-in-parallel:local .
+IMAGE=friends-in-parallel:local docker compose -f docker-composer.yaml up -d --pull never
+```
+
+### 镜像发布工作流
+
+`.github/workflows/docker.yaml` 在 PR 中仅构建，不登录或推送 Docker Hub。推送到 `main` 或在 `main` 手动触发时，发布 AMD64 / ARM64 镜像 `mraddict063/friends-in-parallel:latest`；在其他分支手动触发只构建。
+
+仓库需要配置 `DOCKERHUB_TOKEN` secret，令牌必须能写入 `mraddict063/friends-in-parallel`。Docker actions 版本和工作区构建方式参考 [官方 build-push-action 文档](https://github.com/docker/build-push-action)。
 
 ## 使用方式
 
