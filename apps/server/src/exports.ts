@@ -14,7 +14,7 @@ export function exportFilename(date: string, kind: 'materials' | 'images' | 'ima
       : kind === 'images'
         ? '手账合集'
         : `手账-${String(page).padStart(2, '0')}`;
-  return `此刻同频-${date}-${label}.${kind === 'image' ? 'png' : 'zip'}`;
+  return `和朋友的同一时间-${date}-${label}.${kind === 'image' ? 'png' : 'zip'}`;
 }
 export interface SnapshotItem {
   entry: Entry;
@@ -33,7 +33,7 @@ const escape = (text: string) =>
 export async function snapshot(store: Store, date: string): Promise<SnapshotItem[]> {
   return store.exclusive(async () => {
     const entries = store.list(date);
-    if (!entries.length) throw new HttpError(400, '这一天还没有动态，先记下一刻吧');
+    if (!entries.length) throw new HttpError(400, '这一天还没动态，先冒个泡吧');
     entries.sort(
       (a, b) =>
         a.occurredAt.localeCompare(b.occurredAt) ||
@@ -227,7 +227,7 @@ export function partitionHourRows(
   return pages;
 }
 const exportStyles = `
-@font-face{font-family:Handbook;src:url('http://render.local/font.otf')}*{box-sizing:border-box}body{margin:0;background:#faf9f6;color:#292724;font-family:Handbook,sans-serif}.sheet{width:1080px;padding:48px;background:#faf9f6}.masthead{display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #e9e5df;padding-bottom:24px;margin-bottom:24px}h1{font-size:44px;margin:0 0 12px}.subtitle{font-size:22px;color:#716b65;margin:0}.date{font-size:26px;color:#716b65}.hour-title{height:84px;display:flex;align-items:center;justify-content:space-between;gap:16px;margin:0;font-size:30px}.hour-title span{font-size:18px;font-weight:400;color:#716b65}.hour-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;padding-bottom:24px;align-items:stretch}.card{min-width:0;padding:24px;background:#fff;border:2px solid #e9e5df;border-radius:18px}.person{display:flex;align-items:center;gap:10px;font-size:24px;margin-bottom:18px}.dot{width:12px;height:12px;border-radius:50%;flex-shrink:0}.time{margin-left:auto;font-size:20px;color:#716b65}.media{width:100%;height:auto;max-height:1300px;object-fit:contain;display:block;border-radius:12px}.sticker{width:120px;height:120px;object-fit:contain;display:block;margin:8px auto 18px}.description{font-size:24px;line-height:1.7;white-space:pre-wrap;overflow-wrap:anywhere;margin:18px 0 0}.credit{font-size:14px;color:#716b65;margin:16px 0 0}.footer{font-size:18px;text-align:center;color:#716b65;padding-top:18px}`;
+@font-face{font-family:Handbook;src:url('http://render.local/font.otf')}*{box-sizing:border-box}body{margin:0;background:#faf9f6;color:#292724;font-family:Handbook,sans-serif}.sheet{width:1080px;padding:48px;background:#faf9f6}.masthead{display:flex;justify-content:space-between;align-items:center;gap:24px;border-bottom:2px solid #e9e5df;padding-bottom:24px;margin-bottom:24px}h1{font-size:44px;margin:0 0 12px}.subtitle{font-size:22px;color:#716b65;margin:0}.date{flex-shrink:0;font-size:26px;color:#716b65}.hour-title{height:84px;display:flex;align-items:center;justify-content:space-between;gap:16px;margin:0;font-size:30px}.hour-title span{font-size:18px;font-weight:400;color:#716b65}.hour-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;padding-bottom:24px;align-items:stretch}.card{min-width:0;padding:24px;background:#fff;border:2px solid #e9e5df;border-radius:18px}.person{display:flex;align-items:center;gap:10px;font-size:24px;margin-bottom:18px}.dot{width:12px;height:12px;border-radius:50%;flex-shrink:0}.time{margin-left:auto;font-size:20px;color:#716b65}.media{width:100%;height:auto;max-height:1300px;object-fit:contain;display:block;border-radius:12px}.sticker{width:120px;height:120px;object-fit:contain;display:block;margin:8px auto 18px}.description{font-size:24px;line-height:1.7;white-space:pre-wrap;overflow-wrap:anywhere;margin:18px 0 0}.footer{font-size:18px;text-align:center;color:#716b65;padding-top:18px}`;
 function article(item: SnapshotItem, index: number) {
   return `<article class="card" data-entry-id="${escape(item.entry.id)}"><div class="person"><i class="dot" style="background:${item.person.color}"></i>${escape(item.person.nickname)}<time class="time">${beijingTime(item.entry.occurredAt)}</time></div><img alt="动态素材" class="${item.entry.media.type === 'photo' ? 'media' : 'sticker'}" src="http://render.local/image/${index}"/>${item.entry.description ? `<p class="description">${escape(item.entry.description)}</p>` : ''}</article>`;
 }
@@ -245,7 +245,6 @@ export function shareTemplate(
     const row = rows[index];
     if (previous !== row.hour) {
       if (previous) body += '</section>';
-      const credits = [...new Set(items.map((item) => item.credit).filter(Boolean))].join(' · ');
       const hourItems = items.filter((item) =>
         beijingTime(item.entry.occurredAt).startsWith(row.hour),
       );
@@ -256,8 +255,7 @@ export function shareTemplate(
     body += `<div class="hour-row">${row.indices.map((i) => article(items[i], i)).join('')}</div>`;
   }
   if (previous) body += '</section>';
-  const credits = [...new Set(items.map((item) => item.credit).filter(Boolean))].join(' · ');
-  return `<!doctype html><html lang="zh-CN"><meta charset="utf-8"><style>${exportStyles}</style><body><main class="sheet"><header class="masthead"><div><h1>此刻，同频</h1><p class="subtitle">同一小时，朋友们在做什么</p></div><div class="date">${date}<br><small>${new Set(items.map((i) => i.entry.personId)).size} 位朋友 · ${items.length} 条动态</small></div></header>${body}<footer class="footer">${page} / ${total}${credits ? `<p class="credit">${escape(credits)}</p>` : ''}</footer></main></body></html>`;
+  return `<!doctype html><html lang="zh-CN"><meta charset="utf-8"><style>${exportStyles}</style><body><main class="sheet"><header class="masthead"><div><h1>和朋友的同一时间</h1><p class="subtitle">同一时间，看看朋友们都在干嘛。</p></div><div class="date">${date}<br><small>${new Set(items.map((i) => i.entry.personId)).size} 位朋友 · ${items.length} 条动态</small></div></header>${body}<footer class="footer">${page} / ${total}</footer></main></body></html>`;
 }
 interface ImageExportResult {
   images: string[];

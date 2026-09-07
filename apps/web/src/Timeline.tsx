@@ -103,11 +103,13 @@ export function Timeline({
             <Users size={32} />
           </span>
           <h2>
-            {filter === 'all' ? '这一天还没有动态' : `${personOf(filter).nickname}这天还没有记录`}
+            {filter === 'all'
+              ? '朋友们还没冒泡，先来一条？'
+              : `${personOf(filter).nickname}这天还没冒泡`}
           </h2>
           <p>
             {date === today()
-              ? '一张照片，或一个表情，都值得留下。'
+              ? '放张照片，丢个表情，说说你在干嘛。'
               : '过去的小事，也可以慢慢补上。'}
           </p>
         </div>

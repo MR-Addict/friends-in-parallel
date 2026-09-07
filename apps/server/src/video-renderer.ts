@@ -27,7 +27,7 @@ export interface SceneEntry {
   continuation: number;
 }
 export interface VideoScene {
-  kind: 'title' | 'entry' | 'credits';
+  kind: 'title' | 'entry' | 'ending';
   title: string;
   text: string;
   duration: number;
@@ -55,8 +55,7 @@ const styles = `
 .media-box img{width:100%;height:100%;object-fit:contain}.media-box.sticker img{width:340px;height:340px}
 .copy{font-size:40px;line-height:1.6;white-space:pre-wrap;overflow-wrap:anywhere;margin:32px 0 0;max-height:576px}
 .continuation{font-size:24px;letter-spacing:3px;color:var(--accent);margin-top:20px}
-.bottom{position:absolute;bottom:64px;left:80px;right:80px;display:flex;justify-content:space-between;gap:20px;font-size:24px;color:var(--accent)}
-.hero{height:1470px;display:flex;flex-direction:column;justify-content:center;position:relative;padding:30px}.hero .eyebrow{font-size:28px;color:var(--accent);letter-spacing:8px;margin-bottom:36px}.hero h1{font-size:100px;line-height:1.45;letter-spacing:4px;white-space:pre-line;margin:0 0 44px;overflow-wrap:anywhere}.hero p{font-size:34px;line-height:1.9;white-space:pre-wrap;overflow-wrap:anywhere;margin:0}.hour .hero h1{font-size:150px}.credits .hero h1{font-size:68px}.credits .hero p{font-size:27px;line-height:1.8}.ornament{position:absolute;pointer-events:none;opacity:.16;width:560px;height:560px;border:2px solid var(--accent);border-radius:50%;right:-180px;top:260px}.ornament:after{content:'';position:absolute;inset:45px;border:2px solid var(--accent);border-radius:inherit}
+.hero{height:1470px;display:flex;flex-direction:column;justify-content:center;position:relative;padding:30px}.hero .eyebrow{font-size:28px;color:var(--accent);letter-spacing:8px;margin-bottom:36px}.hero h1{font-size:100px;line-height:1.45;letter-spacing:4px;white-space:pre-line;margin:0 0 44px;overflow-wrap:anywhere}.hero p{font-size:34px;line-height:1.9;white-space:pre-wrap;overflow-wrap:anywhere;margin:0}.hour .hero h1{font-size:150px}.ornament{position:absolute;pointer-events:none;opacity:.16;width:560px;height:560px;border:2px solid var(--accent);border-radius:50%;right:-180px;top:260px}.ornament:after{content:'';position:absolute;inset:45px;border:2px solid var(--accent);border-radius:inherit}
 .paper{background-image:repeating-linear-gradient(0deg,transparent,transparent 47px,#8f644b0b 48px)}.paper .card:before{content:'';position:absolute;width:220px;height:46px;background:#c9ac7799;top:-24px;left:calc(50% - 110px);transform:rotate(-3deg)}
 .minimal .card{border:0;border-radius:0;box-shadow:none;padding:44px 24px}.minimal .person{border-left:6px solid var(--accent);padding-left:24px}.minimal .hero{padding:0}.minimal .hero h1{font-size:112px;font-weight:400}.minimal .ornament{display:none}
 .forest .ornament{border-radius:0 100%;transform:rotate(30deg);background:#53795d22;right:-210px;top:40px}.forest .card{border-radius:100px 18px 100px 18px}.forest .rule{height:5px;width:120px}
@@ -113,8 +112,8 @@ export function videoTemplate(
             return `<article class="card" data-item-index="${entry.itemIndex}" style="left:${slot.x}px;top:${slot.y}px;width:${slot.width}px;height:${slot.height}px"><div class="person"><i style="background:${escape(item.person.color)}"></i><strong>${escape(item.person.nickname)}</strong><time>${beijingTime(item.entry.occurredAt)}</time></div><div class="media-box ${item.entry.media.type === 'photo' ? '' : 'sticker'}"><img src="http://render.local/image/${entry.itemIndex}" alt="动态素材"></div><p class="copy">${escape(entry.text)}</p>${entry.continuation ? `<div class="continuation">接着记录 · ${entry.continuation + 1}</div>` : ''}</article>`;
           })
           .join('')}</section>`
-      : `<section class="hero"><div class="eyebrow">${scene.kind === 'credits' ? '这一刻，我们同频' : '朋友们的一天'}</div><h1>${escape(scene.title)}</h1><p>${escape(scene.text)}</p></section>`;
-  return `<!doctype html><html lang="zh-CN"><meta charset="utf-8"><style>${styles}${collageStyles}</style><body><main class="frame ${style.id} ${scene.kind} ${scene.entries?.length === 1 ? 'single' : ''}" style="--bg:${style.background};--ink:${style.ink};--paper:${style.paper};--accent:${style.accent}"><div class="ornament"></div><header class="brand"><span>此刻，同频</span><span>${date}</span></header><div class="rule"></div>${body}<footer class="bottom"><span>${escape(style.name)}</span><span>${scene.kind === 'entry' ? '每个瞬间，都值得收藏' : '各自在生活，也在同频'}</span></footer></main></body></html>`;
+      : `<section class="hero"><div class="eyebrow">朋友们的一天</div><h1>${escape(scene.title)}</h1><p>${escape(scene.text)}</p></section>`;
+  return `<!doctype html><html lang="zh-CN"><meta charset="utf-8"><style>${styles}${collageStyles}</style><body><main class="frame ${style.id} ${scene.kind} ${scene.entries?.length === 1 ? 'single' : ''}" style="--bg:${style.background};--ink:${style.ink};--paper:${style.paper};--accent:${style.accent}"><div class="ornament"></div><header class="brand"><span>和朋友的同一时间</span><span>${date}</span></header><div class="rule"></div>${body}</main></body></html>`;
 }
 
 /** Check actual rendered geometry, including text, all cards and the footer safe area. */
@@ -213,7 +212,7 @@ export async function videoScenes(
   const scenes: VideoScene[] = [
     {
       kind: 'title',
-      title: '此刻，\n同频',
+      title: '和朋友的\n同一时间',
       text: `${date}\n${new Set(items.map((item) => item.entry.personId)).size} 位朋友 · ${items.length} 个瞬间`,
       duration: 2,
     },
@@ -314,26 +313,11 @@ export async function videoScenes(
       scenes.push({ ...scene, pageNumber: i + 1, pageCount: pages.length }),
     );
   }
-  const assetCredits = [...new Set(items.map((item) => item.credit).filter(Boolean))];
-  const lines = ['谢谢你，分享今天。', '', ...assetCredits];
-  if (assetCredits.some((credit) => credit.includes('Twemoji')))
-    lines.push('Twemoji: creativecommons.org/licenses/by/4.0/');
-  if (assetCredits.some((credit) => credit.includes('OpenMoji')))
-    lines.push('OpenMoji: creativecommons.org/licenses/by-sa/4.0/');
-  if (music)
-    lines.push(
-      '',
-      music.title,
-      'Kevin MacLeod (incompetech.com)',
-      'CC BY 4.0',
-      'https://creativecommons.org/licenses/by/4.0/',
-      '音乐已裁剪 / 循环、调整响度并淡入淡出',
-    );
   scenes.push({
-    kind: 'credits',
-    title: '把今天，\n留给未来。',
-    text: lines.join('\n'),
-    duration: Math.max(5, Math.ceil(lines.length / 2)),
+    kind: 'ending',
+    title: '今天先到这儿',
+    text: '明天接着冒泡。',
+    duration: 2,
   });
   return scenes;
 }

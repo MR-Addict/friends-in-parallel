@@ -48,6 +48,7 @@ for (const width of [375, 430, 1100]) {
     expect(labels).toEqual(['生成手账长图', '生成回忆视频', '下载素材 ZIP']);
     await page.getByRole('button', { name: /生成回忆视频/ }).click();
     await expect(page.locator('.video-style-option')).toHaveCount(12);
+    await expect(page.getByRole('dialog')).not.toContainText(/Kevin MacLeod|CC BY|署名|许可/);
     await expect(page.getByLabel('背景音乐', { exact: true }).locator('option')).toHaveCount(25);
     await expect(page.getByRole('button', { name: '开始生成视频' })).toBeInViewport();
     await page.screenshot({ path: `test-results/video-options-${width}.png` });
@@ -94,6 +95,9 @@ for (const width of [375, 430, 1100]) {
       .poll(() => video.evaluate((node: HTMLVideoElement) => node.currentTime))
       .toBeGreaterThanOrEqual(5);
     await video.evaluate((node: HTMLVideoElement) => node.pause());
+    await expect(page.getByRole('dialog')).not.toContainText(
+      /拍立得相册|Kevin MacLeod|CC BY|署名|许可/,
+    );
     await page.screenshot({ path: `test-results/video-ready-${width}.png` });
     await expect(page.getByRole('link', { name: '下载视频' })).toHaveCount(0);
     await expect(page.getByRole('button', { name: '分享视频' })).toHaveClass(/primary/);
@@ -103,7 +107,7 @@ for (const width of [375, 430, 1100]) {
       await page.getByRole('button', { name: '分享视频' }).click();
     await expect
       .poll(() => page.evaluate(() => (window as any).sharedVideo))
-      .toBe(`此刻同频-${date}-回忆视频-拍立得相册.mp4`);
+      .toBe(`和朋友的同一时间-${date}-回忆视频.mp4`);
     await page.getByRole('button', { name: '修改样式与音乐' }).click();
     await expect(page.getByLabel('背景音乐', { exact: true })).toHaveValue('none');
   });

@@ -192,7 +192,7 @@ export function ExportDialog({ date, onClose }: { date: string; onClose: () => v
               label={result.images.length === 1 ? '分享图片' : '分享当前图片'}
               resource={{
                 url: `${result.images[pageIndex]}?download=1`,
-                filename: `此刻同频-${date}-手账-${String(pageIndex + 1).padStart(2, '0')}.png`,
+                filename: `和朋友的同一时间-${date}-手账-${String(pageIndex + 1).padStart(2, '0')}.png`,
                 mime: 'image/png',
               }}
             />

@@ -43,14 +43,14 @@ export function notificationHtml(entry: Entry, siteUrl?: string) {
   }
   return [
     '<div style="max-width:480px;margin:0 auto;padding:20px;color:#443d35;background:#fffaf2;font-family:sans-serif;line-height:1.7">',
-    '<p style="color:#87796a;font-size:13px;margin:0">此刻，同频</p>',
+    '<p style="color:#87796a;font-size:13px;margin:0">和朋友的同一时间</p>',
     `<h2 style="font-size:20px;margin:8px 0">${nickname}发布了一条新动态</h2>`,
     `<p style="color:#87796a;font-size:13px">${beijingDate(entry.occurredAt)} ${beijingTime(entry.occurredAt)} · 北京时间</p>`,
     media,
     `<p style="overflow-wrap:anywhere">${preview || '分享了一个日常瞬间。'}</p>`,
     base
       ? `<p><a href="${escapeHtml(base.href)}" style="color:#91623f;text-decoration:underline;font-weight:bold">打开手账，查看完整动态 →</a></p>`
-      : '<p>打开「此刻，同频」查看完整动态。</p>',
+      : '<p>打开「和朋友的同一时间」查看完整动态。</p>',
     `<p style="color:#a3978b;font-size:11px">动态编号：${escapeHtml(entry.id)}</p>`,
     '</div>',
   ].join('\n');

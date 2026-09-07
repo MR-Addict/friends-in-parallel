@@ -107,7 +107,7 @@ test.beforeEach(async ({ context, page }) => {
       contentType: 'image/png',
       body: 'image-content',
       headers: {
-        'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(`此刻同频-${date}-手账-01.png`)}`,
+        'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(`和朋友的同一时间-${date}-手账-01.png`)}`,
       },
     }),
   );
@@ -139,7 +139,11 @@ for (const width of [375, 430]) {
       .toEqual([
         {
           files: [
-            { name: `此刻同频-${date}-手账-01.png`, type: 'image/png', body: 'image-content' },
+            {
+              name: `和朋友的同一时间-${date}-手账-01.png`,
+              type: 'image/png',
+              body: 'image-content',
+            },
           ],
         },
       ]);
@@ -246,7 +250,7 @@ test('paginated image and collection share use current resource', async ({ page 
   await page.getByRole('button', { name: '分享当前图片' }).click();
   await expect
     .poll(async () => (await calls(page))[0]?.files[0])
-    .toEqual({ name: `此刻同频-${date}-手账-02.png`, type: 'image/png', body: 'page2' });
+    .toEqual({ name: `和朋友的同一时间-${date}-手账-02.png`, type: 'image/png', body: 'page2' });
   await expect(page.getByRole('button', { name: '分享图片合集' })).toHaveCount(0);
   await expect(page.getByRole('link', { name: '下载图片合集' })).toBeVisible();
 });
@@ -320,7 +324,7 @@ test('video file shares with server filename and disappears after expiry', async
       contentType: 'video/mp4',
       body: 'video-content',
       headers: {
-        'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(`此刻同频-${date}-回忆视频-手账.mp4`)}`,
+        'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(`和朋友的同一时间-${date}-回忆视频.mp4`)}`,
       },
     }),
   );
@@ -343,7 +347,7 @@ test('video file shares with server filename and disappears after expiry', async
   await expect
     .poll(async () => (await calls(page))[0]?.files[0])
     .toEqual({
-      name: `此刻同频-${date}-回忆视频-手账.mp4`,
+      name: `和朋友的同一时间-${date}-回忆视频.mp4`,
       type: 'video/mp4',
       body: 'video-content',
     });
@@ -385,7 +389,7 @@ test('sticker shares original SVG with its MIME type', async ({ page }) => {
   await expect
     .poll(async () => (await calls(page))[0]?.files[0])
     .toEqual({
-      name: `此刻同频-${date}-14-30-表情.svg`,
+      name: `和朋友的同一时间-${date}-14-30-表情.svg`,
       type: 'image/svg+xml',
       body: '<svg xmlns="http://www.w3.org/2000/svg"/>',
     });

@@ -66,7 +66,7 @@ export class VideoExports {
     musicId: unknown,
   ): Promise<VideoExportJob> {
     this.prune();
-    if (!items.length) throw new HttpError(400, '这一天还没有动态，先记下一刻吧');
+    if (!items.length) throw new HttpError(400, '这一天还没动态，先冒个泡吧');
     const { style, music } = videoSelection(styleId, musicId);
     const [font, audio, ...sources] = await Promise.all([
       readFile(path.join(publicDir, 'fonts/NotoSansCJKsc-Regular.otf')),
@@ -148,8 +148,8 @@ export class VideoExports {
             key,
             date,
             {
-              'video.mp4': `此刻同频-${date}-回忆视频-${style.name}.mp4`,
-              'cover.jpg': `此刻同频-${date}-视频封面.jpg`,
+              'video.mp4': `和朋友的同一时间-${date}-回忆视频.mp4`,
+              'cover.jpg': `和朋友的同一时间-${date}-视频封面.jpg`,
             },
             (expiresAt): VideoExportResult => ({
               videoUrl: `/api/exports/files/${work.token}/video.mp4`,

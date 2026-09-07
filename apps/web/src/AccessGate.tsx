@@ -54,7 +54,7 @@ export function AccessGate({ children }: { children: ReactNode }) {
   return (
     <main className="access-shell">
       <a className="brand" href="/">
-        此刻，同频
+        和朋友的同一时间
       </a>
       <section className="access-card">
         <span className="access-symbol">
@@ -62,7 +62,7 @@ export function AccessGate({ children }: { children: ReactNode }) {
         </span>
         <p className="access-eyebrow">朋友们的平行生活手账</p>
         <h1>对个暗号，再一起翻开。</h1>
-        <p className="muted">各自生活，也在一起。</p>
+        <p className="muted">同一时间，看看朋友们都在干嘛。</p>
         {accessCode ? (
           <form onSubmit={unlock}>
             <label className="field-label" htmlFor="access-code">

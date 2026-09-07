@@ -221,7 +221,7 @@ export function VideoStep({ date, onBack }: { date: string; onBack: () => void }
               onError={() => setError('视频暂时无法播放，可能已过期，请重新生成')}
             />
             <p className="small-note">
-              {style?.name} · {durationLabel(job.result.duration)} · {selected?.title || '无音乐'}
+              {durationLabel(job.result.duration)} · {selected?.title || '无音乐'}
               <br />
               有效期至{' '}
               {new Date(job.result.expiresAt).toLocaleString('zh-CN', {
@@ -293,7 +293,7 @@ export function VideoStep({ date, onBack }: { date: string; onBack: () => void }
                         } as CSSProperties
                       }
                     >
-                      <span>此刻，同频</span>
+                      <span>和朋友的同一时间</span>
                       <div className="thumb-card">
                         <i />
                         <b>今天的小小日常</b>
@@ -343,21 +343,6 @@ export function VideoStep({ date, onBack }: { date: string; onBack: () => void }
                   {playing ? '停止' : '试听'}
                 </button>
               </div>
-              {selected && (
-                <p className="video-credit">
-                  {selected.title} · {durationLabel(selected.duration)}
-                  <br />
-                  <a href={selected.source} target="_blank" rel="noreferrer">
-                    Kevin MacLeod / Incompetech
-                  </a>{' '}
-                  ·{' '}
-                  <a href={selected.licenseUrl} target="_blank" rel="noreferrer">
-                    {selected.license}
-                  </a>
-                  <br />
-                  音乐会自动适配视频长度，署名保留在片尾。
-                </p>
-              )}
             </fieldset>
           </>
         )}
@@ -376,7 +361,7 @@ export function VideoStep({ date, onBack }: { date: string; onBack: () => void }
                 variant="primary"
                 resource={{
                   url: `${job.result.videoUrl}?download=1`,
-                  filename: `此刻同频-${date}-回忆视频-${style?.name || '回忆'}.mp4`,
+                  filename: `和朋友的同一时间-${date}-回忆视频.mp4`,
                   mime: 'video/mp4',
                 }}
               />

@@ -1,3 +1,5 @@
+import people from '../../apps/web/src/config/people.json' with { type: 'json' };
+const testNickname = people.find((person) => person.id === 'lu-yuhan')!.nickname;
 import { test, expect } from '@playwright/test';
 // Feature tests start with an existing access cookie; access.spec.ts covers the gate itself.
 test.beforeEach(async ({ context }) => {
@@ -24,25 +26,17 @@ test('Mobile two-step publishing, preserving form, all packs, edit/delete and ex
   await page.goto('/');
   await page.evaluate(() => document.fonts.ready);
   await expect(page.getByRole('navigation', { name: '页面切换' })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: '前一天', exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: '后一天', exact: true })).toBeDisabled();
-  await expect(page.getByRole('button', { name: '回到今天', exact: true })).toBeDisabled();
   const initialDate = await page.getByLabel('选择日期').inputValue();
   await page.getByLabel('选择日期').fill('2026-08-29');
-  await page.getByRole('button', { name: '前一天', exact: true }).click();
-  await expect(page.getByLabel('选择日期')).toHaveValue('2026-08-28');
-  await page.getByRole('button', { name: '后一天', exact: true }).click();
   await expect(page.getByLabel('选择日期')).toHaveValue('2026-08-29');
-  await page.getByRole('button', { name: '回到今天', exact: true }).click();
-  await expect(page.getByLabel('选择日期')).toHaveValue(initialDate);
   await page.getByLabel('选择日期').fill(initialDate);
   await expect(page.getByLabel('选择日期')).toHaveValue(initialDate);
-  await expect(page.getByRole('heading', { name: '此刻，同频' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '和朋友的同一时间' })).toBeVisible();
   await expect(page.locator('.floating-create')).toBeInViewport();
   await page.screenshot({ path: 'test-results/home-375.png', fullPage: true });
   await page.locator('.floating-create').click();
-  await expect(page.getByRole('dialog', { name: '这一刻，属于谁' })).toBeVisible();
-  await page.getByRole('dialog').getByRole('button', { name: '陆语涵', exact: true }).click();
+  await expect(page.getByRole('dialog', { name: '谁来冒个泡？' })).toBeVisible();
+  await page.getByRole('dialog').getByRole('button', { name: testNickname, exact: true }).click();
   await page.getByRole('button', { name: '下一步' }).click();
   await page.getByLabel('想说的话').fill('和朋友们在同一天，收集一个小小的开心。');
   await page.getByLabel('发生的时间').fill(time);
@@ -63,7 +57,7 @@ test('Mobile two-step publishing, preserving form, all packs, edit/delete and ex
   await expect(page.getByRole('button', { name: '贴纸', exact: true })).toHaveCount(0);
   await page.screenshot({ path: 'test-results/composer-375.png', fullPage: true });
   await page.getByRole('button', { name: '发布' }).click();
-  await expect(page.getByRole('heading', { name: '此刻，同频' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '和朋友的同一时间' })).toBeVisible();
   await expect(page.getByLabel('选择日期')).toHaveValue('2026-08-29');
   await expect(page.getByText('和朋友们在同一天，收集一个小小的开心。')).toBeVisible();
   await page.screenshot({ path: 'test-results/timeline-375.png', fullPage: true });
@@ -99,7 +93,7 @@ test('Mobile two-step publishing, preserving form, all packs, edit/delete and ex
   await expect(page.getByRole('link', { name: '下载图片', exact: true })).toBeInViewport();
   const pngDownload = page.waitForEvent('download');
   await page.getByRole('link', { name: '下载图片', exact: true }).click();
-  expect((await pngDownload).suggestedFilename()).toBe('此刻同频-2026-08-29-手账-01.png');
+  expect((await pngDownload).suggestedFilename()).toBe('和朋友的同一时间-2026-08-29-手账-01.png');
   await page.screenshot({ path: 'test-results/export-375.png', fullPage: true });
   await page.getByRole('button', { name: '返回导出选项' }).click();
   let archiveDownloads = 0;
@@ -161,22 +155,22 @@ test('Mobile two-step publishing, preserving form, all packs, edit/delete and ex
   const downloadPromise = page.waitForEvent('download');
   await page.getByRole('button', { name: '下载压缩包', exact: true }).click();
   const download = await downloadPromise;
-  expect(download.suggestedFilename()).toBe('此刻同频-2026-08-29-素材包.zip');
+  expect(download.suggestedFilename()).toBe('和朋友的同一时间-2026-08-29-素材包.zip');
   await page.getByRole('button', { name: '关闭', exact: true }).click();
-  await page.getByRole('button', { name: /更多操作：陆语涵/ }).click();
-  await page.getByRole('button', { name: /编辑陆语涵/ }).click();
+  await page.getByRole('button', { name: new RegExp(`更多操作：${testNickname}`) }).click();
+  await page.getByRole('button', { name: new RegExp(`编辑${testNickname}`) }).click();
   await page.getByLabel('想说的话').fill('修改后的记录');
   await page.getByRole('button', { name: '保存修改' }).click();
   await expect(page.getByText('修改后的记录')).toBeVisible();
   await page.reload();
   await page.getByLabel('选择日期').fill('2026-08-29');
   await expect(page.getByText('修改后的记录')).toBeVisible();
-  await page.getByRole('button', { name: /更多操作：陆语涵/ }).click();
-  await page.getByRole('button', { name: /删除陆语涵/ }).click();
+  await page.getByRole('button', { name: new RegExp(`更多操作：${testNickname}`) }).click();
+  await page.getByRole('button', { name: new RegExp(`删除${testNickname}`) }).click();
   await page.getByRole('button', { name: '再想想' }).click();
   await expect(page.getByText('修改后的记录')).toBeVisible();
-  await page.getByRole('button', { name: /更多操作：陆语涵/ }).click();
-  await page.getByRole('button', { name: /删除陆语涵/ }).click();
+  await page.getByRole('button', { name: new RegExp(`更多操作：${testNickname}`) }).click();
+  await page.getByRole('button', { name: new RegExp(`删除${testNickname}`) }).click();
   await page.getByRole('button', { name: '确认删除' }).click();
   await expect(page.getByText('修改后的记录')).toHaveCount(0);
   await page.setViewportSize({ width: 430, height: 932 });
@@ -246,17 +240,18 @@ test('Backend PNG is 1080px, wraps safely and paginates long days; every archive
   expect(await page.locator('.export-preview-scroll').evaluate((el) => el.scrollTop)).toBe(0);
   const currentDownload = page.waitForEvent('download');
   await downloadLink.click();
-  expect((await currentDownload).suggestedFilename()).toBe(`此刻同频-${date}-手账-02.png`);
+  expect((await currentDownload).suggestedFilename()).toBe(`和朋友的同一时间-${date}-手账-02.png`);
   const imageZipPromise = page.waitForEvent('download');
   await page.getByRole('link', { name: '下载图片合集', exact: true }).click();
   const imageZip = await imageZipPromise;
-  expect(imageZip.suggestedFilename()).toBe(`此刻同频-${date}-手账合集.zip`);
+  expect(imageZip.suggestedFilename()).toBe(`和朋友的同一时间-${date}-手账合集.zip`);
   const { readFile } = await import('node:fs/promises');
   const { unzipSync } = await import('fflate');
   const imageFiles = unzipSync(new Uint8Array(await readFile((await imageZip.path())!)));
   expect(Object.keys(imageFiles).filter((name) => name.endsWith('.png'))).toEqual(
     preview.images.map(
-      (_: string, i: number) => `此刻同频-${date}-手账-${String(i + 1).padStart(2, '0')}.png`,
+      (_: string, i: number) =>
+        `和朋友的同一时间-${date}-手账-${String(i + 1).padStart(2, '0')}.png`,
     ),
   );
   await page.screenshot({ path: 'test-results/export-paginated-430.png' });
@@ -301,7 +296,7 @@ test('Photo upload retains input after a failed request; posting resets a differ
   await page.locator('.floating-create').click();
   await expect(page.getByLabel('发生的时间')).toHaveValue(/2026-08-27T/);
   await page.getByRole('button', { name: /换一位朋友/ }).click();
-  await page.getByRole('dialog').getByRole('button', { name: '陆语涵', exact: true }).click();
+  await page.getByRole('dialog').getByRole('button', { name: testNickname, exact: true }).click();
   await page.getByRole('button', { name: '下一步' }).click();
   await page.getByRole('button', { name: '表情', exact: true }).click();
   await page.getByRole('button', { name: '选择表情', exact: true }).click();
@@ -343,23 +338,23 @@ test('Legacy emoji editing, picker cancellation and small viewport preserve the 
     { x: 8, y: 8 },
   ]) {
     await card.click({ position });
-    await expect(page.getByRole('dialog', { name: '陆语涵 · 10:00' })).toBeVisible();
+    await expect(page.getByRole('dialog', { name: `${testNickname} · 10:00` })).toBeVisible();
     await expect(page.getByRole('dialog').getByText('旧表情记录')).toBeVisible();
     await page.getByRole('button', { name: '关闭', exact: true }).click();
   }
   await card.getByRole('button', { name: '查看😊', exact: true }).focus();
   await page.keyboard.press('Enter');
-  await expect(page.getByRole('dialog', { name: '陆语涵 · 10:00' })).toBeVisible();
+  await expect(page.getByRole('dialog', { name: `${testNickname} · 10:00` })).toBeVisible();
   await page.getByRole('button', { name: '关闭', exact: true }).click();
   const exported = await request.get('/api/exports/archive?date=2026-08-26');
   expect(exported.status()).toBe(200);
   const { unzipSync } = await import('fflate');
   const files = unzipSync(new Uint8Array(await exported.body()));
   expect(Object.keys(files).some((name) => name.endsWith('.png'))).toBe(true);
-  await page.getByRole('button', { name: /更多操作：陆语涵/ }).click();
+  await page.getByRole('button', { name: new RegExp(`更多操作：${testNickname}`) }).click();
   await expect(page.getByRole('dialog')).toHaveCount(1);
   await expect(page.getByRole('dialog', { name: '动态操作' })).toBeVisible();
-  await page.getByRole('button', { name: /编辑陆语涵/ }).click();
+  await page.getByRole('button', { name: new RegExp(`编辑${testNickname}`) }).click();
   const originalSrc = await page.locator('.selected-media img').getAttribute('src');
   await page.getByRole('button', { name: '更换表情', exact: true }).click();
   await page.getByRole('button', { name: '线条涂鸦', exact: true }).click();
@@ -534,7 +529,9 @@ test('Calendar marks recorded days, supports leap months, and retries failed cou
     await page.getByRole('button', { name: '下个月', exact: true }).click();
     await expect(page.getByLabel('选择月份')).toHaveValue('2024-03');
     await page.getByRole('dialog').getByRole('button', { name: '回到今天', exact: true }).click();
-    await expect(page.getByRole('button', { name: '后一天', exact: true })).toBeDisabled();
+    await expect(page.getByLabel('选择日期')).toHaveValue(
+      (await page.getByLabel('选择日期').getAttribute('max'))!,
+    );
   } finally {
     await request.delete('/api/entries/' + entry.id);
   }
@@ -556,4 +553,27 @@ test('Draft undo expires and does not overwrite new writing', async ({ page }) =
   await page.getByLabel('想说的话').fill('新写的内容');
   await expect(page.getByRole('button', { name: '撤销清空', exact: true })).toHaveCount(0);
   await expect(page.getByLabel('想说的话')).toHaveValue('新写的内容');
+});
+
+test('new brand fits mobile and all credits live in the home acknowledgements', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 320, height: 740 });
+  await page.goto('/');
+  await expect(page).toHaveTitle(/和朋友的同一时间/);
+  await expect(
+    page.getByRole('heading', { name: '和朋友的同一时间首页', exact: true }),
+  ).toBeVisible();
+  await expect(page.locator('body')).not.toContainText(/©|CC BY|Kevin MacLeod/);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: 'test-results/brand-320.png', fullPage: true });
+  await page.getByRole('button', { name: '素材鸣谢' }).click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toContainText('和朋友的同一时间 ©');
+  await expect(dialog).toContainText('Fluent Emoji');
+  await expect(dialog).toContainText('Twemoji');
+  await expect(dialog).toContainText('OpenMoji');
+  await expect(dialog).toContainText('Noto Sans CJK');
+  await expect(dialog.getByRole('link', { name: /Kevin MacLeod/ })).toHaveCount(24);
+  await expect(dialog.getByRole('link', { name: '完整音乐许可与来源' })).toBeVisible();
 });

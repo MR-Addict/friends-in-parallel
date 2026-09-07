@@ -1,3 +1,4 @@
+import { personById } from '../apps/server/src/config.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, rm, readFile, access, writeFile, readdir, mkdir } from 'node:fs/promises';
@@ -206,12 +207,12 @@ test('Stored photo bytes survive export, retained-photo edits work, replacement 
       mediaType: string;
     }[];
     assert.equal(manifest.length, 4);
-    assert.equal(manifest[0].nickname, '陆语涵');
+    assert.equal(manifest[0].nickname, personById('lu-yuhan').nickname);
     assert.ok(manifest.every((item) => contents[item.path]));
     assert.ok(manifest.every((item) => !item.path.includes('_')));
     assert.ok(contents['licenses/openmoji.txt']);
     const csv = strFromU8(contents['manifest.csv']);
-    assert.ok(csv.includes('陆语涵'));
+    assert.ok(csv.includes(personById('lu-yuhan').nickname));
     assert.ok(csv.includes('保留原图'));
     assert.deepEqual(
       Buffer.from(contents[manifest.find((item) => item.mediaType === 'photo')!.path]),

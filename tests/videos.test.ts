@@ -22,7 +22,7 @@ import {
   measureVideoScene,
 } from '../apps/server/src/video-renderer.js';
 import { publicDir } from '../apps/server/src/config.js';
-import { snapshot, ImageExports } from '../apps/server/src/exports.js';
+import { snapshot, ImageExports, shareTemplate, hourRows } from '../apps/server/src/exports.js';
 import { optimizePhoto } from '../apps/server/src/photos.js';
 import { createApp } from '../apps/server/src/app.js';
 import { Store } from '../apps/server/src/store.js';
@@ -134,6 +134,30 @@ test('video layouts preserve 500 characters, blank lines, emoji and all media wi
   });
   for (const style of videoStyles) {
     const scenes = await videoScenes(page, f.items, date, style, videoMusic[0]);
+    assert.deepEqual(scenes.at(-1), {
+      kind: 'ending',
+      title: '今天先到这儿',
+      text: '明天接着冒泡。',
+      duration: 2,
+    });
+    await loadVideoScene(page, scenes.at(-1)!, f.items, date, style);
+    assert.ok((await measureVideoScene(page)).fits, `${style.id}: ending must fit`);
+    await loadVideoScene(page, scenes[0], f.items, date, style);
+    assert.ok((await measureVideoScene(page)).fits, `${style.id}: title must fit`);
+    const brandFits = await page.locator('.brand').evaluate((node) => {
+      const [name, date] = Array.from(node.children).map((child) => child.getBoundingClientRect());
+      return name.right <= date.left;
+    });
+    assert.ok(brandFits, `${style.id}: brand and date must not overlap`);
+    for (const scene of scenes) {
+      const html = videoTemplate(scene, f.items, date, style);
+      assert.ok(html.includes('和朋友的同一时间'));
+      assert.ok(!html.includes(style.name));
+      assert.doesNotMatch(
+        html,
+        /Kevin MacLeod|creativecommons.org|CC BY|Twemoji|OpenMoji|音乐已裁剪/,
+      );
+    }
     const entries = scenes.filter((scene) => scene.kind === 'entry');
     assert.ok(entries.length > 1);
     assert.equal(
@@ -174,6 +198,18 @@ test('video layouts preserve 500 characters, blank lines, emoji and all media wi
   }
   f.items[0].entry.description = '字'.repeat(500);
   const long = await videoScenes(page, f.items, date, videoStyles[0]);
+  assert.equal(long.at(-1)?.kind, 'ending');
+  const rows = hourRows(f.items);
+  const html = shareTemplate(
+    f.items,
+    rows,
+    rows.map((_, i) => i),
+    date,
+    1,
+    1,
+  );
+  assert.ok(html.includes('和朋友的同一时间'));
+  assert.doesNotMatch(html, /CC BY|Twemoji|OpenMoji|class="credit"/);
   assert.equal(
     long
       .flatMap((scene) => scene.entries || [])
@@ -200,7 +236,7 @@ test('real MP4 exports deduplicate, survive restart, expose ranged downloads and
     (e: HttpError) => e.status === 429,
   );
   const done = await complete(videos, a.jobId);
-  assert.ok(done.result!.duration > 10);
+  assert.equal(done.result!.duration, 9);
   assert.deepEqual(
     await new VideoExports(new ExportCache(f.dir)).start(f.items, date, 'paper', 'carefree'),
     done,
@@ -343,7 +379,7 @@ test('short background music loops through the full video, and the final audio m
       await readFile(path.join(publicDir, 'fonts/NotoSansCJKsc-Regular.otf')),
       () => {},
     );
-    assert.ok(result.duration > 10);
+    assert.equal(result.duration, 9);
     const info = JSON.parse(
       await videoProcess(
         'ffprobe',

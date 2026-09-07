@@ -996,9 +996,6 @@ textarea {
     max-height: var(--viewport-height, 100dvh);
     border-radius: 20px 20px 0 0;
   }
-  .sheet-inner {
-    max-height: var(--viewport-height, 100dvh);
-  }
   .export-result-modal .sheet-inner {
     height: var(--viewport-height, 100dvh);
   }
@@ -1618,16 +1615,6 @@ textarea {
   border-radius: 8px;
   padding: 8px;
   font-size: 12px;
-}
-.video-credit {
-  color: var(--muted);
-  font-size: 11px;
-  line-height: 1.9;
-  margin: 10px 0 0;
-  overflow-wrap: anywhere;
-}
-.video-credit a {
-  text-decoration: underline;
 }
 .video-player {
   display: block;

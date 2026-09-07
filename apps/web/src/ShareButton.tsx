@@ -18,7 +18,7 @@ export function entryShare(entry: Entry) {
     resource: url
       ? {
           url,
-          filename: `此刻同频-${localTime(entry.occurredAt).replace('T', '-').replace(':', '-')}-${entry.media.type === 'photo' ? '照片' : '表情'}.${extension}`,
+          filename: `和朋友的同一时间-${localTime(entry.occurredAt).replace('T', '-').replace(':', '-')}-${entry.media.type === 'photo' ? '照片' : '表情'}.${extension}`,
           mime:
             entry.media.type === 'photo'
               ? entry.media.mime

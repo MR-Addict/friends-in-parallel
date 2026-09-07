@@ -4,6 +4,7 @@ import { DateCalendar } from './DateCalendar';
 import { Composer } from './Composer';
 import { Timeline } from './Timeline';
 import { ExportDialog } from './ExportDialog';
+import videoMusic from './config/video-music.json';
 import { Modal } from './Modal';
 import { api, today, dateOf, type Entry } from './lib';
 export default function App() {
@@ -57,7 +58,7 @@ export default function App() {
     setDate(dateOf(entry.occurredAt));
     setFocusId(entry.id);
     setRevision((n) => n + 1);
-    setToast(composer?.entry ? '修改已保存' : '这一刻，记下了');
+    setToast(composer?.entry ? '修改已保存' : '冒泡成功，朋友们看得到啦');
   }
   async function remove() {
     if (!deleteEntry) return;
@@ -80,11 +81,11 @@ export default function App() {
         <header className="brand-header">
           <div className="brand-copy">
             <h1>
-              <a className="brand" href="/" aria-label="此刻，同频首页">
-                此刻，同频
+              <a className="brand" href="/" aria-label="和朋友的同一时间首页">
+                和朋友的同一时间
               </a>
             </h1>
-            <p>各自生活，也在一起。</p>
+            <p>同一时间，看看朋友们都在干嘛。</p>
           </div>
           <div className="header-actions">
             <label className="date-picker compact-date-picker" title={date}>
@@ -147,17 +148,16 @@ export default function App() {
           focusId={focusId}
         />
         <footer className="app-footer">
-          <span>此刻，同频 © {today().slice(0, 4)}</span>
           <button onClick={() => setCredits(true)}>素材鸣谢</button>
         </footer>
       </main>
       <button
         className="floating-create"
-        aria-label={date === today() ? '记下一刻' : '补记这一天'}
+        aria-label={date === today() ? '冒个泡' : '补个泡'}
         onClick={() => setComposer({})}
       >
         <Plus size={20} />
-        {date === today() ? '记下一刻' : '补记这一天'}
+        {date === today() ? '冒个泡' : '补个泡'}
       </button>
       {calendarOpen && (
         <DateCalendar
@@ -203,7 +203,8 @@ export default function App() {
       {credits && (
         <Modal title="让日常更可爱的朋友们" onClose={() => setCredits(false)}>
           <div className="credits">
-            <p>本项目使用以下开源素材，图片未经修改。</p>
+            <p>和朋友的同一时间 © {today().slice(0, 4)}</p>
+            <p>谢谢这些让日常更可爱的小伙伴！以下开源图片未经修改。</p>
             <a href="https://github.com/microsoft/fluentui-emoji" target="_blank" rel="noreferrer">
               Fluent Emoji · © Microsoft
             </a>
@@ -218,6 +219,20 @@ export default function App() {
             <a href="/licenses/openmoji.txt">CC BY-SA 4.0 许可</a>
             <p>Noto Sans CJK · © The Noto Project Authors</p>
             <a href="/licenses/font.txt">SIL Open Font License 1.1</a>
+            <h3>陪我们冒泡的音乐</h3>
+            <p>音乐会按视频长度裁剪或循环，调整响度并淡入淡出。</p>
+            {videoMusic.map((music) => (
+              <div key={music.id}>
+                <a href={music.source} target="_blank" rel="noreferrer">
+                  {music.title} · {music.artist} / Incompetech
+                </a>
+                {' · '}
+                <a href={music.licenseUrl} target="_blank" rel="noreferrer">
+                  {music.license}
+                </a>
+              </div>
+            ))}
+            <a href="/licenses/music.txt">完整音乐许可与来源</a>
           </div>
         </Modal>
       )}

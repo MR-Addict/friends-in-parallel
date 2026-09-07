@@ -49,7 +49,7 @@ export function Composer(props: ComposerProps) {
   }, [props.date, props.entry]);
   if (!loaded)
     return (
-      <Modal title="记下一刻" onClose={props.onClose}>
+      <Modal title="冒个泡" onClose={props.onClose}>
         <p className="muted">正在打开草稿…</p>
       </Modal>
     );
@@ -205,9 +205,7 @@ function ComposerEditor({
   }
   return (
     <Modal
-      title={
-        pickerOpen ? '选择表情' : entry ? '编辑动态' : step === 1 ? '这一刻，属于谁' : '记下一刻'
-      }
+      title={pickerOpen ? '选择表情' : entry ? '编辑动态' : step === 1 ? '谁来冒个泡？' : '冒个泡'}
       className="composer-modal"
       onClose={onClose}
       busy={busy}
@@ -335,7 +333,7 @@ function ComposerEditor({
                         <ImagePlus size={18} />
                       </span>
                       <div>
-                        <h3>留下此刻</h3>
+                        <h3>今天在干嘛？</h3>
                         <p>照片或表情，选一种记录</p>
                       </div>
                       <span className="field-badge">必选</span>
@@ -396,7 +394,7 @@ function ComposerEditor({
                             <span className="upload-icon">
                               <ImagePlus size={28} />
                             </span>
-                            <strong>点这里，放一张此刻的照片</strong>
+                            <strong>放张照片，让朋友瞅瞅</strong>
                             <small>支持 iPhone 照片 · 最大 20 MB · 上传后自动优化</small>
                           </>
                         )}
