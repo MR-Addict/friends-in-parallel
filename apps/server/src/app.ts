@@ -67,10 +67,21 @@ export async function createApp(dir = dataDir) {
   app.use('/api', (_req, _res, next) => next(new HttpError(404, '接口不存在')));
   app.use(
     '/uploads',
-    express.static(store.uploads, { dotfiles: 'deny', fallthrough: false, maxAge: '1d' }),
+    express.static(store.uploads, { dotfiles: 'deny', fallthrough: false, maxAge: '30d' }),
   );
-  app.use(express.static(publicDir));
-  app.get('/', (_req, res) => res.sendFile(path.join(publicDir, 'index.html')));
+  app.use(
+    express.static(publicDir, {
+      maxAge: '30d',
+      setHeaders(res, filename) {
+        if (path.extname(filename) === '.html') res.setHeader('Cache-Control', 'no-cache');
+      },
+    }),
+  );
+  app.get('/', (_req, res) =>
+    res.sendFile(path.join(publicDir, 'index.html'), {
+      headers: { 'Cache-Control': 'no-cache' },
+    }),
+  );
   app.use(
     (error: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
       if (res.headersSent) {

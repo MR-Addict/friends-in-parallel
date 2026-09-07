@@ -41,7 +41,7 @@ export function ExportDialog({ date, onClose }: { date: string; onClose: () => v
     }
   }
   return (
-    <Modal title="把这一天带走" onClose={onClose} busy={!!busy} wide={!!result}>
+    <Modal title="导出当天动态" onClose={onClose} busy={!!busy} wide={!!result}>
       <p className="export-date">
         {date} <span>· 包含当天全部朋友的动态</span>
       </p>
@@ -53,8 +53,7 @@ export function ExportDialog({ date, onClose }: { date: string; onClose: () => v
                 <Image size={25} />
               </span>
               <div>
-                <strong>分享手账长图</strong>
-                <p>把大家的一天，拼成一张温柔的手账。</p>
+                <strong>分享长图</strong>
                 <small>高清 PNG · 可预览、保存和分享</small>
               </div>
               {busy === 'images' ? (
@@ -68,8 +67,7 @@ export function ExportDialog({ date, onClose }: { date: string; onClose: () => v
                 <FolderArchive size={25} />
               </span>
               <div>
-                <strong>下载素材压缩包</strong>
-                <p>原始照片、贴纸和文字，留给下一次创作。</p>
+                <strong>下载素材 ZIP</strong>
                 <small>ZIP · 按朋友整理 · 附时间与描述清单</small>
               </div>
               {busy === 'archive' ? (
@@ -82,7 +80,7 @@ export function ExportDialog({ date, onClose }: { date: string; onClose: () => v
           {busy && (
             <div className="export-progress" role="status">
               <LoaderCircle size={18} className="spin" />
-              {busy === 'images' ? '正在把大家的一天拼起来…' : '正在整理原始素材…'}
+              {busy === 'images' ? '正在生成长图…' : '正在整理原始素材…'}
             </div>
           )}
           <p className="small-note">图片太长时会分成多张，完整保留每一个瞬间。</p>
@@ -94,7 +92,7 @@ export function ExportDialog({ date, onClose }: { date: string; onClose: () => v
             返回导出选项
           </button>
           <p className="preview-help">
-            手账做好了！点下方保存，手机也可以长按图片。
+            点击下载图片，或在手机上长按保存。
             <br />
             下载链接保留 1 小时，过期后可重新生成。
           </p>
@@ -106,15 +104,15 @@ export function ExportDialog({ date, onClose }: { date: string; onClose: () => v
                   <span>
                     第 {i + 1} / {result.images.length} 张
                   </span>
-                  <a className="text-button" href={`${src}?download=1`} download>
+                  <a className="primary full" href={`${src}?download=1`} download>
                     <ArrowDownToLine size={16} />
-                    保存图片
+                    {result.images.length === 1 ? '下载图片' : `下载第 ${i + 1} 张图片`}
                   </a>
                 </figcaption>
               </figure>
             ))}
           </div>
-          <a href={result.archiveUrl} className="primary full" download>
+          <a href={result.archiveUrl} className="text-button full" download>
             <FolderArchive size={18} />
             下载图片合集
           </a>

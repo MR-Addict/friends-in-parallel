@@ -71,11 +71,11 @@ docker run -d --name friends-in-parallel \
 
 ### Docker Compose
 
-`docker-composer.yaml` 使用工作流发布的 `mraddict063/friends-in-parallel:latest` 镜像，主机和容器均使用 4500 端口，并通过命名卷保存数据：
+`docker-compose.yaml` 使用工作流发布的 `mraddict063/friends-in-parallel:latest` 镜像，主机和容器均使用 4500 端口，并通过命名卷保存数据：
 
 ```sh
-docker compose -f docker-composer.yaml pull
-docker compose -f docker-composer.yaml up -d
+docker compose pull
+docker compose up -d
 ```
 
 访问 [应用页面](http://localhost:4500)。更新镜像时重复以上两条命令。普通 `down` 会保留数据卷；不要加 `--volumes`，除非需要删除数据。
@@ -84,7 +84,7 @@ docker compose -f docker-composer.yaml up -d
 
 ```sh
 docker build -t friends-in-parallel:local .
-IMAGE=friends-in-parallel:local docker compose -f docker-composer.yaml up -d --pull never
+IMAGE=friends-in-parallel:local docker compose up -d --pull never
 ```
 
 ### 镜像发布工作流
@@ -95,7 +95,9 @@ IMAGE=friends-in-parallel:local docker compose -f docker-composer.yaml up -d --p
 
 ## 使用方式
 
-首页是手账封面，点「上传动态」后才会选择人物。选择名字、点下一步，再选择照片 / Emoji / 贴纸之一，填写可选描述和北京时间。
+首页直接展示当天时间线、日期切换、人物筛选和导出入口，底部固定「上传动态」按钮。点「上传动态」后选择人物、点「下一步」，再选择照片或表情，填写可选描述和北京时间。发布按钮固定在编辑弹层底部，返回更换人物时保留输入。
+
+「表情」统一包含三套素材，独立选择页提供套餐、搜索、分类和最近使用，选好即返回编辑器；新动态使用 `sticker` 存储。旧 `emoji` 动态仍可展示和导出，编辑保存时转为对应的微软素材，无需迁移历史数据。时间线的编辑、删除入口位于动态卡片的「更多操作」菜单。导出预览以每张图片的「下载图片」为主按钮，图片合集作为次要下载选项。
 
 - 人物：陆语涵、水水、童浩然、蔡建文、甲醛。
 - 照片：JPEG、PNG、WebP，最大 20 MB，服务器保留原文件。暂不支持 HEIC 与动画 GIF。
@@ -215,7 +217,7 @@ pnpm test:e2e
 
 接口测试使用临时数据目录，验证并发保存、重启读取、时间边界、字段及文件校验、照片原始字节、ZIP 清单和清理行为。
 
-浏览器测试启动独立的生产服务器（3101 端口），使用临时数据目录，验证 375px / 430px 视口、分步发布、三套贴纸、照片与表情、失败保留输入、编辑删除、实际下载和长图分页。截图写入 `test-results`；不会向日常使用的数据目录写入测试记录。
+浏览器测试启动独立的生产服务器（3101 端口），使用临时数据目录，验证 375px / 430px 视口、分步发布、三套贴纸、照片与表情、失败保留输入、编辑删除、实际下载和长图分页，以及旧 Emoji 编辑兼容、取消表情选择和缩小视口下的输入框与固定按钮可见性。缩小视口用于模拟键盘挤压布局，仍建议在真实手机检查系统键盘行为。截图写入 `test-results`；不会向日常使用的数据目录写入测试记录。
 
 ## 代码格式
 

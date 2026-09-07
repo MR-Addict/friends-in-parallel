@@ -9,6 +9,7 @@ import {
   Pencil,
   Trash2,
   Clock,
+  MoreHorizontal,
   LoaderCircle,
 } from 'lucide-react';
 import { people, personOf, timeOf, today, shiftDate, mediaSrc, mediaName, type Entry } from './lib';
@@ -39,7 +40,8 @@ export function Timeline({
   focusId: string;
 }) {
   const [filter, setFilter] = useState('all'),
-    [zoom, setZoom] = useState<Entry>();
+    [zoom, setZoom] = useState<Entry>(),
+    [actions, setActions] = useState<Entry>();
   useEffect(() => {
     if (focusId) setFilter('all');
   }, [focusId]);
@@ -47,11 +49,8 @@ export function Timeline({
   const hours = [...new Set(visible.map((e) => timeOf(e.occurredAt).slice(0, 2)))].sort();
   return (
     <section className="timeline-view">
-      <div className="section-eyebrow">OUR LITTLE DAYS</div>
       <div className="timeline-title">
-        <h1>
-          同一天的我们<span>。</span>
-        </h1>
+        <h1>同一天的我们</h1>
         <button
           className="icon-button"
           aria-label="刷新时间线"
@@ -61,8 +60,17 @@ export function Timeline({
           <RefreshCw size={18} className={loading ? 'spin' : ''} />
         </button>
       </div>
-      <p className="section-subtitle">时钟走在一起，生活各自有趣。</p>
       <div className="date-toolbar">
+        {' '}
+        <button
+          className="text-button export-trigger"
+          aria-label="导出这一天"
+          onClick={onExport}
+          disabled={!entries.length || loading || !!error}
+        >
+          <Download size={15} />
+          导出
+        </button>
         <button
           className="icon-button"
           aria-label="前一天"
@@ -118,14 +126,6 @@ export function Timeline({
             ? '翻开手账中…'
             : `${new Set(entries.map((e) => e.personId)).size} 位朋友 · ${entries.length} 个瞬间`}
         </span>
-        <button
-          className="text-button"
-          onClick={onExport}
-          disabled={!entries.length || loading || !!error}
-        >
-          <Download size={15} />
-          导出这一天
-        </button>
       </div>
       {error ? (
         <div className="empty-state">
@@ -141,16 +141,9 @@ export function Timeline({
         </div>
       ) : !visible.length ? (
         <div className="empty-state">
-          <div className="empty-illustration">
-            <img src="/stickers/fluent/1f31b.png" alt="" />
-            <span>还留着空白呢</span>
-          </div>
           <h2>
-            {filter === 'all'
-              ? '这一天，等一个小瞬间'
-              : `${personOf(filter).nickname}这天还没有记录`}
+            {filter === 'all' ? '这一天还没有动态' : `${personOf(filter).nickname}这天还没有记录`}
           </h2>
-          <p>一顿饭、一场发呆，都是生活的切片。</p>
           <button className="secondary" onClick={onCreate}>
             <Plus size={17} />
             记下一刻
@@ -161,18 +154,8 @@ export function Timeline({
           {hours.map((hour) => (
             <section className="hour-group" key={hour}>
               <div className="hour-heading">
-                <span className="hour-dot" />
                 <time>{hour}:00</time>
                 <span className="hour-line" />
-                <span>
-                  {Number(hour) < 6
-                    ? '夜深了'
-                    : Number(hour) < 12
-                      ? '早安时光'
-                      : Number(hour) < 18
-                        ? '午后日常'
-                        : '晚间片刻'}
-                </span>
               </div>
               <div className="hour-entries">
                 {[
@@ -207,31 +190,17 @@ export function Timeline({
                                 {timeOf(entry.occurredAt)}
                               </time>
                             </div>
-                            <div className="card-actions">
-                              <button
-                                className="icon-button"
-                                aria-label={`编辑${p.nickname} ${timeOf(entry.occurredAt)}的动态`}
-                                onClick={() => onEdit(entry)}
-                              >
-                                <Pencil size={15} />
-                              </button>
-                              <button
-                                className="icon-button"
-                                aria-label={`删除${p.nickname} ${timeOf(entry.occurredAt)}的动态`}
-                                onClick={() => onDelete(entry)}
-                              >
-                                <Trash2 size={15} />
-                              </button>
-                            </div>
+                            <button
+                              className="icon-button card-actions"
+                              aria-label={`更多操作：${p.nickname} ${timeOf(entry.occurredAt)}`}
+                              onClick={() => setActions(entry)}
+                            >
+                              <MoreHorizontal size={20} />
+                            </button>
                           </header>
                           <button
                             className={`moment-media ${entry.media.type === 'photo' ? 'photo' : 'sticker'}`}
                             aria-label={`查看${mediaName(entry.media)}`}
-                            style={
-                              entry.media.type === 'photo'
-                                ? undefined
-                                : { background: p.background }
-                            }
                             onClick={() => setZoom(entry)}
                           >
                             <img
@@ -243,15 +212,6 @@ export function Timeline({
                           {entry.description && (
                             <p className="moment-description">{entry.description}</p>
                           )}
-                          <div className="card-caption">
-                            <span className="tiny-dot" style={{ background: p.color }} />
-                            {entry.media.type === 'sticker'
-                              ? mediaName(entry.media)
-                              : entry.media.type === 'emoji'
-                                ? '此刻的心情'
-                                : '生活切片'}
-                            <span>平行生活 · 同频收藏</span>
-                          </div>
                         </article>
                       ))}
                     </div>
@@ -260,12 +220,35 @@ export function Timeline({
               </div>
             </section>
           ))}
-          <div className="timeline-end">
-            <span />
-            这一天的小小日常，都在这里了
-            <span />
-          </div>
         </div>
+      )}
+      {actions && (
+        <Modal title="动态操作" onClose={() => setActions(undefined)}>
+          <div className="entry-options">
+            <button
+              className="secondary full"
+              aria-label={`编辑${personOf(actions.personId).nickname}的动态`}
+              onClick={() => {
+                onEdit(actions);
+                setActions(undefined);
+              }}
+            >
+              <Pencil size={18} />
+              编辑动态
+            </button>
+            <button
+              className="danger-button full"
+              aria-label={`删除${personOf(actions.personId).nickname}的动态`}
+              onClick={() => {
+                onDelete(actions);
+                setActions(undefined);
+              }}
+            >
+              <Trash2 size={18} />
+              删除动态
+            </button>
+          </div>
+        </Modal>
       )}
       {zoom && (
         <Modal

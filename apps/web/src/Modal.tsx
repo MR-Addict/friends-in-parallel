@@ -6,27 +6,57 @@ export function Modal({
   children,
   wide = false,
   busy = false,
+  className = '',
 }: {
   title: string;
   onClose: () => void;
   children: ReactNode;
   wide?: boolean;
   busy?: boolean;
+  className?: string;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => {
     const el = ref.current!;
     el.showModal();
+    const viewport = window.visualViewport;
+    let frame = 0;
+    const revealInput = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        const active = document.activeElement;
+        if (
+          active instanceof HTMLElement &&
+          el.contains(active) &&
+          active.matches('input, textarea')
+        ) {
+          active.scrollIntoView({ block: 'nearest' });
+        }
+      });
+    };
+    el.addEventListener('focusin', revealInput);
+    const resize = () => {
+      el.style.setProperty('--viewport-height', `${viewport?.height || window.innerHeight}px`);
+      el.style.setProperty('--viewport-top', `${viewport?.offsetTop || 0}px`);
+      revealInput();
+    };
+    resize();
+    viewport?.addEventListener('resize', resize);
+    viewport?.addEventListener('scroll', resize);
     const previous = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     return () => {
+      cancelAnimationFrame(frame);
+      el.removeEventListener('focusin', revealInput);
+      viewport?.removeEventListener('resize', resize);
+      viewport?.removeEventListener('scroll', resize);
       el.close();
       document.body.style.overflow = previous;
     };
   }, []);
   return (
     <dialog
-      className={`sheet-modal ${wide ? 'wide' : ''}`}
+      className={`sheet-modal ${wide ? 'wide' : ''} ${className}`}
       ref={ref}
       aria-label={title}
       onCancel={(e) => {
@@ -38,14 +68,13 @@ export function Modal({
       }}
     >
       <div className="sheet-inner">
-        <div className="sheet-handle" />
         <header className="sheet-heading">
           <h2>{title}</h2>
           <button className="icon-button" aria-label="关闭" onClick={onClose} disabled={busy}>
             <X size={21} />
           </button>
         </header>
-        {children}
+        <div className="sheet-content">{children}</div>
       </div>
     </dialog>
   );
