@@ -259,47 +259,6 @@ test('Invalid date and empty export return clear errors; missing image is not si
   }
 });
 
-test('Sharing groups ascending hours while pagination keeps complete hourly rows', async () => {
-  const { hourRows, partitionHourRows, shareTemplate } =
-    await import('../apps/server/src/exports.js');
-  const f = await fixture();
-  try {
-    const late = (
-      await post(f.origin, payload({ personId: 'shui-shui', occurredAt: `${date}T02:50:00Z` }))
-    ).entry;
-    const early = (await post(f.origin, payload({ occurredAt: `${date}T01:10:00Z` }))).entry;
-    const middle = (await post(f.origin, payload({ occurredAt: `${date}T02:10:00Z` }))).entry;
-    const items = await snapshot(f.store, date);
-    assert.deepEqual(
-      items.map((i) => i.entry.id),
-      [early.id, middle.id, late.id],
-    );
-    const rows = hourRows(items);
-    assert.deepEqual(rows, [
-      { hour: '09', indices: [0] },
-      { hour: '10', indices: [1, 2] },
-    ]);
-    const html = shareTemplate(items, rows, [0, 1], date, 1, 1);
-    assert.ok(html.indexOf('09:00–09:59') < html.indexOf('10:00–10:59'));
-    assert.ok(
-      html.indexOf(`data-entry-id="${middle.id}"`) < html.indexOf(`data-entry-id="${late.id}"`),
-    );
-    assert.ok(html.includes('2 位朋友 · 2 条动态'));
-    const grouped = [
-      { hour: '09', indices: [0] },
-      { hour: '10', indices: [1] },
-      { hour: '10', indices: [2] },
-    ];
-    assert.deepEqual(partitionHourRows(grouped, [400, 300, 300], 1000, 100), [[0], [1, 2]]);
-    const pages = partitionHourRows(grouped, [400, 500, 500], 1000, 100);
-    assert.deepEqual(pages, [[0], [1], [2]]);
-    assert.ok(shareTemplate(items, grouped, pages[2], date, 3, 3).includes('10:00–10:59（续）'));
-    assert.throws(() => partitionHourRows(grouped, [2000, 300, 300], 1000, 100));
-  } finally {
-    await f.close();
-  }
-});
-
 test('Calendar counts use Beijing dates and reflect edits and deletions', async () => {
   const f = await fixture();
   try {

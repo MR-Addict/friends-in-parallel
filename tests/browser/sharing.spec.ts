@@ -255,7 +255,7 @@ test('paginated image and collection share use current resource', async ({ page 
   await expect(page.getByRole('link', { name: '下载图片合集' })).toBeVisible();
 });
 
-test('photo detail shares an image while entry menu has no share', async ({ page }) => {
+test('entry menu and photo detail share the original image', async ({ page }) => {
   await mockShare(page);
   await page.route('**/api/entries?*', (route) =>
     route.fulfill({
@@ -287,14 +287,20 @@ test('photo detail shares an image while entry menu has no share', async ({ page
   await page.goto('/');
   await page.getByLabel('选择日期').fill(date);
   await page.getByRole('button', { name: /更多操作：.*14:30/ }).click();
-  await expect(page.getByRole('button', { name: '分享动态' })).toHaveCount(0);
+  await page.getByRole('button', { name: '分享图片' }).click();
+  await expect
+    .poll(async () => (await calls(page))[0]?.files[0])
+    .toMatchObject({ type: 'image/jpeg', body: 'original-photo' });
   await page.getByRole('button', { name: '关闭', exact: true }).click();
   await page.getByRole('button', { name: '查看上传的照片' }).click();
   await expect(
     page.getByRole('dialog').getByRole('link', { name: /下载照片|下载图片/ }),
   ).toHaveCount(0);
   await page.getByRole('button', { name: '分享照片' }).click();
-  await expect.poll(async () => (await calls(page))[0]?.files[0].body).toBe('original-photo');
+  await expect.poll(async () => (await calls(page))[1]?.files[0].body).toBe('original-photo');
+  await page.getByRole('button', { name: '关闭', exact: true }).click();
+  await page.getByRole('button', { name: /更多操作：.*13:30/ }).click();
+  await expect(page.getByRole('button', { name: '分享图片' })).toHaveCount(0);
 });
 
 test('video file shares with server filename and disappears after expiry', async ({ page }) => {

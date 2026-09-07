@@ -75,6 +75,7 @@ export class VideoExports {
         'video-exports',
         'video-renderer',
         'video-layout',
+        'collage-layout',
         'video-process',
         'exports',
         'export-cache',

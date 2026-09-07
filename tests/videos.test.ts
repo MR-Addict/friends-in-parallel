@@ -1,3 +1,4 @@
+import { imageBlocks, imageTemplate } from '../apps/server/src/image-layout.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, readFile, rm, readdir, mkdir, copyFile, writeFile } from 'node:fs/promises';
@@ -22,7 +23,7 @@ import {
   measureVideoScene,
 } from '../apps/server/src/video-renderer.js';
 import { publicDir } from '../apps/server/src/config.js';
-import { snapshot, ImageExports, shareTemplate, hourRows } from '../apps/server/src/exports.js';
+import { snapshot, ImageExports } from '../apps/server/src/exports.js';
 import { optimizePhoto } from '../apps/server/src/photos.js';
 import { createApp } from '../apps/server/src/app.js';
 import { Store } from '../apps/server/src/store.js';
@@ -199,8 +200,8 @@ test('video layouts preserve 500 characters, blank lines, emoji and all media wi
   f.items[0].entry.description = '字'.repeat(500);
   const long = await videoScenes(page, f.items, date, videoStyles[0]);
   assert.equal(long.at(-1)?.kind, 'ending');
-  const rows = hourRows(f.items);
-  const html = shareTemplate(
+  const { blocks: rows } = await imageBlocks(page, f.items, date);
+  const html = imageTemplate(
     f.items,
     rows,
     rows.map((_, i) => i),

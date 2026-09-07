@@ -2,6 +2,7 @@ import { readFile, mkdir, readdir } from 'node:fs/promises';
 import path from 'node:path';
 import archiver from 'archiver';
 import { chromium } from 'playwright';
+import { imageBlocks, imageTemplate, loadImageScene, measureImageScene } from './image-layout.js';
 import type { Response } from 'express';
 import { publicDir, packs, personById, stickerById, emojiSticker } from './config.js';
 import { beijingTime, HttpError, type Entry, type Person } from './model.js';
@@ -163,100 +164,6 @@ export function partitionHeights(heights: number[], available = 11500) {
   if (current.length) groups.push(current);
   return groups;
 }
-export interface HourRow {
-  hour: string;
-  indices: number[];
-}
-export function hourRows(items: SnapshotItem[]): HourRow[] {
-  const ordered = items
-    .map((item, index) => ({ item, index }))
-    .sort(
-      (a, b) =>
-        a.item.entry.occurredAt.localeCompare(b.item.entry.occurredAt) ||
-        a.item.entry.createdAt.localeCompare(b.item.entry.createdAt) ||
-        a.item.entry.id.localeCompare(b.item.entry.id),
-    );
-  const rows: HourRow[] = [];
-  for (const { item, index } of ordered) {
-    const hour = beijingTime(item.entry.occurredAt).slice(0, 2);
-    const last = rows.at(-1);
-    if (last?.hour === hour && last.indices.length < 2) last.indices.push(index);
-    else rows.push({ hour, indices: [index] });
-  }
-  return rows;
-}
-// Keep an hour together when it fits; oversized hours split only between complete rows.
-export function partitionHourRows(
-  rows: HourRow[],
-  heights: number[],
-  available: number,
-  headingHeight = 84,
-) {
-  const pages: number[][] = [];
-  let current: number[] = [],
-    used = 0;
-  const flush = () => {
-    if (current.length) pages.push(current);
-    current = [];
-    used = 0;
-  };
-  for (let start = 0; start < rows.length;) {
-    let end = start + 1;
-    while (end < rows.length && rows[end].hour === rows[start].hour) end++;
-    const whole = headingHeight + heights.slice(start, end).reduce((sum, h) => sum + h, 0);
-    if (whole <= available) {
-      if (used + whole > available) flush();
-      for (let i = start; i < end; i++) current.push(i);
-      used += whole;
-    } else {
-      for (let i = start; i < end; i++) {
-        if (heights[i] + headingHeight > available)
-          throw new HttpError(400, '单条动态内容过长，无法完整放入分享图片，请减少换行后重试');
-        let cost = heights[i] + (i === start || !current.length ? headingHeight : 0);
-        if (used + cost > available) {
-          flush();
-          cost = heights[i] + headingHeight;
-        }
-        current.push(i);
-        used += cost;
-      }
-    }
-    start = end;
-  }
-  flush();
-  return pages;
-}
-const exportStyles = `
-@font-face{font-family:Handbook;src:url('http://render.local/font.otf')}*{box-sizing:border-box}body{margin:0;background:#faf9f6;color:#292724;font-family:Handbook,sans-serif}.sheet{width:1080px;padding:48px;background:#faf9f6}.masthead{display:flex;justify-content:space-between;align-items:center;gap:24px;border-bottom:2px solid #e9e5df;padding-bottom:24px;margin-bottom:24px}h1{font-size:44px;margin:0 0 12px}.subtitle{font-size:22px;color:#716b65;margin:0}.date{flex-shrink:0;font-size:26px;color:#716b65}.hour-title{height:84px;display:flex;align-items:center;justify-content:space-between;gap:16px;margin:0;font-size:30px}.hour-title span{font-size:18px;font-weight:400;color:#716b65}.hour-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;padding-bottom:24px;align-items:stretch}.card{min-width:0;padding:24px;background:#fff;border:2px solid #e9e5df;border-radius:18px}.person{display:flex;align-items:center;gap:10px;font-size:24px;margin-bottom:18px}.dot{width:12px;height:12px;border-radius:50%;flex-shrink:0}.time{margin-left:auto;font-size:20px;color:#716b65}.media{width:100%;height:auto;max-height:1300px;object-fit:contain;display:block;border-radius:12px}.sticker{width:120px;height:120px;object-fit:contain;display:block;margin:8px auto 18px}.description{font-size:24px;line-height:1.7;white-space:pre-wrap;overflow-wrap:anywhere;margin:18px 0 0}.footer{font-size:18px;text-align:center;color:#716b65;padding-top:18px}`;
-function article(item: SnapshotItem, index: number) {
-  return `<article class="card" data-entry-id="${escape(item.entry.id)}"><div class="person"><i class="dot" style="background:${item.person.color}"></i>${escape(item.person.nickname)}<time class="time">${beijingTime(item.entry.occurredAt)}</time></div><img alt="动态素材" class="${item.entry.media.type === 'photo' ? 'media' : 'sticker'}" src="http://render.local/image/${index}"/>${item.entry.description ? `<p class="description">${escape(item.entry.description)}</p>` : ''}</article>`;
-}
-export function shareTemplate(
-  items: SnapshotItem[],
-  rows: HourRow[],
-  indices: number[],
-  date: string,
-  page: number,
-  total: number,
-) {
-  let body = '';
-  let previous = '';
-  for (const index of indices) {
-    const row = rows[index];
-    if (previous !== row.hour) {
-      if (previous) body += '</section>';
-      const hourItems = items.filter((item) =>
-        beijingTime(item.entry.occurredAt).startsWith(row.hour),
-      );
-      const continued = index > 0 && rows[index - 1].hour === row.hour;
-      body += `<section class="share-hour"><h2 class="hour-title">${row.hour}:00–${row.hour}:59${continued ? '（续）' : ''}<span>${new Set(hourItems.map((item) => item.entry.personId)).size} 位朋友 · ${hourItems.length} 条动态</span></h2>`;
-      previous = row.hour;
-    }
-    body += `<div class="hour-row">${row.indices.map((i) => article(items[i], i)).join('')}</div>`;
-  }
-  if (previous) body += '</section>';
-  return `<!doctype html><html lang="zh-CN"><meta charset="utf-8"><style>${exportStyles}</style><body><main class="sheet"><header class="masthead"><div><h1>和朋友的同一时间</h1><p class="subtitle">同一时间，看看朋友们都在干嘛。</p></div><div class="date">${date}<br><small>${new Set(items.map((i) => i.entry.personId)).size} 位朋友 · ${items.length} 条动态</small></div></header>${body}<footer class="footer">${page} / ${total}</footer></main></body></html>`;
-}
 interface ImageExportResult {
   images: string[];
   archiveUrl: string;
@@ -278,13 +185,20 @@ export class ImageExports {
     return this.cache.cleanup();
   }
   async generate(items: SnapshotItem[], date: string): Promise<ImageExportResult> {
-    const [font, renderer, cacheRenderer, licenses] = await Promise.all([
+    const [font, renderer, cacheRenderer, layoutSources, licenses] = await Promise.all([
       readFile(path.join(publicDir, 'fonts/NotoSansCJKsc-Regular.otf')),
       readFile(new URL(import.meta.url)),
       readFile(
         new URL(
           `./export-cache${import.meta.url.endsWith('.ts') ? '.ts' : '.js'}`,
           import.meta.url,
+        ),
+      ),
+      Promise.all(
+        ['image-layout', 'collage-layout'].map((name) =>
+          readFile(
+            new URL(`./${name}${import.meta.url.endsWith('.ts') ? '.ts' : '.js'}`, import.meta.url),
+          ),
         ),
       ),
       readdir(path.join(publicDir, 'licenses')).then((names) =>
@@ -301,6 +215,7 @@ export class ImageExports {
       date,
       renderer,
       cacheRenderer,
+      ...layoutSources,
       font,
       ...licenses.flatMap((license) => [license.name, license.bytes]),
     ]);
@@ -358,55 +273,15 @@ export class ImageExports {
         if (item) return route.fulfill({ body: item.bytes, contentType: item.mime });
         return route.abort();
       });
-      const load = async (html: string) => {
-        await page.setContent(html, { waitUntil: 'load' });
-        await page.evaluate(async () => {
-          await document.fonts.load('28px Handbook');
-          await document.fonts.ready;
-          if (!document.fonts.check('28px Handbook'))
-            throw new Error('Chinese font failed to load');
-          await Promise.all(Array.from(document.images).map((img) => img.decode()));
-        });
-      };
-      const rows = hourRows(items);
-      await load(
-        shareTemplate(
-          items,
-          rows,
-          rows.map((_, i) => i),
-          date,
-          1,
-          1,
-        ),
-      );
-      const heights = await page
-        .locator('.hour-row')
-        .evaluateAll((nodes) => nodes.map((n) => n.getBoundingClientRect().height));
-      const headingHeight = await page
-        .locator('.hour-title')
-        .first()
-        .evaluate((n) => n.getBoundingClientRect().height);
-      const chromeHeight = await page.evaluate(
-        () =>
-          document.querySelector('.sheet')!.getBoundingClientRect().height -
-          Array.from(document.querySelectorAll('.share-hour')).reduce(
-            (sum, n) => sum + n.getBoundingClientRect().height,
-            0,
-          ),
-      );
-      const groups = partitionHourRows(
-        rows,
-        heights,
-        12000 - Math.ceil(chromeHeight) - 4,
-        headingHeight,
-      );
+      const { blocks, pages: groups } = await imageBlocks(page, items, date);
       for (let i = 0; i < groups.length; i++) {
-        await load(shareTemplate(items, rows, groups[i], date, i + 1, groups.length));
-        const height = await page
-          .locator('.sheet')
-          .evaluate((n) => n.getBoundingClientRect().height);
-        if (height > 12000)
-          throw new HttpError(400, '分享图片内容过长，请减少动态描述中的换行后重试');
+        await loadImageScene(
+          page,
+          imageTemplate(items, blocks, groups[i], date, i + 1, groups.length),
+        );
+        const measured = await measureImageScene(page);
+        if (!measured.fits || measured.height > 12000)
+          throw new Error('Image layout exceeds safe area');
         await page
           .locator('.sheet')
           .screenshot({ path: path.join(dest, `${i + 1}.png`), timeout: 30_000 });

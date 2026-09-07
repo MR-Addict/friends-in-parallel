@@ -197,6 +197,7 @@ export function Timeline({
       {actions && (
         <Modal title="动态操作" onClose={() => setActions(undefined)}>
           <div className="entry-options">
+            {mediaSrc(actions.media) && <ShareButton label="分享图片" {...entryShare(actions)} />}
             <button
               className="secondary full"
               aria-label={`编辑${personOf(actions.personId).nickname}的动态`}
