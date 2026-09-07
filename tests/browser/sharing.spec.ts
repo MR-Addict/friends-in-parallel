@@ -1,3 +1,4 @@
+import { selectDate } from './calendar';
 import { test, expect, type Page } from '@playwright/test';
 
 const date = '2026-08-24';
@@ -46,7 +47,7 @@ async function mockShare(page: Page, mode = 'ok') {
 }
 async function openExport(page: Page) {
   await page.goto('/');
-  await page.getByLabel('选择日期').fill(date);
+  await selectDate(page, date);
   await page.getByRole('button', { name: '制作回忆' }).click();
 }
 async function openImage(page: Page) {
@@ -285,7 +286,7 @@ test('entry menu and photo detail share the original image', async ({ page }) =>
     route.fulfill({ body: 'original-photo', contentType: 'image/jpeg' }),
   );
   await page.goto('/');
-  await page.getByLabel('选择日期').fill(date);
+  await selectDate(page, date);
   await page.getByRole('button', { name: /更多操作：.*14:30/ }).click();
   await page.getByRole('button', { name: '分享图片' }).click();
   await expect
@@ -343,7 +344,7 @@ test('video file shares with server filename and disappears after expiry', async
       ),
     date,
   );
-  await page.getByLabel('选择日期').fill(date);
+  await selectDate(page, date);
   await page.getByRole('button', { name: '制作回忆' }).click();
   await page.getByRole('button', { name: '生成回忆视频' }).click();
   await expect(page.getByRole('link', { name: '下载视频' })).toHaveCount(0);
@@ -389,7 +390,7 @@ test('sticker shares original SVG with its MIME type', async ({ page }) => {
     }),
   );
   await page.goto('/');
-  await page.getByLabel('选择日期').fill(date);
+  await selectDate(page, date);
   await page.locator('.moment-media').click();
   await page.getByRole('button', { name: '分享图片' }).click();
   await expect
@@ -415,7 +416,7 @@ test('materials ZIP has download only and home creation card is visible', async 
   await page.setViewportSize({ width: 375, height: 812 });
   await page.goto('/');
   await page.evaluate(() => document.fonts.ready);
-  await page.getByLabel('选择日期').fill(date);
+  await selectDate(page, date);
   await expect(page.getByRole('button', { name: '制作回忆', exact: true })).toBeInViewport();
   await expect(page.getByRole('button', { name: '制作回忆', exact: true })).toHaveAttribute(
     'title',
@@ -434,7 +435,7 @@ for (const width of [375, 430]) {
   test(`compact browsing keeps the first moment above 310px at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 812 });
     await page.goto('/');
-    await page.getByLabel('选择日期').fill(date);
+    await selectDate(page, date);
     await page.evaluate(() => document.fonts.ready);
     const first = page.locator('.moment-card').first();
     await expect(first).toBeVisible();
@@ -448,10 +449,10 @@ for (const width of [375, 430]) {
     await expect(page.getByRole('navigation', { name: '日期导航' })).toHaveCount(0);
     await page.getByLabel('选择日期').click();
     await page.getByRole('button', { name: /^2026-08-23，/ }).click();
-    await expect(page.getByLabel('选择日期')).toHaveValue('2026-08-23');
+    await expect(page.getByLabel('选择日期')).toHaveAttribute('title', '2026-08-23');
     await page.getByLabel('选择日期').click();
     await page.getByRole('button', { name: /^2026-08-24，/ }).click();
-    await expect(page.getByLabel('选择日期')).toHaveValue(date);
+    await expect(page.getByLabel('选择日期')).toHaveAttribute('title', date);
     await expect(first).toBeVisible();
     await page.screenshot({ path: `test-results/compact-home-${width}.png` });
   });

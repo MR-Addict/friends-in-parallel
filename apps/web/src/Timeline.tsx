@@ -5,6 +5,7 @@ import { Pencil, Trash2, Clock, MoreHorizontal, LoaderCircle, Users } from 'luci
 import { people, personOf, timeOf, mediaSrc, mediaName, today, type Entry } from './lib';
 import { Modal } from './Modal';
 export function Timeline({
+  lastPersonId,
   entries,
   loading,
   error,
@@ -14,6 +15,7 @@ export function Timeline({
   focusId,
   date,
 }: {
+  lastPersonId: string;
   entries: Entry[];
   loading: boolean;
   error: string;
@@ -29,6 +31,10 @@ export function Timeline({
   useEffect(() => {
     if (focusId) setFilter('all');
   }, [focusId]);
+  const sortedPeople = [
+    ...people.filter((p) => p.id === lastPersonId),
+    ...people.filter((p) => p.id !== lastPersonId),
+  ];
   const visible = entries
     .filter((e) => filter === 'all' || e.personId === filter)
     .sort(
@@ -52,7 +58,7 @@ export function Timeline({
             </span>
             全部朋友
           </button>
-          {people.map((p) => (
+          {sortedPeople.map((p) => (
             <button
               key={p.id}
               aria-pressed={filter === p.id}

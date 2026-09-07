@@ -1,3 +1,4 @@
+import { selectDate } from './calendar';
 import people from '../../apps/web/src/config/people.json' with { type: 'json' };
 import { test, expect } from '@playwright/test';
 
@@ -42,7 +43,7 @@ for (const width of [375, 430, 1100]) {
     });
     await page.setViewportSize({ width, height: 812 });
     await page.goto('/');
-    await page.getByLabel('选择日期').fill(date);
+    await selectDate(page, date);
     await page.getByRole('button', { name: '制作回忆' }).click();
     const labels = await page.locator('.export-options strong').allTextContents();
     expect(labels).toEqual(['生成手账长图', '生成回忆视频', '下载素材 ZIP']);
@@ -74,7 +75,7 @@ for (const width of [375, 430, 1100]) {
     expect((await submitted).status()).toBe(202);
     await page.getByRole('button', { name: '关闭', exact: true }).click();
     await page.reload();
-    await page.getByLabel('选择日期').fill(date);
+    await selectDate(page, date);
     await page.getByRole('button', { name: '制作回忆' }).click();
     await page.getByRole('button', { name: /生成回忆视频/ }).click();
     await expect(page.getByRole('button', { name: '分享视频' })).toBeVisible({ timeout: 90000 });
@@ -123,7 +124,7 @@ test('video errors and expired tasks preserve selections and permit regeneration
       JSON.stringify({ jobId: 'old', styleId: 'night', musicId: 'none' }),
     ),
   );
-  await page.getByLabel('选择日期').fill('2026-08-25');
+  await selectDate(page, '2026-08-25');
   await page.getByRole('button', { name: '制作回忆' }).click();
   await page.getByRole('button', { name: /生成回忆视频/ }).click();
   await expect(page.getByRole('alert')).toContainText('已过期');

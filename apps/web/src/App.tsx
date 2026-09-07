@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Plus, Check, LoaderCircle, Clapperboard, CalendarDays } from 'lucide-react';
 import { DateCalendar } from './DateCalendar';
 import { Composer } from './Composer';
@@ -6,10 +6,18 @@ import { Timeline } from './Timeline';
 import { ExportDialog } from './ExportDialog';
 import videoMusic from './config/video-music.json';
 import { Modal } from './Modal';
-import { api, today, dateOf, type Entry } from './lib';
+import { api, today, dateOf, readPreference, preference, type Entry } from './lib';
 export default function App() {
+  const [lastPersonId, setLastPersonId] = useState(() =>
+    readPreference('parallel.lastSubmittedPerson', readPreference('parallel.person', '')),
+  );
   const [date, setDate] = useState(today());
   const [calendarOpen, setCalendarOpen] = useState(false);
+  const calendarTrigger = useRef<HTMLButtonElement>(null);
+  function closeCalendar() {
+    setCalendarOpen(false);
+    requestAnimationFrame(() => calendarTrigger.current?.focus({ preventScroll: true }));
+  }
   const [entries, setEntries] = useState<Entry[]>([]);
   const [loading, setLoading] = useState(false),
     [error, setError] = useState(''),
@@ -54,6 +62,8 @@ export default function App() {
     return () => clearTimeout(id);
   }, [focusId, entries, loading]);
   function saved(entry: Entry) {
+    setLastPersonId(entry.personId);
+    preference('parallel.lastSubmittedPerson', entry.personId);
     setComposer(null);
     setDate(dateOf(entry.occurredAt));
     setFocusId(entry.id);
@@ -88,7 +98,16 @@ export default function App() {
             <p>同一时间，看看朋友们都在干嘛。</p>
           </div>
           <div className="header-actions">
-            <label className="date-picker compact-date-picker" title={date}>
+            <button
+              ref={calendarTrigger}
+              type="button"
+              className="date-picker compact-date-picker"
+              title={date}
+              aria-label="选择日期"
+              aria-haspopup="dialog"
+              aria-expanded={calendarOpen}
+              onClick={() => setCalendarOpen(true)}
+            >
               <span>
                 <CalendarDays size={16} />
                 <strong>
@@ -100,41 +119,11 @@ export default function App() {
                       )}
                 </strong>
               </span>
-              <input
-                type="date"
-                aria-label="选择日期"
-                value={date}
-                max={today()}
-                onChange={(e) => {
-                  if (e.target.value) setDate(e.target.value);
-                }}
-                aria-haspopup="dialog"
-                aria-expanded={calendarOpen}
-                onClick={(e) => {
-                  e.preventDefault();
-                  setCalendarOpen(true);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    setCalendarOpen(true);
-                  }
-                }}
-              />
-            </label>
-            <button
-              className="export-trigger"
-              aria-label="制作回忆"
-              title="手账长图 · 回忆视频 · 素材下载"
-              onClick={() => setExportOpen(true)}
-              disabled={!entries.length || loading || !!error}
-            >
-              <Clapperboard size={18} />
-              <span>制作回忆</span>
             </button>
           </div>
         </header>
         <Timeline
+          lastPersonId={lastPersonId}
           entries={entries}
           loading={loading}
           error={error}
@@ -151,21 +140,33 @@ export default function App() {
           <button onClick={() => setCredits(true)}>素材鸣谢</button>
         </footer>
       </main>
-      <button
-        className="floating-create"
-        aria-label={date === today() ? '冒个泡' : '补个泡'}
-        onClick={() => setComposer({})}
-      >
-        <Plus size={20} />
-        {date === today() ? '冒个泡' : '补个泡'}
-      </button>
+      <div className="floating-actions">
+        <button
+          className="floating-create"
+          aria-label={date === today() ? '冒个泡' : '补个泡'}
+          onClick={() => setComposer({})}
+        >
+          <Plus size={20} />
+          {date === today() ? '冒个泡' : '补个泡'}
+        </button>
+        <button
+          className="export-trigger"
+          aria-label="制作回忆"
+          title="手账长图 · 回忆视频 · 素材下载"
+          onClick={() => setExportOpen(true)}
+          disabled={!entries.length || loading || !!error}
+        >
+          <Clapperboard size={18} />
+          <span>制作回忆</span>
+        </button>
+      </div>
       {calendarOpen && (
         <DateCalendar
           date={date}
-          onClose={() => setCalendarOpen(false)}
+          onClose={closeCalendar}
           onSelect={(next) => {
             setDate(next);
-            setCalendarOpen(false);
+            closeCalendar();
           }}
         />
       )}

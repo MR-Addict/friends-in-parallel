@@ -68,7 +68,7 @@ function ComposerEditor({
       people.some((p) => p.id === initialPerson) ? initialPerson : '',
     );
   const [type, setType] = useState<'photo' | 'sticker'>(
-    entry ? (entry.media.type === 'photo' ? 'photo' : 'sticker') : draft?.type || 'sticker',
+    entry ? (entry.media.type === 'photo' ? 'photo' : 'sticker') : draft?.type || 'photo',
   );
   const [description, setDescription] = useState(entry?.description ?? draft?.description ?? ''),
     [time, setTime] = useState(
@@ -108,7 +108,7 @@ function ComposerEditor({
       (description ||
         stickerId ||
         file ||
-        type !== 'sticker' ||
+        type !== 'photo' ||
         time !== undo.clearedTime ||
         personId !== undo.draft.personId)
     )
@@ -516,7 +516,7 @@ function ComposerEditor({
                           setDescription('');
                           setStickerId('');
                           setFile(undefined);
-                          setType('sticker');
+                          setType('photo');
                           setTime(clearedTime);
                           setError('');
                         }}

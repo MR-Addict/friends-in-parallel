@@ -1,3 +1,4 @@
+import { selectDate } from './calendar';
 import people from '../../apps/web/src/config/people.json' with { type: 'json' };
 const testNickname = people.find((person) => person.id === 'lu-yuhan')!.nickname;
 import { test, expect } from '@playwright/test';
@@ -26,11 +27,11 @@ test('Mobile two-step publishing, preserving form, all packs, edit/delete and ex
   await page.goto('/');
   await page.evaluate(() => document.fonts.ready);
   await expect(page.getByRole('navigation', { name: '页面切换' })).toHaveCount(0);
-  const initialDate = await page.getByLabel('选择日期').inputValue();
-  await page.getByLabel('选择日期').fill('2026-08-29');
-  await expect(page.getByLabel('选择日期')).toHaveValue('2026-08-29');
-  await page.getByLabel('选择日期').fill(initialDate);
-  await expect(page.getByLabel('选择日期')).toHaveValue(initialDate);
+  const initialDate = (await page.getByLabel('选择日期').getAttribute('title'))!;
+  await selectDate(page, '2026-08-29');
+  await expect(page.getByLabel('选择日期')).toHaveAttribute('title', '2026-08-29');
+  await selectDate(page, initialDate);
+  await expect(page.getByLabel('选择日期')).toHaveAttribute('title', initialDate);
   await expect(page.getByRole('heading', { name: '和朋友的同一时间' })).toBeVisible();
   await expect(page.locator('.floating-create')).toBeInViewport();
   await page.screenshot({ path: 'test-results/home-375.png', fullPage: true });
@@ -40,6 +41,7 @@ test('Mobile two-step publishing, preserving form, all packs, edit/delete and ex
   await page.getByRole('button', { name: '下一步' }).click();
   await page.getByLabel('想说的话').fill('和朋友们在同一天，收集一个小小的开心。');
   await page.getByLabel('发生的时间').fill(time);
+  await page.getByRole('button', { name: '表情', exact: true }).click();
   await page.getByRole('button', { name: '选择表情', exact: true }).click();
   await page.getByRole('button', { name: '糖果扁平', exact: true }).click();
   await page.getByRole('button', { name: '好开心', exact: true }).click();
@@ -58,7 +60,7 @@ test('Mobile two-step publishing, preserving form, all packs, edit/delete and ex
   await page.screenshot({ path: 'test-results/composer-375.png', fullPage: true });
   await page.getByRole('button', { name: '发布' }).click();
   await expect(page.getByRole('heading', { name: '和朋友的同一时间' })).toBeVisible();
-  await expect(page.getByLabel('选择日期')).toHaveValue('2026-08-29');
+  await expect(page.getByLabel('选择日期')).toHaveAttribute('title', '2026-08-29');
   await expect(page.getByText('和朋友们在同一天，收集一个小小的开心。')).toBeVisible();
   await page.screenshot({ path: 'test-results/timeline-375.png', fullPage: true });
   await page.getByRole('button', { name: '制作回忆' }).click();
@@ -163,7 +165,7 @@ test('Mobile two-step publishing, preserving form, all packs, edit/delete and ex
   await page.getByRole('button', { name: '保存修改' }).click();
   await expect(page.getByText('修改后的记录')).toBeVisible();
   await page.reload();
-  await page.getByLabel('选择日期').fill('2026-08-29');
+  await selectDate(page, '2026-08-29');
   await expect(page.getByText('修改后的记录')).toBeVisible();
   await page.getByRole('button', { name: new RegExp(`更多操作：${testNickname}`) }).click();
   await page.getByRole('button', { name: new RegExp(`删除${testNickname}`) }).click();
@@ -221,7 +223,7 @@ test('Backend PNG is 1080px, wraps safely and paginates long days; every archive
   expect((await request.get(data.archiveUrl)).status()).toBe(200);
   await page.setViewportSize({ width: 430, height: 932 });
   await page.goto('/');
-  await page.getByLabel('选择日期').fill(date);
+  await selectDate(page, date);
   await page.getByRole('button', { name: '制作回忆' }).click();
   const generated = page.waitForResponse(
     (r) => r.url().endsWith('/api/exports/images') && r.request().method() === 'POST',
@@ -270,7 +272,10 @@ test('Photo upload retains input after a failed request; posting resets a differ
   await page.locator('.floating-create').click();
   await page.getByRole('dialog').getByRole('button', { name: '水水', exact: true }).click();
   await page.getByRole('button', { name: '下一步' }).click();
-  await page.getByRole('button', { name: '照片', exact: true }).click();
+  await expect(page.getByRole('button', { name: '照片', exact: true })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
   const { default: sharp } = await import('sharp');
   const buffer = await sharp({
     create: { width: 800, height: 1200, channels: 3, background: '#e1bd8a' },
@@ -305,6 +310,12 @@ test('Photo upload retains input after a failed request; posting resets a differ
   await page.getByLabel('发生的时间').fill('2026-08-27T10:31');
   await page.getByRole('button', { name: '发布' }).click();
   await expect(page.getByText('新朋友的表情')).toBeVisible();
+  const filters = page.getByRole('group', { name: '按人物筛选' }).getByRole('button');
+  await expect(filters.nth(0)).toHaveText('全部朋友');
+  await expect(filters.nth(1)).toHaveText(testNickname);
+  await page.reload();
+  await expect(filters.nth(1)).toHaveText(testNickname);
+  await selectDate(page, '2026-08-27');
   await expect(page.getByText('照片上传测试')).toBeVisible();
   await page.screenshot({ path: 'test-results/timeline-430.png', fullPage: true });
   const entries = await (await request.get('/api/entries?date=2026-08-27')).json();
@@ -328,7 +339,7 @@ test('Legacy emoji editing, picker cancellation and small viewport preserve the 
   const entry = await response.json();
   await page.setViewportSize({ width: 375, height: 812 });
   await page.goto('/');
-  await page.getByLabel('选择日期').fill('2026-08-26');
+  await selectDate(page, '2026-08-26');
   await expect(page.locator(`#entry-${entry.id} img`).last()).toBeVisible();
   const card = page.locator(`#entry-${entry.id}`);
   const cardBounds = (await card.boundingBox())!;
@@ -417,7 +428,7 @@ test('Home shows newest hours and entries first, regardless of person configurat
     ids.push((await res.json()).id);
   }
   await page.goto('/');
-  await page.getByLabel('选择日期').fill(date);
+  await selectDate(page, date);
   await expect(page.locator('.hour-heading time')).toHaveText(['11:00', '10:00', '09:00']);
   expect(await page.locator('.moment-card').evaluateAll((nodes) => nodes.map((n) => n.id))).toEqual(
     [ids[3], ids[1], ids[0], ids[2]].map((id) => `entry-${id}`),
@@ -437,7 +448,7 @@ test('Photo drafts survive closing and reload, stay separate by date, and clear 
 }) => {
   await page.setViewportSize({ width: 375, height: 812 });
   await page.goto('/');
-  await page.getByLabel('选择日期').fill('2026-08-24');
+  await selectDate(page, '2026-08-24');
   await page.locator('.floating-create').click();
   await page.getByRole('dialog').getByRole('button', { name: '水水', exact: true }).click();
   await page.getByRole('button', { name: '下一步' }).click();
@@ -468,11 +479,11 @@ test('Photo drafts survive closing and reload, stay separate by date, and clear 
   await expect(page.getByLabel('想说的话')).toHaveValue('刷新后仍在的草稿');
   await expect(page.getByAltText('照片预览')).toBeVisible();
   await page.reload();
-  await page.getByLabel('选择日期').fill('2026-08-23');
+  await selectDate(page, '2026-08-23');
   await page.locator('.floating-create').click();
   await expect(page.getByLabel('想说的话')).toHaveValue('');
   await page.getByRole('button', { name: '关闭', exact: true }).click();
-  await page.getByLabel('选择日期').fill('2026-08-24');
+  await selectDate(page, '2026-08-24');
   await page.locator('.floating-create').click();
   await expect(page.getByLabel('想说的话')).toHaveValue('刷新后仍在的草稿');
   await expect(page.getByAltText('照片预览')).toBeVisible();
@@ -503,7 +514,7 @@ test('Calendar marks recorded days, supports leap months, and retries failed cou
   try {
     await page.setViewportSize({ width: 375, height: 812 });
     await page.goto('/');
-    await page.getByLabel('选择日期').fill('2024-02-28');
+    await selectDate(page, '2024-02-28');
     await page.getByLabel('选择日期').click();
     await expect(
       page.getByRole('button', { name: '2024-02-29，1 个瞬间', exact: true }),
@@ -516,7 +527,7 @@ test('Calendar marks recorded days, supports leap months, and retries failed cou
     await expect(page.getByRole('button', { name: /2024-02-30/ })).toHaveCount(0);
     await page.screenshot({ path: 'test-results/calendar-375.png', fullPage: true });
     await page.getByRole('button', { name: '2024-02-29，1 个瞬间', exact: true }).click();
-    await expect(page.getByLabel('选择日期')).toHaveValue('2024-02-29');
+    await expect(page.getByLabel('选择日期')).toHaveAttribute('title', '2024-02-29');
     await expect(page.getByText('闰日的瞬间')).toBeVisible();
     await page.route('**/api/entry-dates?*', (route) => route.abort());
     await page.getByLabel('选择日期').click();
@@ -529,8 +540,9 @@ test('Calendar marks recorded days, supports leap months, and retries failed cou
     await page.getByRole('button', { name: '下个月', exact: true }).click();
     await expect(page.getByLabel('选择月份')).toHaveValue('2024-03');
     await page.getByRole('dialog').getByRole('button', { name: '回到今天', exact: true }).click();
-    await expect(page.getByLabel('选择日期')).toHaveValue(
-      (await page.getByLabel('选择日期').getAttribute('max'))!,
+    await expect(page.getByLabel('选择日期')).toHaveAttribute(
+      'title',
+      new Date(Date.now() + 8 * 3600_000).toISOString().slice(0, 10),
     );
   } finally {
     await request.delete('/api/entries/' + entry.id);
@@ -576,4 +588,81 @@ test('new brand fits mobile and all credits live in the home acknowledgements', 
   await expect(dialog).toContainText('Noto Sans CJK');
   await expect(dialog.getByRole('link', { name: /Kevin MacLeod/ })).toHaveCount(24);
   await expect(dialog.getByRole('link', { name: '完整音乐许可与来源' })).toBeVisible();
+});
+
+test('Calendar trigger restores focus without reopening and header stays aligned', async ({
+  page,
+}) => {
+  await page.goto('/');
+  const trigger = page.getByRole('button', { name: '选择日期', exact: true });
+  await expect(page.locator('.brand-header input')).toHaveCount(0);
+  await trigger.focus();
+  await page.keyboard.press('Enter');
+  const calendar = page.getByRole('dialog', { name: '翻到哪一天？' });
+  await expect(calendar).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(calendar).toHaveCount(0);
+  await expect(trigger).toBeFocused();
+  await expect(trigger).toHaveAttribute('aria-expanded', 'false');
+  await page.keyboard.press('Space');
+  await expect(calendar).toBeVisible();
+  await calendar.getByRole('button', { name: '关闭', exact: true }).click();
+  await expect(trigger).toBeFocused();
+  await selectDate(page, '2024-02-29');
+  await expect(trigger).toBeFocused();
+  for (const width of [320, 375, 390, 430, 540]) {
+    await page.setViewportSize({ width, height: 812 });
+    await page.evaluate(() => document.fonts.ready);
+    const layout = await page.locator('.brand-header').evaluate((header) => {
+      const title = header.querySelector('h1')!.getBoundingClientRect();
+      const subtitle = header.querySelector('p')!.getBoundingClientRect();
+      const date = header.querySelector('.date-picker')!.getBoundingClientRect();
+      const action = document
+        .querySelector('.floating-actions .export-trigger')!
+        .getBoundingClientRect();
+      const create = document.querySelector('.floating-create')!.getBoundingClientRect();
+      return {
+        titleFits: title.right <= date.left,
+        actionsAligned:
+          create.right < action.left &&
+          create.top === action.top &&
+          create.height === action.height,
+        actionsVisible: action.right <= window.innerWidth && action.bottom <= window.innerHeight,
+        subtitleFits: subtitle.right <= date.left,
+        overflow: document.documentElement.scrollWidth > window.innerWidth,
+        titleHeight: title.height,
+      };
+    });
+    expect(layout.titleFits).toBe(true);
+    expect(layout.actionsAligned).toBe(true);
+    expect(layout.actionsVisible).toBe(true);
+    expect(layout.subtitleFits).toBe(true);
+    expect(layout.overflow).toBe(false);
+    expect(layout.titleHeight).toBeLessThan(35);
+  }
+  await page.screenshot({ path: 'test-results/header-updated.png' });
+});
+
+test('Friend filters restore the submitted person and ignore invalid saved identities', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await page.evaluate(() => {
+    localStorage.setItem('parallel.lastSubmittedPerson', JSON.stringify('lu-yuhan'));
+    localStorage.setItem('parallel.person', JSON.stringify('jia-quan'));
+  });
+  await page.reload();
+  const filters = page.getByRole('group', { name: '按人物筛选' }).getByRole('button');
+  await expect(filters).toHaveText([
+    '全部朋友',
+    testNickname,
+    ...people.filter((p) => p.id !== 'lu-yuhan').map((p) => p.nickname),
+  ]);
+  await filters.nth(1).click();
+  await expect(filters.nth(1)).toHaveAttribute('aria-pressed', 'true');
+  await page.evaluate(() =>
+    localStorage.setItem('parallel.lastSubmittedPerson', JSON.stringify('removed-person')),
+  );
+  await page.reload();
+  await expect(filters).toHaveText(['全部朋友', ...people.map((p) => p.nickname)]);
 });
