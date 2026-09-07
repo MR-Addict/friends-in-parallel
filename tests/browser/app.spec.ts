@@ -100,13 +100,60 @@ test('Mobile two-step publishing, preserving form, all packs, edit/delete and ex
   await expect(page.getByRole('link', { name: '下载图片', exact: true })).toBeInViewport();
   const pngDownload = page.waitForEvent('download');
   await page.getByRole('link', { name: '下载图片', exact: true }).click();
-  expect((await pngDownload).suggestedFilename()).toMatch(/\.png$/);
+  expect((await pngDownload).suggestedFilename()).toMatch(
+    /^此刻同频_2026-08-29_手账-01_导出\d{4}-\d{2}-\d{2}\.png$/,
+  );
   await page.screenshot({ path: 'test-results/export-375.png', fullPage: true });
+  const imageZipPromise = page.waitForEvent('download');
+  await page.getByRole('link', { name: '下载图片合集', exact: true }).click();
+  expect((await imageZipPromise).suggestedFilename()).toMatch(
+    /^此刻同频_2026-08-29_手账合集_导出\d{4}-\d{2}-\d{2}\.zip$/,
+  );
   await page.getByRole('button', { name: '返回导出选项' }).click();
-  const downloadPromise = page.waitForEvent('download');
+  let archiveDownloads = 0;
+  page.on('download', () => archiveDownloads++);
   await page.getByRole('button', { name: /下载素材 ZIP/ }).click();
+  const prompt = page.getByLabel('可直接复制的 AI 提示词');
+  await expect(prompt).toHaveValue(/manifest.json/);
+  expect(archiveDownloads).toBe(0);
+  await page.getByRole('button', { name: '生成视频', exact: true }).click();
+  await page.getByLabel('希望生成什么？', { exact: false }).fill('30 秒水彩风格回忆视频');
+  await expect(prompt).toHaveValue(/30 秒水彩风格回忆视频/);
+  await expect(prompt).toHaveValue(/逐镜头生成提示词/);
+  await page.evaluate(() =>
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: {
+        writeText: async (text: string) => {
+          (window as unknown as { copiedPrompt: string }).copiedPrompt = text;
+        },
+      },
+    }),
+  );
+  await page.getByRole('button', { name: '复制提示词', exact: true }).click();
+  await expect(page.getByText('提示词已复制', { exact: true })).toBeVisible();
+  expect(
+    await page.evaluate(() => (window as unknown as { copiedPrompt: string }).copiedPrompt),
+  ).toBe(await prompt.inputValue());
+  await page.evaluate(() =>
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: {
+        writeText: async () => {
+          throw new Error('Permission denied');
+        },
+      },
+    }),
+  );
+  await page.getByRole('button', { name: '复制提示词', exact: true }).click();
+  await expect(page.getByText('未能自动复制', { exact: false })).toBeVisible();
+  await page.screenshot({ path: 'test-results/archive-prompt-375.png', fullPage: true });
+  const downloadPromise = page.waitForEvent('download');
+  await page.getByRole('button', { name: '下载压缩包', exact: true }).click();
   const download = await downloadPromise;
-  expect(download.suggestedFilename()).toContain('materials.zip');
+  expect(download.suggestedFilename()).toMatch(
+    /^此刻同频_2026-08-29_素材包_导出\d{4}-\d{2}-\d{2}\.zip$/,
+  );
   await page.getByRole('button', { name: '关闭', exact: true }).click();
   await page.getByRole('button', { name: /更多操作：陆语涵/ }).click();
   await page.getByRole('button', { name: /编辑陆语涵/ }).click();
@@ -191,7 +238,9 @@ test('Backend PNG is 1080px, wraps safely and paginates long days; every archive
   expect(await page.locator('.export-preview-scroll').evaluate((el) => el.scrollTop)).toBe(0);
   const currentDownload = page.waitForEvent('download');
   await downloadLink.click();
-  expect((await currentDownload).suggestedFilename()).toMatch(/\.png$/);
+  expect((await currentDownload).suggestedFilename()).toMatch(
+    /_手账-02_导出\d{4}-\d{2}-\d{2}\.png$/,
+  );
   await page.screenshot({ path: 'test-results/export-paginated-430.png' });
   await page.getByRole('button', { name: '上一张图片' }).click();
   await expect(downloadLink).toHaveAttribute('href', preview.images[0] + '?download=1');

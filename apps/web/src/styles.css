@@ -1260,3 +1260,40 @@ textarea {
   font-size: 14px;
   text-align: center;
 }
+
+.archive-step {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.archive-step h3 {
+  margin: 10px 0 0;
+  font-size: 17px;
+}
+.archive-step .small-note {
+  margin: 0;
+}
+.archive-step textarea {
+  width: 100%;
+  min-height: 80px;
+}
+.archive-step .archive-prompt {
+  min-height: 220px;
+  font-size: 13px;
+  line-height: 1.7;
+}
+.archive-kind {
+  display: flex;
+  gap: 10px;
+}
+.archive-kind button {
+  flex: 1;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+.archive-kind button[aria-pressed='true'] {
+  color: var(--accent);
+  background: var(--cream, #faf2e8);
+  border-color: var(--accent);
+}

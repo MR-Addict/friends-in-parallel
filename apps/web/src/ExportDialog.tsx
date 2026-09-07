@@ -9,9 +9,11 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { Modal } from './Modal';
+import { ArchiveStep } from './ArchiveStep';
 import { api, type ImageExport } from './lib';
 export function ExportDialog({ date, onClose }: { date: string; onClose: () => void }) {
   const previewRef = useRef<HTMLDivElement>(null);
+  const [archiveStep, setArchiveStep] = useState(false);
   const [pageIndex, setPageIndex] = useState(0);
   const [busy, setBusy] = useState(''),
     [error, setError] = useState(''),
@@ -41,7 +43,7 @@ export function ExportDialog({ date, onClose }: { date: string; onClose: () => v
       await api(`/api/exports/archive?date=${date}&check=1`);
       const a = document.createElement('a');
       a.href = `/api/exports/archive?date=${date}`;
-      a.download = `parallel-${date}-materials.zip`;
+      a.download = ''; // The server supplies the dated filename.
       document.body.append(a);
       a.click();
       a.remove();
@@ -64,7 +66,17 @@ export function ExportDialog({ date, onClose }: { date: string; onClose: () => v
           {date} <span>· 包含当天全部朋友的动态</span>
         </p>
       )}
-      {!result ? (
+      {archiveStep ? (
+        <ArchiveStep
+          date={date}
+          busy={!!busy}
+          onBack={() => {
+            setArchiveStep(false);
+            setError('');
+          }}
+          onDownload={archive}
+        />
+      ) : !result ? (
         <>
           <div className="export-options">
             <button disabled={!!busy} aria-busy={busy === 'images'} onClick={images}>
@@ -81,13 +93,19 @@ export function ExportDialog({ date, onClose }: { date: string; onClose: () => v
                 <ArrowDownToLine size={20} />
               )}
             </button>
-            <button disabled={!!busy} aria-busy={busy === 'archive'} onClick={archive}>
+            <button
+              disabled={!!busy}
+              onClick={() => {
+                setArchiveStep(true);
+                setError('');
+              }}
+            >
               <span className="export-icon sage">
                 <FolderArchive size={25} />
               </span>
               <div>
                 <strong>下载素材 ZIP</strong>
-                <small>ZIP · 按朋友整理 · 附时间与描述清单</small>
+                <small>下一步：复制 AI 提示词，再下载素材</small>
               </div>
               {busy === 'archive' ? (
                 <LoaderCircle size={20} className="spin" />

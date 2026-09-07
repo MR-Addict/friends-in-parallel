@@ -92,6 +92,11 @@ for (const kind of ['heic', 'large', 'oriented', 'fallback'] as const) {
         await expect(
           page.getByRole('dialog').getByText('照片已保留，当前浏览器无法预览'),
         ).toBeVisible();
+        const download = page.waitForEvent('download');
+        await page.getByRole('link', { name: '下载照片' }).click();
+        expect((await download).suggestedFilename()).toMatch(
+          /^此刻同频_2026-08-27_10-30_照片_导出\d{4}-\d{2}-\d{2}\.heic$/,
+        );
         return;
       }
       const metadata = await sharp(uploaded).metadata();

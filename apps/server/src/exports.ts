@@ -5,8 +5,24 @@ import archiver from 'archiver';
 import { chromium } from 'playwright';
 import type { Response } from 'express';
 import { publicDir, packs, personById, stickerById, emojiSticker } from './config.js';
-import { beijingTime, HttpError, type Entry, type Person } from './model.js';
+import {
+  beijingDate,
+  beijingTime,
+  checkDate,
+  HttpError,
+  type Entry,
+  type Person,
+} from './model.js';
 import type { Store } from './store.js';
+export function exportFilename(date: string, kind: 'materials' | 'images' | 'image', page = 1) {
+  const label =
+    kind === 'materials'
+      ? '素材包'
+      : kind === 'images'
+        ? '手账合集'
+        : `手账-${String(page).padStart(2, '0')}`;
+  return `此刻同频_${date}_${label}_导出${beijingDate()}.${kind === 'image' ? 'png' : 'zip'}`;
+}
 export interface SnapshotItem {
   entry: Entry;
   person: Person;
@@ -108,7 +124,7 @@ export async function streamArchive(res: Response, items: SnapshotItem[], date: 
   const archive = archiver('zip', { zlib: { level: 6 } });
   archive.on('error', () => res.destroy());
   archive.on('warning', () => res.destroy());
-  res.attachment(`parallel-${date}-materials.zip`);
+  res.attachment(exportFilename(date, 'materials'));
   archive.pipe(res);
   res.on('close', () => {
     if (!res.writableFinished) archive.abort();
@@ -362,14 +378,14 @@ export class ImageExports {
       archive.pipe(output);
       groups.forEach((_, i) =>
         archive.file(path.join(dest, `${i + 1}.png`), {
-          name: `${date}-${String(i + 1).padStart(2, '0')}.png`,
+          name: exportFilename(date, 'image', i + 1),
         }),
       );
       archive.directory(path.join(publicDir, 'licenses'), 'licenses');
       await archive.finalize();
       await finished;
       const expiresAt = new Date(Date.now() + 3600_000).toISOString();
-      await writeFile(path.join(dest, 'metadata.json'), JSON.stringify({ expiresAt }));
+      await writeFile(path.join(dest, 'metadata.json'), JSON.stringify({ expiresAt, date }));
       return {
         images: groups.map((_, i) => `/api/exports/files/${token}/${i + 1}.png`),
         archiveUrl: `/api/exports/files/${token}/images.zip`,
@@ -395,7 +411,16 @@ export class ImageExports {
       if (Date.parse(meta.expiresAt) < Date.now()) throw new Error('Expired');
       const filename = path.join(dir, name);
       await stat(filename);
-      return filename;
+      return {
+        filename,
+        downloadName: meta.date
+          ? exportFilename(
+              checkDate(meta.date),
+              name.endsWith('.zip') ? 'images' : 'image',
+              parseInt(name, 10),
+            )
+          : name,
+      };
     } catch {
       throw new HttpError(404, '导出已过期，请重新生成');
     }

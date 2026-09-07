@@ -79,9 +79,9 @@ export async function createApp(
     await streamArchive(res, items, date);
   });
   app.get('/api/exports/files/:token/:name', async (req, res) => {
-    const filename = await exports.file(req.params.token, req.params.name);
+    const { filename, downloadName } = await exports.file(req.params.token, req.params.name);
     if (req.params.name.endsWith('.zip') || req.query.download === '1')
-      res.attachment(req.params.name);
+      res.attachment(downloadName);
     res.sendFile(filename);
   });
   app.use('/api', (_req, _res, next) => next(new HttpError(404, '接口不存在')));

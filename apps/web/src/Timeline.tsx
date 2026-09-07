@@ -1,7 +1,7 @@
 import { Photo } from './Photo';
 import { useEffect, useState } from 'react';
 import { Plus, Pencil, Trash2, Clock, MoreHorizontal, LoaderCircle, Users } from 'lucide-react';
-import { people, personOf, timeOf, mediaSrc, mediaName, today, type Entry } from './lib';
+import { people, personOf, timeOf, mediaSrc, mediaName, today, localTime, type Entry } from './lib';
 import { Modal } from './Modal';
 export function Timeline({
   entries,
@@ -225,7 +225,10 @@ export function Timeline({
         >
           <Photo className="zoom-image" src={mediaSrc(zoom.media)} alt={mediaName(zoom.media)} />
           {zoom.media.type === 'photo' && (
-            <a href={mediaSrc(zoom.media)} download={zoom.media.filename}>
+            <a
+              href={mediaSrc(zoom.media)}
+              download={`此刻同频_${localTime(zoom.occurredAt).replace('T', '_').replace(':', '-')}_照片_导出${today()}.${zoom.media.filename.split('.').pop()}`}
+            >
               下载照片
             </a>
           )}
