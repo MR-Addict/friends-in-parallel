@@ -117,6 +117,22 @@ IMAGE=friends-in-parallel:local docker compose up -d --pull never
 - 无个人账号，输入共享暗号后可以使用页面查看和修改记录，适用于互相信任的朋友小圈子；API 本身不校验暗号。
 - 进入时间线、切换日期、手动刷新时重新读取数据；没有实时推送。
 
+## 微信通知（PushPlus）
+
+发布新动态成功后，服务端通过 PushPlus 微信公众号发送通知；编辑、删除不会发送。通知包含人物昵称、记录时间、动态编号和可选网站地址。Token 只用于服务端，不进入前端或镜像。
+
+将 `.env.example` 复制为项目根目录的 `.env`，填写：
+
+- `PUSHPLUS_TOKEN`：PushPlus Token，留空关闭通知。发送账号需完成实名认证。
+- `PUSHPLUS_TOPIC`：可选订阅群组编码；留空仅通知 Token 所属用户，填写后通知群组订阅者。
+- `SITE_URL`：可选网站公网地址，用于通知内查看手账。
+
+`pnpm dev`、`pnpm start` 自动读取根目录 `.env`，已有环境变量优先；Docker Compose 也会将以上变量传入容器。修改后需重启服务。部署时在服务器单独配置 `.env`，并使用包含此功能的新镜像；`docker run` 可加 `--env-file .env`。
+
+通知异步发送，超时为 10 秒，失败记录日志，不影响动态保存。请求至少间隔 13 秒以适配普通账号每分钟 5 次的限制；每日额度仍由 PushPlus 控制。队列保存在内存中，重启会丢失待发送通知，失败不自动重试。接口成功仅表示 PushPlus 接受请求，最终送达可在 PushPlus 消息记录中查看。
+
+接口与额度参考 [PushPlus 文档](https://www.pushplus.plus/doc/guide/api.html)。
+
 ## 两种导出
 
 导出总是包含所选日期**全部人物**，不受人物筛选影响。

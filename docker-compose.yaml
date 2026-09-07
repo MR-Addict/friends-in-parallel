@@ -9,6 +9,9 @@ services:
     environment:
       PORT: '4500'
       DATA_DIR: /data
+      PUSHPLUS_TOKEN: ${PUSHPLUS_TOKEN:-}
+      PUSHPLUS_TOPIC: ${PUSHPLUS_TOPIC:-}
+      SITE_URL: ${SITE_URL:-}
     volumes:
       - parallel-data:/data
 

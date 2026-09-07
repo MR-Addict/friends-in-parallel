@@ -76,7 +76,13 @@ try {
   if (backendPort === frontendPort) throw new Error('Frontend and backend ports must differ.');
   await checkPort(backendPort);
   await checkPort(frontendPort);
-  start(server, ['--watch', '--import', require.resolve('tsx'), 'src/index.ts']);
+  start(server, [
+    '--env-file-if-exists=../../.env',
+    '--watch',
+    '--import',
+    require.resolve('tsx'),
+    'src/index.ts',
+  ]);
   start(web, [
     fileURLToPath(new URL('./bin/vite.js', pathToFileURL(webRequire.resolve('vite/package.json')))),
     '--host',

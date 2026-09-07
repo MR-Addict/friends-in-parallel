@@ -4,9 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
+    "dev": "node --env-file-if-exists=../../.env --watch --import tsx src/index.ts",
     "build": "tsc && tsx ../../scripts/copy-web.ts",
-    "start": "node dist/index.js",
+    "start": "node --env-file-if-exists=../../.env dist/index.js",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

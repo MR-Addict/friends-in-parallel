@@ -1,4 +1,6 @@
 import express from 'express';
+import { createNotifier } from './notifications.js';
+import type { Entry } from './model.js';
 import multer from 'multer';
 import path from 'node:path';
 import { dataDir, publicDir } from './config.js';
@@ -6,7 +8,10 @@ import { Store } from './store.js';
 import { validateEntry } from './validation.js';
 import { checkDate, HttpError } from './model.js';
 import { ImageExports, snapshot, streamArchive } from './exports.js';
-export async function createApp(dir = dataDir) {
+export async function createApp(
+  dir = dataDir,
+  notify: (entry: Entry) => Promise<void> = createNotifier(),
+) {
   const store = new Store(dir);
   await store.init();
   const exports = new ImageExports(dir);
@@ -31,11 +36,15 @@ export async function createApp(dir = dataDir) {
     res.json(store.dateCounts(first.slice(0, 7)));
   });
   app.get('/api/entries', (req, res) => res.json(store.list(checkDate(req.query.date))));
-  app.post('/api/entries', upload, async (req, res) =>
-    res
-      .status(201)
-      .json(await store.save(await validateEntry(req.body || {}, req.file), req.file?.buffer)),
-  );
+  app.post('/api/entries', upload, async (req, res) => {
+    const entry = await store.save(await validateEntry(req.body || {}, req.file), req.file?.buffer);
+    res.status(201).json(entry);
+    void Promise.resolve()
+      .then(() => notify(entry))
+      .catch(() => {
+        console.error('[PushPlus] 通知发送失败，动态已保存');
+      });
+  });
   app.patch('/api/entries/:id', upload, async (req, res) =>
     res.json(
       await store.save(

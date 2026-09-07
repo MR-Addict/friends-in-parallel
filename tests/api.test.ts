@@ -11,9 +11,9 @@ import { beijingDate, checkDate, type Entry } from '../apps/server/src/model.js'
 import { partitionHeights, snapshot } from '../apps/server/src/exports.js';
 import { Store } from '../apps/server/src/store.js';
 const date = '2026-08-30';
-async function fixture() {
+async function fixture(notify: (entry: Entry) => Promise<void> = async () => {}) {
   const dir = await mkdtemp(path.join(tmpdir(), 'parallel-test-'));
-  const { app, store, dispose } = await createApp(dir);
+  const { app, store, dispose } = await createApp(dir, notify);
   const server = app.listen(0, '127.0.0.1');
   await once(server, 'listening');
   const origin = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
@@ -272,6 +272,40 @@ test('Calendar counts use Beijing dates and reflect edits and deletions', async 
     assert.deepEqual(await counts(), {});
     assert.equal((await fetch(f.origin + '/api/entry-dates?month=2024-13')).status, 400);
     assert.equal((await fetch(f.origin + '/api/entry-dates')).status, 400);
+  } finally {
+    await f.close();
+  }
+});
+
+test('only successful new publications notify; notification failure preserves the saved entry', async () => {
+  const notifications: Entry[] = [];
+  const f = await fixture(async (entry) => {
+    notifications.push(entry);
+    throw new Error('offline');
+  });
+  try {
+    const { res, entry } = await post(f.origin);
+    assert.equal(res.status, 201);
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(notifications.length, 1);
+    assert.equal(notifications[0].id, entry.id);
+    assert.equal(f.store.list(date).length, 1);
+    assert.equal((await post(f.origin, payload({ personId: 'invalid' }))).res.status, 400);
+    assert.equal(
+      (
+        await fetch(`${f.origin}/api/entries/${entry.id}`, {
+          method: 'PATCH',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(payload()),
+        })
+      ).status,
+      200,
+    );
+    assert.equal(
+      (await fetch(`${f.origin}/api/entries/${entry.id}`, { method: 'DELETE' })).status,
+      204,
+    );
+    assert.equal(notifications.length, 1);
   } finally {
     await f.close();
   }
