@@ -1,18 +1,11 @@
 import { readFile, mkdir, writeFile, rm, readdir, stat } from 'node:fs/promises';
 import path from 'node:path';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import archiver from 'archiver';
 import { chromium } from 'playwright';
 import type { Response } from 'express';
 import { publicDir, packs, personById, stickerById, emojiSticker } from './config.js';
-import {
-  beijingDate,
-  beijingTime,
-  checkDate,
-  HttpError,
-  type Entry,
-  type Person,
-} from './model.js';
+import { beijingTime, checkDate, HttpError, type Entry, type Person } from './model.js';
 import type { Store } from './store.js';
 export function exportFilename(date: string, kind: 'materials' | 'images' | 'image', page = 1) {
   const label =
@@ -21,7 +14,7 @@ export function exportFilename(date: string, kind: 'materials' | 'images' | 'ima
       : kind === 'images'
         ? '手账合集'
         : `手账-${String(page).padStart(2, '0')}`;
-  return `此刻同频_${date}_${label}_导出${beijingDate()}.${kind === 'image' ? 'png' : 'zip'}`;
+  return `此刻同频-${date}-${label}.${kind === 'image' ? 'png' : 'zip'}`;
 }
 export interface SnapshotItem {
   entry: Entry;
@@ -90,7 +83,7 @@ export async function snapshot(store: Store, date: string): Promise<SnapshotItem
           bytes,
           mime,
           extension,
-          filename: `${entry.personId}/${date}_${beijingTime(entry.occurredAt).replace(':', '-')}_${entry.id}.${extension}`,
+          filename: `${entry.personId}/${date}-${beijingTime(entry.occurredAt).replace(':', '-')}-${entry.id}.${extension}`,
           credit: pack ? `${pack.brand} · ${pack.license}` : '',
         };
       }),
@@ -266,8 +259,20 @@ export function shareTemplate(
   const credits = [...new Set(items.map((item) => item.credit).filter(Boolean))].join(' · ');
   return `<!doctype html><html lang="zh-CN"><meta charset="utf-8"><style>${exportStyles}</style><body><main class="sheet"><header class="masthead"><div><h1>此刻，同频</h1><p class="subtitle">同一小时，朋友们在做什么</p></div><div class="date">${date}<br><small>${new Set(items.map((i) => i.entry.personId)).size} 位朋友 · ${items.length} 条动态</small></div></header>${body}<footer class="footer">${page} / ${total}${credits ? `<p class="credit">${escape(credits)}</p>` : ''}</footer></main></body></html>`;
 }
+interface ImageExportResult {
+  images: string[];
+  archiveUrl: string;
+  expiresAt: string;
+}
+const EXPORT_TTL = 3600_000;
+const exportResult = (token: string, pages: number, expiresAt: string): ImageExportResult => ({
+  images: Array.from({ length: pages }, (_, i) => `/api/exports/files/${token}/${i + 1}.png`),
+  archiveUrl: `/api/exports/files/${token}/images.zip`,
+  expiresAt,
+});
 export class ImageExports {
   private busy = false;
+  private pending = new Map<string, Promise<ImageExportResult>>();
   readonly dir: string;
   constructor(dataDir: string) {
     this.dir = path.join(dataDir, 'exports');
@@ -276,11 +281,87 @@ export class ImageExports {
     await mkdir(this.dir, { recursive: true });
     for (const name of await readdir(this.dir)) {
       const dest = path.join(this.dir, name);
-      const info = await stat(dest);
-      if (Date.now() - info.mtimeMs > 3600_000) await rm(dest, { recursive: true, force: true });
+      try {
+        const info = await stat(dest);
+        if (Date.now() - info.mtimeMs > EXPORT_TTL)
+          await rm(dest, { recursive: true, force: true });
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+      }
     }
   }
-  async generate(items: SnapshotItem[], date: string) {
+  private async cached(key: string): Promise<ImageExportResult | undefined> {
+    await mkdir(this.dir, { recursive: true });
+    for (const token of await readdir(this.dir)) {
+      if (!/^[a-f0-9-]{36}$/.test(token)) continue;
+      try {
+        const dir = path.join(this.dir, token);
+        const meta = JSON.parse(await readFile(path.join(dir, 'metadata.json'), 'utf8'));
+        if (
+          meta.key !== key ||
+          !(Date.parse(meta.expiresAt) > Date.now()) ||
+          !Number.isInteger(meta.pages) ||
+          meta.pages < 1
+        )
+          continue;
+        const names = [
+          ...Array.from({ length: meta.pages }, (_, i) => `${i + 1}.png`),
+          'images.zip',
+        ];
+        const files = await Promise.all(names.map((name) => stat(path.join(dir, name))));
+        if (files.some((file) => !file.isFile() || !file.size)) continue;
+        return exportResult(token, meta.pages, meta.expiresAt);
+      } catch {
+        // Missing, incomplete, expired, or old cache metadata is a cache miss.
+      }
+    }
+  }
+  async generate(items: SnapshotItem[], date: string): Promise<ImageExportResult> {
+    const [font, renderer, licenses] = await Promise.all([
+      readFile(path.join(publicDir, 'fonts/NotoSansCJKsc-Regular.otf')),
+      readFile(new URL(import.meta.url)),
+      readdir(path.join(publicDir, 'licenses')).then((names) =>
+        Promise.all(
+          names.sort().map(async (name) => ({
+            name,
+            bytes: await readFile(path.join(publicDir, 'licenses', name)),
+          })),
+        ),
+      ),
+    ]);
+    const hash = createHash('sha256').update(date).update(renderer).update(font);
+    for (const { bytes, ...item } of items) {
+      const { updatedAt: _updatedAt, ...content } = item.entry;
+      hash
+        .update(JSON.stringify({ ...item, entry: content }))
+        .update(createHash('sha256').update(bytes).digest());
+    }
+    for (const license of licenses)
+      hash
+        .update(JSON.stringify(license.name))
+        .update(createHash('sha256').update(license.bytes).digest());
+    const key = hash.digest('hex');
+    const pending = this.pending.get(key);
+    if (pending) return pending;
+    const job = (async () => {
+      const cached = await this.cached(key);
+      if (cached) return cached;
+      return this.render(items, date, key, font, licenses);
+    })();
+    this.pending.set(key, job);
+    try {
+      return await job;
+    } finally {
+      this.pending.delete(key);
+    }
+  }
+  private async render(
+    items: SnapshotItem[],
+    date: string,
+    key: string,
+    font: Buffer,
+    licenses: { name: string; bytes: Buffer }[],
+  ) {
     if (this.busy) throw new HttpError(429, '另一份手账正在生成，请稍后再试');
     this.busy = true;
     const token = randomUUID(),
@@ -290,7 +371,6 @@ export class ImageExports {
     try {
       await this.cleanup();
       await mkdir(dest, { recursive: true });
-      const font = await readFile(path.join(publicDir, 'fonts/NotoSansCJKsc-Regular.otf'));
       browser = await chromium.launch({ headless: true, timeout: 30_000 });
       timer = setTimeout(() => {
         void browser?.close().catch(() => {});
@@ -381,16 +461,16 @@ export class ImageExports {
           name: exportFilename(date, 'image', i + 1),
         }),
       );
-      archive.directory(path.join(publicDir, 'licenses'), 'licenses');
+      for (const license of licenses)
+        archive.append(license.bytes, { name: `licenses/${license.name}` });
       await archive.finalize();
       await finished;
-      const expiresAt = new Date(Date.now() + 3600_000).toISOString();
-      await writeFile(path.join(dest, 'metadata.json'), JSON.stringify({ expiresAt, date }));
-      return {
-        images: groups.map((_, i) => `/api/exports/files/${token}/${i + 1}.png`),
-        archiveUrl: `/api/exports/files/${token}/images.zip`,
-        expiresAt,
-      };
+      const expiresAt = new Date(Date.now() + EXPORT_TTL).toISOString();
+      await writeFile(
+        path.join(dest, 'metadata.json'),
+        JSON.stringify({ expiresAt, date, key, pages: groups.length }),
+      );
+      return exportResult(token, groups.length, expiresAt);
     } catch (e) {
       await rm(dest, { recursive: true, force: true });
       if (e instanceof HttpError) throw e;
@@ -408,7 +488,7 @@ export class ImageExports {
     const dir = path.join(this.dir, token);
     try {
       const meta = JSON.parse(await readFile(path.join(dir, 'metadata.json'), 'utf8'));
-      if (Date.parse(meta.expiresAt) < Date.now()) throw new Error('Expired');
+      if (!(Date.parse(meta.expiresAt) > Date.now())) throw new Error('Expired');
       const filename = path.join(dir, name);
       await stat(filename);
       return {

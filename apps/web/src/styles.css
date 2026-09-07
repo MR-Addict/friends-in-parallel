@@ -277,6 +277,7 @@ input[type='datetime-local'] {
   margin-bottom: 26px;
 }
 .moment-card {
+  position: relative;
   border: 1px solid var(--line);
   border-radius: 16px;
   background: white;
@@ -320,11 +321,26 @@ input[type='datetime-local'] {
   margin-top: 3px;
 }
 .card-actions {
+  position: relative;
+  z-index: 1;
   margin-left: auto;
 }
 .moment-media {
   display: block;
   padding: 0;
+}
+.moment-media::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 16px;
+}
+.moment-media:focus-visible {
+  outline: none;
+}
+.moment-media:focus-visible::after {
+  outline: 3px solid #c34f4070;
+  outline-offset: 3px;
 }
 .moment-media.photo {
   width: 100%;
@@ -637,21 +653,6 @@ textarea {
 .pack-tabs button {
   font-size: 13px;
 }
-.search-box {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  padding: 0 10px;
-}
-.search-box input {
-  border: 0;
-  background: transparent;
-  width: 100%;
-  min-height: 44px;
-  font-size: 16px;
-}
 .sticker-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -690,11 +691,6 @@ textarea {
   font-size: 14px;
   color: var(--muted);
 }
-.selection-note {
-  margin-top: 16px;
-  font-size: 12px;
-  color: var(--muted);
-}
 .error-banner {
   margin: 14px 0;
   padding: 12px;
@@ -729,7 +725,6 @@ textarea {
   object-fit: contain;
 }
 .export-date,
-.preview-help,
 .small-note {
   font-size: 13px;
   line-height: 1.7;
@@ -1030,34 +1025,6 @@ textarea {
   width: 54px;
   height: 54px;
 }
-.quick-stickers {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  margin-top: 8px;
-}
-.quick-stickers button {
-  display: grid;
-  place-items: center;
-  min-width: 0;
-  flex: 1;
-  border-radius: 10px;
-  border: 1px solid transparent;
-  padding: 5px;
-}
-.quick-stickers img {
-  width: 30px;
-  height: 30px;
-  object-fit: contain;
-}
-.quick-stickers button[aria-pressed='true'] {
-  border-color: #d99388;
-  background: #fcf1ed;
-}
-.quick-stickers .more-stickers {
-  font-size: 11px;
-  color: var(--muted);
-}
 .draft-note {
   display: flex;
   justify-content: space-between;
@@ -1264,36 +1231,52 @@ textarea {
 .archive-step {
   display: flex;
   flex-direction: column;
+  flex: 1;
+  min-height: 0;
   gap: 12px;
+  padding: 12px 20px 20px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
-.archive-step h3 {
-  margin: 10px 0 0;
-  font-size: 17px;
+.archive-step > .text-button {
+  align-self: flex-start;
+  flex-shrink: 0;
 }
 .archive-step .small-note {
   margin: 0;
 }
-.archive-step textarea {
-  width: 100%;
-  min-height: 80px;
+.archive-prompt-box {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 160px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #faf9f6;
+  overflow: hidden;
 }
-.archive-step .archive-prompt {
-  min-height: 220px;
+.archive-prompt-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+  padding: 4px 4px 4px 14px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.archive-prompt-heading .icon-button {
+  color: var(--accent);
+}
+.archive-prompt {
+  display: block;
+  flex: 1;
+  min-height: 0;
+  padding: 0 14px 14px;
+  resize: none;
   font-size: 13px;
   line-height: 1.7;
+  overscroll-behavior: contain;
 }
-.archive-kind {
-  display: flex;
-  gap: 10px;
-}
-.archive-kind button {
-  flex: 1;
-  padding: 10px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-}
-.archive-kind button[aria-pressed='true'] {
-  color: var(--accent);
-  background: var(--cream, #faf2e8);
-  border-color: var(--accent);
+.archive-prompt:focus-visible {
+  outline-offset: -3px;
 }

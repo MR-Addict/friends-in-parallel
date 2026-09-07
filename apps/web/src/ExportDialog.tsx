@@ -55,13 +55,13 @@ export function ExportDialog({ date, onClose }: { date: string; onClose: () => v
   }
   return (
     <Modal
-      title="把这一天，收进手账"
+      title={result ? '手账预览' : '把这一天，收进手账'}
       onClose={onClose}
       busy={!!busy}
       wide={!!result}
-      className={result ? 'export-result-modal' : ''}
+      className={result || archiveStep ? 'export-result-modal' : ''}
     >
-      {!result && (
+      {!result && !archiveStep && (
         <p className="export-date">
           {date} <span>· 包含当天全部朋友的动态</span>
         </p>
@@ -123,11 +123,6 @@ export function ExportDialog({ date, onClose }: { date: string; onClose: () => v
               <ArrowLeft size={16} />
               返回导出选项
             </button>
-            <p className="preview-help">
-              {date} · 包含当天全部朋友的动态
-              <br />
-              可长按图片保存，下载链接保留 1 小时。
-            </p>
             <div className="export-previews">
               <img
                 key={result.images[pageIndex]}
@@ -170,10 +165,12 @@ export function ExportDialog({ date, onClose }: { date: string; onClose: () => v
               <ArrowDownToLine size={18} />
               {result.images.length === 1 ? '下载图片' : '下载当前图片'}
             </a>
-            <a href={result.archiveUrl} className="text-button full" download>
-              <FolderArchive size={16} />
-              下载图片合集
-            </a>
+            {result.images.length > 1 && (
+              <a href={result.archiveUrl} className="text-button full" download>
+                <FolderArchive size={16} />
+                下载图片合集
+              </a>
+            )}
           </div>
         </>
       )}

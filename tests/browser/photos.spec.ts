@@ -17,10 +17,10 @@ test.beforeEach(async ({ context }) => {
   ]);
 });
 
-for (const kind of ['heic', 'large', 'oriented', 'fallback'] as const) {
+for (const kind of ['heic', 'large', 'oriented', 'corrupt'] as const) {
   test(`Optimizes ${kind} photo on the server`, async ({ page, request }) => {
     const buffer =
-      kind === 'fallback'
+      kind === 'corrupt'
         ? (await readFile('tests/fixtures/photo.heic')).subarray(0, 24)
         : kind === 'heic'
           ? await readFile('tests/fixtures/photo.heic')
@@ -37,7 +37,7 @@ for (const kind of ['heic', 'large', 'oriented', 'fallback'] as const) {
                 .withMetadata({ orientation: 6 })
                 .toBuffer();
     const name =
-      kind === 'heic' || kind === 'fallback'
+      kind === 'heic' || kind === 'corrupt'
         ? 'iphone.HEIC'
         : kind === 'large'
           ? 'large.png'
@@ -62,6 +62,17 @@ for (const kind of ['heic', 'large', 'oriented', 'fallback'] as const) {
       buffer,
     });
     await expect(page.getByText(new RegExp(name.replace('.', '\\.')))).toBeVisible();
+    if (kind !== 'corrupt') {
+      await expect(page.getByAltText('照片预览')).toBeVisible({ timeout: 35000 });
+      await page.getByAltText('照片预览').evaluate((image: HTMLImageElement) => image.decode());
+    }
+    if (kind === 'heic') {
+      await expect(page.getByText('草稿已保存在此设备')).toBeVisible();
+      await page.reload();
+      await page.locator('.floating-create').click();
+      await expect(page.getByAltText('照片预览')).toBeVisible({ timeout: 35000 });
+      await page.getByAltText('照片预览').evaluate((image: HTMLImageElement) => image.decode());
+    }
     await page.getByLabel('想说的话').fill(`优化测试 ${kind}`);
     await page.getByLabel('发生的时间').fill('2026-08-27T10:30');
     const savedResponse = page.waitForResponse(
@@ -76,29 +87,19 @@ for (const kind of ['heic', 'large', 'oriented', 'fallback'] as const) {
       return Array.from(new Uint8Array(hash), (b) => b.toString(16).padStart(2, '0')).join('');
     });
     expect(sentHash).toBe(createHash('sha256').update(buffer).digest('hex'));
+    if (kind === 'corrupt') {
+      expect(response.status()).toBe(400);
+      await expect(page.getByRole('alert')).toContainText('HEIC/HEIF 照片转换失败');
+      await expect(page.getByLabel('想说的话')).toHaveValue(`优化测试 ${kind}`);
+      await expect(page.getByText(new RegExp(name.replace('.', '\\.')))).toBeVisible();
+      expect(await (await request.get('/api/entries?date=2026-08-27')).json()).toEqual([]);
+      return;
+    }
     expect(response.ok()).toBeTruthy();
     const entry = await response.json();
     try {
       const uploaded = await (await request.get(`/uploads/${entry.media.filename}`)).body();
       expect(uploaded.length).toBeLessThanOrEqual(3_000_000);
-      if (kind === 'fallback') {
-        expect(uploaded).toEqual(buffer);
-        expect(entry.media.mime).toBe('image/heic');
-        await page.getByRole('button', { name: '查看上传的照片', exact: true }).click();
-        await expect(page.getByRole('link', { name: '下载照片' })).toHaveAttribute(
-          'href',
-          `/uploads/${entry.media.filename}`,
-        );
-        await expect(
-          page.getByRole('dialog').getByText('照片已保留，当前浏览器无法预览'),
-        ).toBeVisible();
-        const download = page.waitForEvent('download');
-        await page.getByRole('link', { name: '下载照片' }).click();
-        expect((await download).suggestedFilename()).toMatch(
-          /^此刻同频_2026-08-27_10-30_照片_导出\d{4}-\d{2}-\d{2}\.heic$/,
-        );
-        return;
-      }
       const metadata = await sharp(uploaded).metadata();
       expect(['jpeg', 'png', 'webp']).toContain(metadata.format);
       if (kind !== 'heic') expect(uploaded.length).toBeLessThan(buffer.length);

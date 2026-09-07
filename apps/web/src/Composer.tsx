@@ -5,13 +5,13 @@ import {
   Check,
   ImagePlus,
   Smile,
-  Search,
   Clock,
   LoaderCircle,
   Camera,
 } from 'lucide-react';
 import { Modal } from './Modal';
 import { Photo } from './Photo';
+import { photoPreview } from './photo-preview';
 import { readDraft, writeDraft, type Draft } from './drafts';
 import {
   people,
@@ -87,9 +87,8 @@ function ComposerEditor({
       : 'fluent',
   );
   const [category, setCategory] = useState('全部'),
-    [search, setSearch] = useState(''),
     [file, setFile] = useState<File | undefined>(draft?.file),
-    [preview, setPreview] = useState('');
+    [preview, setPreview] = useState<{ file: File; url?: string; failed?: boolean }>();
   const [recent, setRecent] = useState<string[]>(readPreference('parallel.recent', []));
   const [error, setError] = useState(''),
     [busy, setBusy] = useState(false),
@@ -126,12 +125,25 @@ function ComposerEditor({
   }, [date, entry, personId, type, description, time, stickerId, file]);
   useEffect(() => {
     if (!file) {
-      setPreview('');
+      setPreview(undefined);
       return;
     }
-    const url = URL.createObjectURL(file);
-    setPreview(url);
-    return () => URL.revokeObjectURL(url);
+    const controller = new AbortController();
+    let url: string | undefined;
+    setPreview({ file });
+    void photoPreview(file, controller.signal)
+      .then((blob) => {
+        if (controller.signal.aborted) return;
+        url = URL.createObjectURL(blob);
+        setPreview({ file, url });
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setPreview({ file, failed: true });
+      });
+    return () => {
+      controller.abort();
+      if (url) URL.revokeObjectURL(url);
+    };
   }, [file]);
   const choose = (s: Sticker) => {
     setStickerId(s.id);
@@ -140,19 +152,21 @@ function ComposerEditor({
     setRecent(next);
     preference('parallel.recent', next);
   };
-  const photo = preview || (entry?.media.type === 'photo' ? mediaSrc(entry.media) : '');
+  const photo = file
+    ? preview?.file === file
+      ? preview.url
+      : ''
+    : entry?.media.type === 'photo'
+      ? mediaSrc(entry.media)
+      : '';
   const filtered = stickers.filter(
     (s) =>
       s.packId === pack &&
       (category === '全部' || category === '最近'
         ? category !== '最近' || recent.includes(s.id)
-        : s.category === category) &&
-      (!search ||
-        s.name.includes(search) ||
-        s.category.includes(search) ||
-        s.emoji.includes(search)),
+        : s.category === category),
   );
-  const ready = type === 'photo' ? !!photo : !!stickerId;
+  const ready = type === 'photo' ? !!file || !!photo : !!stickerId;
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (busy) return;
@@ -215,15 +229,6 @@ function ComposerEditor({
                 </button>
               ))}
             </div>
-            <label className="search-box">
-              <Search size={16} />
-              <input
-                aria-label="搜索表情"
-                placeholder="找找此刻的心情…"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-            </label>
             <div className="category-tabs">
               {['全部', '最近', '心情', '吃喝', '工作学习', '休息玩乐'].map((c) => (
                 <button
@@ -252,16 +257,10 @@ function ComposerEditor({
               ))}
               {!filtered.length && (
                 <p className="picker-empty">
-                  {category === '最近' ? '这套表情还没有使用记录' : '没有找到，试试别的词吧'}
+                  {category === '最近' ? '这套表情还没有使用记录' : '这个分类还没有表情'}
                 </p>
               )}
             </div>
-            {stickerId && (
-              <div className="selection-note">
-                已选：{stickers.find((s) => s.id === stickerId)?.name} ·{' '}
-                {packs.find((p) => p.id === stickers.find((s) => s.id === stickerId)?.packId)?.name}
-              </div>
-            )}
           </div>
         </div>
       ) : (
@@ -344,7 +343,7 @@ function ComposerEditor({
                     ))}
                   </div>
                   {type === 'photo' ? (
-                    <label className={`photo-upload ${photo ? 'has-photo' : ''}`}>
+                    <label className={`photo-upload ${file || photo ? 'has-photo' : ''}`}>
                       <input
                         type="file"
                         accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif"
@@ -356,9 +355,17 @@ function ComposerEditor({
                           setFile(f);
                         }}
                       />
-                      {photo ? (
+                      {file || photo ? (
                         <>
-                          <Photo src={photo} alt="照片预览" />
+                          {photo ? (
+                            <Photo src={photo} alt="照片预览" />
+                          ) : (
+                            <span className="photo-fallback" role="status">
+                              {preview?.file === file && preview?.failed
+                                ? '暂时无法预览，仍可提交由服务器处理'
+                                : '正在生成照片预览…'}
+                            </span>
+                          )}
                           <span className="replace-photo">
                             <Camera size={16} /> 换一张照片
                           </span>
@@ -379,51 +386,22 @@ function ComposerEditor({
                       )}
                     </label>
                   ) : (
-                    <>
-                      <button
-                        type="button"
-                        className="selected-media"
-                        aria-label={stickerId ? '更换表情' : '选择表情'}
-                        onClick={() => setPickerOpen(true)}
-                      >
-                        {stickerId ? (
-                          <img
-                            src={stickers.find((s) => s.id === stickerId)?.file}
-                            alt={stickers.find((s) => s.id === stickerId)?.name}
-                          />
-                        ) : (
-                          <Smile size={32} />
-                        )}
-                        <span>{stickerId ? '更换表情' : '选择表情'}</span>
-                      </button>
-                      <div className="quick-stickers" aria-label="常用表情">
-                        {(recent.length
-                          ? recent
-                              .map((id) => stickers.find((s) => s.id === id))
-                              .filter((s): s is Sticker => !!s)
-                          : stickers.filter((s) => s.packId === 'fluent')
-                        )
-                          .slice(0, 5)
-                          .map((s) => (
-                            <button
-                              type="button"
-                              key={s.id}
-                              aria-label={`快捷表情：${s.name}`}
-                              aria-pressed={stickerId === s.id}
-                              onClick={() => choose(s)}
-                            >
-                              <img src={s.file} alt="" />
-                            </button>
-                          ))}
-                        <button
-                          type="button"
-                          className="more-stickers"
-                          onClick={() => setPickerOpen(true)}
-                        >
-                          更多
-                        </button>
-                      </div>
-                    </>
+                    <button
+                      type="button"
+                      className="selected-media"
+                      aria-label={stickerId ? '更换表情' : '选择表情'}
+                      onClick={() => setPickerOpen(true)}
+                    >
+                      {stickerId ? (
+                        <img
+                          src={stickers.find((s) => s.id === stickerId)?.file}
+                          alt={stickers.find((s) => s.id === stickerId)?.name}
+                        />
+                      ) : (
+                        <Smile size={32} />
+                      )}
+                      <span>{stickerId ? '更换表情' : '选择表情'}</span>
+                    </button>
                   )}
                   <label className="field-label" htmlFor="description">
                     想说的话 <span>不写也没关系</span>

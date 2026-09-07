@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-/** Native previews only. Unsupported originals remain selectable/downloadable. */
+/** Render compatible photos, with a fallback for unavailable or legacy images. */
 export function Photo({
   src,
   alt,

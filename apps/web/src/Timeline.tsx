@@ -227,7 +227,7 @@ export function Timeline({
           {zoom.media.type === 'photo' && (
             <a
               href={mediaSrc(zoom.media)}
-              download={`此刻同频_${localTime(zoom.occurredAt).replace('T', '_').replace(':', '-')}_照片_导出${today()}.${zoom.media.filename.split('.').pop()}`}
+              download={`此刻同频-${localTime(zoom.occurredAt).replace('T', '-').replace(':', '-')}-照片.${zoom.media.filename.split('.').pop()}`}
             >
               下载照片
             </a>

@@ -68,6 +68,7 @@ test('Mobile two-step publishing, preserving form, all packs, edit/delete and ex
   await expect(page.getByText('和朋友们在同一天，收集一个小小的开心。')).toBeVisible();
   await page.screenshot({ path: 'test-results/timeline-375.png', fullPage: true });
   await page.getByRole('button', { name: '生成今日手账' }).click();
+  await page.screenshot({ path: 'test-results/export-options-375.png', fullPage: true });
   let releaseExport!: () => void;
   const exportGate = new Promise<void>((resolve) => {
     releaseExport = resolve;
@@ -94,32 +95,31 @@ test('Mobile two-step publishing, preserving form, all packs, edit/delete and ex
   await expect(page.getByRole('link', { name: '下载图片', exact: true })).toHaveClass(
     'primary full',
   );
-  await expect(page.getByRole('link', { name: '下载图片合集', exact: true })).toHaveClass(
-    'text-button full',
-  );
+  await expect(page.getByRole('link', { name: '下载图片合集', exact: true })).toHaveCount(0);
   await expect(page.getByRole('link', { name: '下载图片', exact: true })).toBeInViewport();
   const pngDownload = page.waitForEvent('download');
   await page.getByRole('link', { name: '下载图片', exact: true }).click();
-  expect((await pngDownload).suggestedFilename()).toMatch(
-    /^此刻同频_2026-08-29_手账-01_导出\d{4}-\d{2}-\d{2}\.png$/,
-  );
+  expect((await pngDownload).suggestedFilename()).toBe('此刻同频-2026-08-29-手账-01.png');
   await page.screenshot({ path: 'test-results/export-375.png', fullPage: true });
-  const imageZipPromise = page.waitForEvent('download');
-  await page.getByRole('link', { name: '下载图片合集', exact: true }).click();
-  expect((await imageZipPromise).suggestedFilename()).toMatch(
-    /^此刻同频_2026-08-29_手账合集_导出\d{4}-\d{2}-\d{2}\.zip$/,
-  );
   await page.getByRole('button', { name: '返回导出选项' }).click();
   let archiveDownloads = 0;
   page.on('download', () => archiveDownloads++);
   await page.getByRole('button', { name: /下载素材 ZIP/ }).click();
-  const prompt = page.getByLabel('可直接复制的 AI 提示词');
+  const prompt = page.getByLabel('AI 提示词', { exact: true });
   await expect(prompt).toHaveValue(/manifest.json/);
+  await expect(prompt).toHaveValue(/2026-08-29/);
   expect(archiveDownloads).toBe(0);
-  await page.getByRole('button', { name: '生成视频', exact: true }).click();
-  await page.getByLabel('希望生成什么？', { exact: false }).fill('30 秒水彩风格回忆视频');
-  await expect(prompt).toHaveValue(/30 秒水彩风格回忆视频/);
-  await expect(prompt).toHaveValue(/逐镜头生成提示词/);
+  const archiveDownload = page.getByRole('button', { name: '下载压缩包', exact: true });
+  await expect(archiveDownload).toBeInViewport({ ratio: 1 });
+  const downloadPosition = await archiveDownload.boundingBox();
+  await prompt.evaluate((el) => (el.scrollTop = el.scrollHeight));
+  expect(await prompt.evaluate((el) => el.scrollTop)).toBeGreaterThan(0);
+  expect(await archiveDownload.boundingBox()).toEqual(downloadPosition);
+  await page.setViewportSize({ width: 375, height: 480 });
+  await expect(archiveDownload).toBeInViewport({ ratio: 1 });
+  await expect(page.getByRole('button', { name: '返回导出选项' })).toBeInViewport({ ratio: 1 });
+  await page.setViewportSize({ width: 375, height: 812 });
+  await prompt.evaluate((el) => (el.scrollTop = 0));
   await page.evaluate(() =>
     Object.defineProperty(navigator, 'clipboard', {
       configurable: true,
@@ -130,11 +130,17 @@ test('Mobile two-step publishing, preserving form, all packs, edit/delete and ex
       },
     }),
   );
-  await page.getByRole('button', { name: '复制提示词', exact: true }).click();
-  await expect(page.getByText('提示词已复制', { exact: true })).toBeVisible();
+  const copyButton = page.locator('.archive-prompt-heading').getByRole('button');
+  await copyButton.click();
+  await expect(copyButton).toHaveAccessibleName('提示词已复制');
+  await expect(copyButton.locator('.lucide-check')).toBeVisible();
+  await expect(page.getByText('提示词已复制', { exact: true })).toHaveCount(0);
   expect(
     await page.evaluate(() => (window as unknown as { copiedPrompt: string }).copiedPrompt),
   ).toBe(await prompt.inputValue());
+  await page.screenshot({ path: 'test-results/archive-prompt-375.png', fullPage: true });
+  await expect(copyButton).toHaveAccessibleName('复制提示词');
+  await expect(copyButton.locator('.lucide-copy')).toBeVisible();
   await page.evaluate(() =>
     Object.defineProperty(navigator, 'clipboard', {
       configurable: true,
@@ -147,13 +153,15 @@ test('Mobile two-step publishing, preserving form, all packs, edit/delete and ex
   );
   await page.getByRole('button', { name: '复制提示词', exact: true }).click();
   await expect(page.getByText('未能自动复制', { exact: false })).toBeVisible();
-  await page.screenshot({ path: 'test-results/archive-prompt-375.png', fullPage: true });
+  await expect(copyButton.locator('.lucide-copy')).toBeVisible();
+  expect(
+    await prompt.evaluate((el: HTMLTextAreaElement) => el.selectionEnd - el.selectionStart),
+  ).toBe((await prompt.inputValue()).length);
+  await expect(archiveDownload).toBeInViewport({ ratio: 1 });
   const downloadPromise = page.waitForEvent('download');
   await page.getByRole('button', { name: '下载压缩包', exact: true }).click();
   const download = await downloadPromise;
-  expect(download.suggestedFilename()).toMatch(
-    /^此刻同频_2026-08-29_素材包_导出\d{4}-\d{2}-\d{2}\.zip$/,
-  );
+  expect(download.suggestedFilename()).toBe('此刻同频-2026-08-29-素材包.zip');
   await page.getByRole('button', { name: '关闭', exact: true }).click();
   await page.getByRole('button', { name: /更多操作：陆语涵/ }).click();
   await page.getByRole('button', { name: /编辑陆语涵/ }).click();
@@ -238,8 +246,18 @@ test('Backend PNG is 1080px, wraps safely and paginates long days; every archive
   expect(await page.locator('.export-preview-scroll').evaluate((el) => el.scrollTop)).toBe(0);
   const currentDownload = page.waitForEvent('download');
   await downloadLink.click();
-  expect((await currentDownload).suggestedFilename()).toMatch(
-    /_手账-02_导出\d{4}-\d{2}-\d{2}\.png$/,
+  expect((await currentDownload).suggestedFilename()).toBe(`此刻同频-${date}-手账-02.png`);
+  const imageZipPromise = page.waitForEvent('download');
+  await page.getByRole('link', { name: '下载图片合集', exact: true }).click();
+  const imageZip = await imageZipPromise;
+  expect(imageZip.suggestedFilename()).toBe(`此刻同频-${date}-手账合集.zip`);
+  const { readFile } = await import('node:fs/promises');
+  const { unzipSync } = await import('fflate');
+  const imageFiles = unzipSync(new Uint8Array(await readFile((await imageZip.path())!)));
+  expect(Object.keys(imageFiles).filter((name) => name.endsWith('.png'))).toEqual(
+    preview.images.map(
+      (_: string, i: number) => `此刻同频-${date}-手账-${String(i + 1).padStart(2, '0')}.png`,
+    ),
   );
   await page.screenshot({ path: 'test-results/export-paginated-430.png' });
   await page.getByRole('button', { name: '上一张图片' }).click();
@@ -317,18 +335,40 @@ test('Legacy emoji editing, picker cancellation and small viewport preserve the 
   await page.goto('/');
   await page.getByLabel('选择日期').fill('2026-08-26');
   await expect(page.locator(`#entry-${entry.id} img`).last()).toBeVisible();
+  const card = page.locator(`#entry-${entry.id}`);
+  const cardBounds = (await card.boundingBox())!;
+  // The text area and outer padding both open the same preview as the emoji.
+  for (const position of [
+    { x: cardBounds.width - 24, y: cardBounds.height - 24 },
+    { x: 8, y: 8 },
+  ]) {
+    await card.click({ position });
+    await expect(page.getByRole('dialog', { name: '陆语涵 · 10:00' })).toBeVisible();
+    await expect(page.getByRole('dialog').getByText('旧表情记录')).toBeVisible();
+    await page.getByRole('button', { name: '关闭', exact: true }).click();
+  }
+  await card.getByRole('button', { name: '查看😊', exact: true }).focus();
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('dialog', { name: '陆语涵 · 10:00' })).toBeVisible();
+  await page.getByRole('button', { name: '关闭', exact: true }).click();
   const exported = await request.get('/api/exports/archive?date=2026-08-26');
   expect(exported.status()).toBe(200);
   const { unzipSync } = await import('fflate');
   const files = unzipSync(new Uint8Array(await exported.body()));
   expect(Object.keys(files).some((name) => name.endsWith('.png'))).toBe(true);
   await page.getByRole('button', { name: /更多操作：陆语涵/ }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(1);
+  await expect(page.getByRole('dialog', { name: '动态操作' })).toBeVisible();
   await page.getByRole('button', { name: /编辑陆语涵/ }).click();
   const originalSrc = await page.locator('.selected-media img').getAttribute('src');
   await page.getByRole('button', { name: '更换表情', exact: true }).click();
   await page.getByRole('button', { name: '线条涂鸦', exact: true }).click();
-  await page.getByLabel('搜索表情').fill('不存在的表情');
-  await expect(page.getByText('没有找到，试试别的词吧')).toBeVisible();
+  await page.getByRole('button', { name: '最近', exact: true }).click();
+  await expect(page.getByText('这套表情还没有使用记录')).toBeVisible();
+  await page.getByRole('button', { name: '吃喝', exact: true }).click();
+  await expect(page.getByRole('button', { name: '嗦面时间', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: '好开心', exact: true })).toHaveCount(0);
+  await page.screenshot({ path: 'test-results/sticker-categories-375.png' });
   await page.getByRole('button', { name: '返回编辑', exact: true }).click();
   await expect(page.locator('.selected-media img')).toHaveAttribute('src', originalSrc!);
   await expect(page.getByLabel('想说的话')).toHaveValue('旧表情记录');

@@ -164,6 +164,7 @@ test('Stored photo bytes survive export, retained-photo edits work, replacement 
     assert.equal(manifest.length, 4);
     assert.equal(manifest[0].nickname, '陆语涵');
     assert.ok(manifest.every((item) => contents[item.path]));
+    assert.ok(manifest.every((item) => !item.path.includes('_')));
     assert.ok(contents['licenses/openmoji.txt']);
     const csv = strFromU8(contents['manifest.csv']);
     assert.ok(csv.includes('陆语涵'));
@@ -311,15 +312,24 @@ test('only successful new publications notify; notification failure preserves th
   }
 });
 
-test('Failed photo processing saves original bytes up to 20 MiB, including edits and HEIC archives', async () => {
+test('Compression failures preserve valid originals up to 20 MiB and converted HEIC, including edits and archives', async (t) => {
   const f = await fixture();
   try {
-    // Recognizable containers with undecodable pixels exercise real failure paths.
-    const originals = [Buffer.alloc(3_500_000), Buffer.alloc(20 * 1024 * 1024)];
-    Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]).copy(originals[0]);
-    Buffer.from([0, 0, 0, 24]).copy(originals[1]);
-    originals[1].write('ftypheic', 4, 'ascii');
+    const png = await sharp({ create: { width: 24, height: 40, channels: 3, background: 'red' } })
+      .png()
+      .toBuffer();
+    const originals = [
+      Buffer.alloc(3_500_000),
+      Buffer.alloc(20 * 1024 * 1024),
+      await readFile('tests/fixtures/photo.heic'),
+    ];
+    png.copy(originals[0]);
+    png.copy(originals[1]);
+    t.mock.method(sharp.prototype, 'webp', () => {
+      throw new Error('Compression failed');
+    });
     let id: string | undefined;
+    let storedBytes: Buffer | undefined;
     for (const [index, bytes] of originals.entries()) {
       const form = new FormData();
       Object.entries(payload({ mediaType: 'photo' })).forEach(([k, v]) => form.set(k, v));
@@ -337,13 +347,12 @@ test('Failed photo processing saves original bytes up to 20 MiB, including edits
       id = entry.id;
       assert.equal(entry.media.type, 'photo');
       if (entry.media.type !== 'photo') throw new Error('Expected photo');
-      assert.equal(entry.media.mime, index ? 'image/heic' : 'image/png');
-      assert.deepEqual(
-        Buffer.from(
-          await (await fetch(f.origin + '/uploads/' + entry.media.filename)).arrayBuffer(),
-        ),
-        bytes,
+      assert.equal(entry.media.mime, 'image/png');
+      storedBytes = Buffer.from(
+        await (await fetch(f.origin + '/uploads/' + entry.media.filename)).arrayBuffer(),
       );
+      if (index < 2) assert.deepEqual(storedBytes, bytes);
+      else assert.equal((await sharp(storedBytes).metadata()).width, 640);
       const retained = await fetch(f.origin + '/api/entries/' + id, {
         method: 'PATCH',
         headers: { 'content-type': 'application/json' },
@@ -352,14 +361,54 @@ test('Failed photo processing saves original bytes up to 20 MiB, including edits
       assert.equal(retained.status, 200);
     }
     const snap = await snapshot(f.store, date);
-    assert.equal(snap[0].mime, 'image/heic');
+    assert.equal(snap[0].mime, 'image/png');
     const zip = unzipSync(
       new Uint8Array(
         await (await fetch(f.origin + '/api/exports/archive?date=' + date)).arrayBuffer(),
       ),
     );
     const manifest = JSON.parse(strFromU8(zip['manifest.json']));
-    assert.deepEqual(Buffer.from(zip[manifest[0].path]), originals[1]);
+    assert.deepEqual(Buffer.from(zip[manifest[0].path]), storedBytes);
+  } finally {
+    await f.close();
+  }
+});
+
+test('Conversion failures neither publish nor replace the existing photo or notify', async () => {
+  const notifications: Entry[] = [];
+  const f = await fixture(async (entry) => {
+    notifications.push(entry);
+  });
+  try {
+    const valid = await sharp({ create: { width: 24, height: 40, channels: 3, background: 'red' } })
+      .png()
+      .toBuffer();
+    const formFor = (bytes: Buffer) => {
+      const form = new FormData();
+      Object.entries(payload({ mediaType: 'photo' })).forEach(([k, v]) => form.set(k, v));
+      form.set('photo', new Blob([new Uint8Array(bytes)]), 'iphone.HEIC');
+      return form;
+    };
+    const saved = await fetch(f.origin + '/api/entries', { method: 'POST', body: formFor(valid) });
+    assert.equal(saved.status, 201);
+    const entry = (await saved.json()) as Entry;
+    const files = await readdir(f.store.uploads);
+    for (const broken of [
+      (await readFile('tests/fixtures/photo.heic')).subarray(0, 24),
+      valid.subarray(0, 8),
+    ]) {
+      for (const id of ['', '/' + entry.id]) {
+        const response = await fetch(f.origin + '/api/entries' + id, {
+          method: id ? 'PATCH' : 'POST',
+          body: formFor(broken),
+        });
+        assert.equal(response.status, 400);
+        assert.match((await response.json()).error, /转换失败|无法读取/);
+        assert.deepEqual(f.store.list(date), [entry]);
+        assert.deepEqual(await readdir(f.store.uploads), files);
+      }
+    }
+    assert.equal(notifications.length, 1);
   } finally {
     await f.close();
   }
