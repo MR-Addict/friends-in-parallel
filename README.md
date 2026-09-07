@@ -69,6 +69,15 @@ docker run -d --name friends-in-parallel \
 
 如需使用宿主机目录代替命名卷，该目录必须允许容器中的 UID 1000 写入。备份前停止容器，再备份卷里的 `entries.json` 和 `uploads`。
 
+### 加速重复构建
+
+- 普通改动继续使用 `docker build -t friends-in-parallel .`，保留同一个 Docker builder 的缓存，不需要 `--no-cache` 或清理构建缓存。
+- pnpm 下载目录使用 BuildKit cache mount，本地依赖变化后仍可复用已下载包；GitHub Actions 另用每架构独立的 `type=gha,mode=max` 层缓存（cache mount 本身不会由 GHA 自动保存）。
+- Chromium 和 Linux 库独立成层，只依赖基础镜像及锁定的 `playwright-core` 文件。修改页面或添加其他依赖时，可继续复用浏览器安装层；升级 Playwright 后会自动安装匹配的浏览器。
+- 运行镜像仅安装服务端生产依赖；HEIC 转换库等前端依赖只保留构建后的网页文件。
+- Linux 库安装与 Chromium 下载分开缓存；APT 下载目录按架构缓存，失败重试可复用已下载的安装包。
+- 首次构建、基础镜像或 Playwright 更新仍需下载。可用 `docker build --progress=plain -t friends-in-parallel .` 查看哪些步骤标记为 `CACHED`。
+
 ### Docker Compose
 
 `docker-compose.yaml` 使用工作流发布的 `mraddict063/friends-in-parallel:latest` 镜像，主机和容器均使用 4500 端口，并通过命名卷保存数据：
@@ -89,7 +98,7 @@ IMAGE=friends-in-parallel:local docker compose up -d --pull never
 
 ### 镜像发布工作流
 
-`.github/workflows/docker.yaml` 在 PR 中仅构建，不登录或推送 Docker Hub。推送到 `main` 或在 `main` 手动触发时，发布 AMD64 / ARM64 镜像 `mraddict063/friends-in-parallel:latest`；在其他分支手动触发只构建。
+`.github/workflows/docker.yaml` 在 PR 中仅构建，不登录或推送 Docker Hub。推送到 `main` 或在 `main` 手动触发时，发布 AMD64 / ARM64 镜像 `mraddict063/friends-in-parallel:latest`；在其他分支手动触发只构建。AMD64 和 ARM64 分别在原生 Ubuntu runner 上并行构建，避免 QEMU 模拟；两者成功后才合并发布 `latest`。每个架构使用独立的 GitHub Actions 构建缓存，同一分支的新运行会取消旧运行。
 
 仓库需要配置 `DOCKERHUB_TOKEN` secret，令牌必须能写入 `mraddict063/friends-in-parallel`。Docker actions 版本和工作区构建方式参考 [官方 build-push-action 文档](https://github.com/docker/build-push-action)。
 

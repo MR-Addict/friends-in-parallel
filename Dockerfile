@@ -9,33 +9,49 @@ COPY apps/web/package.json ./apps/web/package.json
 COPY apps/server/package.json ./apps/server/package.json
 
 FROM dependencies AS build
-RUN pnpm install --frozen-lockfile
+RUN --mount=type=cache,id=parallel-pnpm,target=/pnpm/store \
+    pnpm install --frozen-lockfile --store-dir=/pnpm/store
 COPY scripts ./scripts
 COPY apps ./apps
 RUN pnpm build
 
 FROM dependencies AS production-dependencies
-RUN pnpm install --prod --frozen-lockfile
+RUN --mount=type=cache,id=parallel-pnpm,target=/pnpm/store \
+    pnpm --filter @parallel/server... install --prod --frozen-lockfile --store-dir=/pnpm/store
 
-FROM node:24-bookworm-slim AS runtime
+# Export only the locked browser driver. Unrelated dependency changes must not
+# invalidate the expensive Chromium download and Linux package installation.
+FROM production-dependencies AS browser-package
+RUN node -e "const fs = require('node:fs'); const path = require('node:path'); const pw = require.resolve('playwright', { paths: ['/app/apps/server'] }); const core = require('node:module').createRequire(pw).resolve('playwright-core/package.json'); fs.cpSync(path.dirname(core), '/browser-tools/playwright-core', { recursive: true });"
+
+FROM node:24-bookworm-slim AS browser-runtime
 WORKDIR /app
 ENV NODE_ENV=production \
     DATA_DIR=/data \
     PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 
+COPY --from=browser-package /browser-tools /opt/browser-tools
+
+# Keep downloaded Linux packages across retries and browser updates.
+ARG TARGETARCH
+RUN --mount=type=cache,id=parallel-apt-${TARGETARCH},target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,id=parallel-apt-lists-${TARGETARCH},target=/var/lib/apt/lists,sharing=locked \
+    rm -f /etc/apt/apt.conf.d/docker-clean \
+    && echo 'Acquire::Retries "3";' > /etc/apt/apt.conf.d/80-retries \
+    && node /opt/browser-tools/playwright-core/cli.js install-deps chromium
+
+# A browser download retry can reuse the completed Linux library layer.
+RUN node /opt/browser-tools/playwright-core/cli.js install --only-shell chromium \
+    && mkdir -p /data \
+    && chown node:node /data \
+    && chmod -R a+rX /ms-playwright
+
+FROM browser-runtime AS runtime
 COPY --from=production-dependencies /app/node_modules ./node_modules
 COPY --from=production-dependencies /app/apps/server/node_modules ./apps/server/node_modules
 COPY --from=production-dependencies /app/apps/server/package.json ./apps/server/package.json
 
-# Match Chromium to the locked Playwright version and include Linux libraries.
-RUN echo 'Acquire::Retries "3";' > /etc/apt/apt.conf.d/80-retries \
-    && node apps/server/node_modules/playwright/cli.js install --with-deps --only-shell chromium \
-    && mkdir -p /data \
-    && chown node:node /data \
-    && chmod -R a+rX /ms-playwright \
-    && rm -rf /var/lib/apt/lists/*
-
-# Keep browser installation cached when only application code or the port changes.
+# Copy application output last so source edits reuse dependencies and Chromium.
 COPY --from=build /app/apps/server/dist ./apps/server/dist
 ENV PORT=4500
 
