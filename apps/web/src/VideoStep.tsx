@@ -277,8 +277,9 @@ export function VideoStep({ date, onBack }: { date: string; onBack: () => void }
             )}
             <fieldset className="video-fieldset">
               <legend>
-                选择画面风格 <span>12 种不同的心情</span>
+                选择画面风格 <span>12 种构图与质感</span>
               </legend>
+              <p className="small-note">片尾会自动随机搭配，每次新生成都有小惊喜。</p>
               <div className="video-style-grid">
                 {options.styles.map((option) => (
                   <button

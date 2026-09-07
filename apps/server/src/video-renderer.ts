@@ -1,3 +1,11 @@
+import {
+  artDirectionStyles,
+  styleLabels,
+  endingArtwork,
+  randomEnding,
+  endingTransitions,
+  type EndingVariant,
+} from './video-art-direction.js';
 import { mkdir, writeFile, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { chromium, type Page } from 'playwright';
@@ -28,6 +36,7 @@ export interface SceneEntry {
 }
 export interface VideoScene {
   kind: 'title' | 'entry' | 'ending';
+  endingVariant?: EndingVariant;
   title: string;
   text: string;
   duration: number;
@@ -105,15 +114,17 @@ export function videoTemplate(
 ) {
   const body =
     scene.kind === 'entry'
-      ? `<h2 class="scene-heading"><span>${escape(scene.title)}</span><small>${scene.pageCount && scene.pageCount > 1 ? `${scene.pageNumber} / ${scene.pageCount}` : ''}</small></h2><section class="board">${scene
+      ? `<h2 class="scene-heading" data-label="${styleLabels[style.id] || '今日记录'}"><span>${escape(scene.title)}</span><small>${scene.pageCount && scene.pageCount > 1 ? `${scene.pageNumber} / ${scene.pageCount}` : ''}</small></h2><section class="board">${scene
           .layout!.slots.map((slot: LayoutSlot) => {
             const entry = scene.entries!.find((entry) => entry.itemIndex === slot.itemIndex)!;
             const item = items[entry.itemIndex];
             return `<article class="card" data-item-index="${entry.itemIndex}" style="left:${slot.x}px;top:${slot.y}px;width:${slot.width}px;height:${slot.height}px"><div class="person"><i style="background:${escape(item.person.color)}"></i><strong>${escape(item.person.nickname)}</strong><time>${beijingTime(item.entry.occurredAt)}</time></div><div class="media-box ${item.entry.media.type === 'photo' ? '' : 'sticker'}"><img src="http://render.local/image/${entry.itemIndex}" alt="动态素材"></div><p class="copy">${escape(entry.text)}</p>${entry.continuation ? `<div class="continuation">接着记录 · ${entry.continuation + 1}</div>` : ''}</article>`;
           })
           .join('')}</section>`
-      : `<section class="hero"><div class="eyebrow">朋友们的一天</div><h1>${escape(scene.title)}</h1><p>${escape(scene.text)}</p></section>`;
-  return `<!doctype html><html lang="zh-CN"><meta charset="utf-8"><style>${styles}${collageStyles}</style><body><main class="frame ${style.id} ${scene.kind} ${scene.entries?.length === 1 ? 'single' : ''}" style="--bg:${style.background};--ink:${style.ink};--paper:${style.paper};--accent:${style.accent}"><div class="ornament"></div><header class="brand"><span>和朋友的同一时间</span><span>${date}</span></header><div class="rule"></div>${body}</main></body></html>`;
+      : scene.kind === 'ending'
+        ? `<section class="hero">${endingArtwork(scene.endingVariant || 'postcard')}<div class="eyebrow">把今天好好收藏</div><h1>${escape(scene.title)}</h1><p>${escape(scene.text)}</p><div class="ending-foot">${new Set(items.map((item) => item.entry.personId)).size} 位朋友 · ${items.length} 个瞬间 · 明日待续</div></section>`
+        : `<section class="hero"><div class="eyebrow">朋友们的一天</div><h1>${escape(scene.title)}</h1><p>${escape(scene.text)}</p></section>`;
+  return `<!doctype html><html lang="zh-CN"><meta charset="utf-8"><style>${styles}${collageStyles}${artDirectionStyles}</style><body><main class="frame ${style.id} ${scene.kind} ${scene.kind === 'ending' ? `ending-${scene.endingVariant || 'postcard'}` : ''} ${scene.entries?.length === 1 ? 'single' : ''}" style="--bg:${style.background};--ink:${style.ink};--paper:${style.paper};--accent:${style.accent}"><div class="ornament"></div><header class="brand"><span>和朋友的同一时间</span><span>${date}</span></header><div class="rule"></div>${body}</main></body></html>`;
 }
 
 /** Check actual rendered geometry, including text, all cards and the footer safe area. */
@@ -315,6 +326,7 @@ export async function videoScenes(
   }
   scenes.push({
     kind: 'ending',
+    endingVariant: randomEnding(),
     title: '今天先到这儿',
     text: '明天接着冒泡。',
     duration: 2,
@@ -399,7 +411,7 @@ export async function renderVideo(
         );
       args.push('-loop', '1', '-framerate', '30', '-t', String(clipDuration), '-i', frame);
       let filter = i
-        ? `[0:v]settb=AVTB[a];[1:v]settb=AVTB[b];[a][b]xfade=transition=${style.transition}:duration=${transition}:offset=0`
+        ? `[0:v]settb=AVTB[a];[1:v]settb=AVTB[b];[a][b]xfade=transition=${scene.kind === 'ending' ? endingTransitions[scene.endingVariant || 'postcard'] : style.transition}:duration=${transition}:offset=0`
         : '[0:v]null';
       if (style.id === 'polaroid')
         filter += `,rotate=0.008*sin(min(t/0.6\\,1)*PI):c=${style.background.replace('#', '0x')}`;

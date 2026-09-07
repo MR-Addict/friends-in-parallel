@@ -1,3 +1,4 @@
+import { endingVariants } from '../apps/server/src/video-art-direction.js';
 import { imageBlocks, imageTemplate } from '../apps/server/src/image-layout.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -135,7 +136,9 @@ test('video layouts preserve 500 characters, blank lines, emoji and all media wi
   });
   for (const style of videoStyles) {
     const scenes = await videoScenes(page, f.items, date, style, videoMusic[0]);
+    assert.ok(endingVariants.includes(scenes.at(-1)!.endingVariant!));
     assert.deepEqual(scenes.at(-1), {
+      endingVariant: scenes.at(-1)!.endingVariant,
       kind: 'ending',
       title: '今天先到这儿',
       text: '明天接着冒泡。',

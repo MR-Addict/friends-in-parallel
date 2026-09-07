@@ -159,7 +159,10 @@ test('all styles render six mixed or sticker entries with complete text and no c
       }
       if (style.id === 'paper') {
         const repeat = await videoScenes(page, [...items], '2026-09-07', style);
-        assert.deepEqual(repeat, scenes);
+        assert.deepEqual(
+          repeat.filter((s) => s.kind !== 'ending'),
+          scenes.filter((s) => s.kind !== 'ending'),
+        );
         const withMusic = await videoScenes(page, items, '2026-09-07', style, videoMusic[0]);
         assert.deepEqual(
           withMusic.filter((s) => s.kind === 'entry'),

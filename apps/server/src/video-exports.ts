@@ -84,6 +84,7 @@ export class VideoExports {
       ...[
         'video-exports',
         'video-renderer',
+        'video-art-direction',
         'video-layout',
         'collage-layout',
         'video-process',
