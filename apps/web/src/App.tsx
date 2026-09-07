@@ -1,20 +1,11 @@
 import { useEffect, useState } from 'react';
-import {
-  Plus,
-  Check,
-  LoaderCircle,
-  RefreshCw,
-  Download,
-  CalendarDays,
-  ChevronLeft,
-  ChevronRight,
-} from 'lucide-react';
+import { Plus, Check, LoaderCircle, Clapperboard, CalendarDays } from 'lucide-react';
 import { DateCalendar } from './DateCalendar';
 import { Composer } from './Composer';
 import { Timeline } from './Timeline';
 import { ExportDialog } from './ExportDialog';
 import { Modal } from './Modal';
-import { api, today, dateOf, shiftDate, type Entry } from './lib';
+import { api, today, dateOf, type Entry } from './lib';
 export default function App() {
   const [date, setDate] = useState(today());
   const [calendarOpen, setCalendarOpen] = useState(false);
@@ -96,43 +87,17 @@ export default function App() {
             <p>各自生活，也在一起。</p>
           </div>
           <div className="header-actions">
-            <button
-              className="icon-button"
-              aria-label="刷新时间线"
-              onClick={() => setRevision((n) => n + 1)}
-              disabled={loading}
-            >
-              <RefreshCw size={18} className={loading ? 'spin' : ''} />
-            </button>
-            <button
-              className="export-trigger"
-              aria-label="生成今日手账"
-              title="生成所选日期的手账"
-              onClick={() => setExportOpen(true)}
-              disabled={!entries.length || loading || !!error}
-            >
-              <Download size={16} />
-              <span>生成手账</span>
-            </button>
-          </div>
-        </header>
-        <section className="day-section" aria-labelledby="browse-date-heading">
-          <div className="section-heading">
-            <h2 id="browse-date-heading">翻看日常</h2>
-            <span>选一天，看看大家的生活</span>
-          </div>
-          <nav className="day-navigation" aria-label="日期导航">
-            <button
-              className="icon-button"
-              aria-label="前一天"
-              onClick={() => setDate(shiftDate(date, -1))}
-            >
-              <ChevronLeft size={20} />
-            </button>
-            <label className="date-picker">
+            <label className="date-picker compact-date-picker" title={date}>
               <span>
-                <CalendarDays size={18} />
-                <strong>{date.replaceAll('-', '/')}</strong>
+                <CalendarDays size={16} />
+                <strong>
+                  {date === today()
+                    ? '今天'
+                    : (date.slice(0, 4) === today().slice(0, 4) ? date.slice(5) : date).replaceAll(
+                        '-',
+                        '/',
+                      )}
+                </strong>
               </span>
               <input
                 type="date"
@@ -157,23 +122,17 @@ export default function App() {
               />
             </label>
             <button
-              className="icon-button"
-              aria-label="后一天"
-              disabled={date >= today()}
-              onClick={() => setDate(shiftDate(date, 1))}
+              className="export-trigger"
+              aria-label="制作回忆"
+              title="手账长图 · 回忆视频 · 素材下载"
+              onClick={() => setExportOpen(true)}
+              disabled={!entries.length || loading || !!error}
             >
-              <ChevronRight size={20} />
+              <Clapperboard size={18} />
+              <span>制作回忆</span>
             </button>
-            <button
-              className="today-action"
-              aria-label="回到今天"
-              disabled={date === today()}
-              onClick={() => setDate(today())}
-            >
-              今天
-            </button>
-          </nav>
-        </section>
+          </div>
+        </header>
         <Timeline
           entries={entries}
           loading={loading}

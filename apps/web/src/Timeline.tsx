@@ -40,11 +40,7 @@ export function Timeline({
   const hours = [...new Set(visible.map((e) => timeOf(e.occurredAt).slice(0, 2)))].sort().reverse();
   return (
     <section className="timeline-view" aria-labelledby="moments-heading">
-      <section className="people-panel" aria-labelledby="friends-heading">
-        <div className="section-heading">
-          <h2 id="friends-heading">朋友们</h2>
-          <span>点头像，看看 TA 的一天</span>
-        </div>
+      <section className="people-panel" aria-label="朋友筛选">
         <div className="people-filter" role="group" aria-label="按人物筛选">
           <button
             aria-pressed={filter === 'all'}
@@ -75,7 +71,6 @@ export function Timeline({
       <div className="timeline-heading">
         <div className="section-heading">
           <h2 id="moments-heading">{date === today() ? '今天的瞬间' : '这一天的瞬间'}</h2>
-          <span>从近到远，慢慢回看</span>
         </div>
         <div className="timeline-summary" role="status">
           <span>
@@ -200,7 +195,6 @@ export function Timeline({
       {actions && (
         <Modal title="动态操作" onClose={() => setActions(undefined)}>
           <div className="entry-options">
-            <ShareButton label="分享动态" {...entryShare(actions)} />
             <button
               className="secondary full"
               aria-label={`编辑${personOf(actions.personId).nickname}的动态`}
@@ -232,10 +226,12 @@ export function Timeline({
           onClose={() => setZoom(undefined)}
         >
           <Photo className="zoom-image" src={mediaSrc(zoom.media)} alt={mediaName(zoom.media)} />
-          <ShareButton
-            label={zoom.media.type === 'photo' ? '分享照片' : '分享动态'}
-            {...entryShare(zoom)}
-          />
+          {mediaSrc(zoom.media) && (
+            <ShareButton
+              label={zoom.media.type === 'photo' ? '分享照片' : '分享图片'}
+              {...entryShare(zoom)}
+            />
+          )}
           {zoom.description && <p className="moment-description">{zoom.description}</p>}
         </Modal>
       )}

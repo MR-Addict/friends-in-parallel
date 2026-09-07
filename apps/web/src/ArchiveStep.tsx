@@ -1,4 +1,3 @@
-import { ShareButton } from './ShareButton';
 import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, ArrowDownToLine, Check, Copy, LoaderCircle } from 'lucide-react';
 
@@ -104,15 +103,6 @@ export function ArchiveStep({
           {busy ? <LoaderCircle size={18} className="spin" /> : <ArrowDownToLine size={18} />}
           {busy ? '正在准备压缩包…' : '下载压缩包'}
         </button>
-        <ShareButton
-          label="分享压缩包"
-          disabled={busy}
-          resource={{
-            url: `/api/exports/archive?date=${date}`,
-            filename: `此刻同频-${date}-素材包.zip`,
-            mime: 'application/zip',
-          }}
-        />
       </div>
     </>
   );

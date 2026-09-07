@@ -1,3 +1,4 @@
+import people from '../../apps/web/src/config/people.json' with { type: 'json' };
 import { test, expect } from '@playwright/test';
 
 test.beforeEach(async ({ context }) => {
@@ -14,16 +15,25 @@ test.beforeEach(async ({ context }) => {
   ]);
 });
 for (const width of [375, 430, 1100]) {
-  test(`video configuration, preview, persistence and real download at ${width}px`, async ({
+  test(`video configuration, preview, persistence and sharing at ${width}px`, async ({
     page,
     request,
   }) => {
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator, 'canShare', { value: () => true, configurable: true });
+      Object.defineProperty(navigator, 'share', {
+        value: async (data: ShareData) => {
+          (window as any).sharedVideo = data.files?.[0]?.name;
+        },
+        configurable: true,
+      });
+    });
     const date = '2026-08-25';
     const entries = await (await request.get(`/api/entries?date=${date}`)).json();
     for (const entry of entries) await request.delete(`/api/entries/${entry.id}`);
     await request.post('/api/entries', {
       data: {
-        personId: 'lu-yuhan',
+        personId: people[0].id,
         mediaType: 'sticker',
         stickerId: 'twemoji-1f60a',
         description: '给未来的我们，留下一点今天的快乐。',
@@ -33,7 +43,7 @@ for (const width of [375, 430, 1100]) {
     await page.setViewportSize({ width, height: 812 });
     await page.goto('/');
     await page.getByLabel('选择日期').fill(date);
-    await page.getByRole('button', { name: '生成今日手账' }).click();
+    await page.getByRole('button', { name: '制作回忆' }).click();
     const labels = await page.locator('.export-options strong').allTextContents();
     expect(labels).toEqual(['生成手账长图', '生成回忆视频', '下载素材 ZIP']);
     await page.getByRole('button', { name: /生成回忆视频/ }).click();
@@ -64,10 +74,10 @@ for (const width of [375, 430, 1100]) {
     await page.getByRole('button', { name: '关闭', exact: true }).click();
     await page.reload();
     await page.getByLabel('选择日期').fill(date);
-    await page.getByRole('button', { name: '生成今日手账' }).click();
+    await page.getByRole('button', { name: '制作回忆' }).click();
     await page.getByRole('button', { name: /生成回忆视频/ }).click();
-    await expect(page.getByRole('link', { name: '下载视频' })).toBeVisible({ timeout: 90000 });
-    await expect(page.getByRole('link', { name: '下载视频' })).toBeInViewport();
+    await expect(page.getByRole('button', { name: '分享视频' })).toBeVisible({ timeout: 90000 });
+    await expect(page.getByRole('button', { name: '分享视频' })).toBeInViewport();
     const video = page.getByLabel('回忆视频预览');
     await expect
       .poll(() => video.evaluate((node: HTMLVideoElement) => node.readyState))
@@ -85,11 +95,15 @@ for (const width of [375, 430, 1100]) {
       .toBeGreaterThanOrEqual(5);
     await video.evaluate((node: HTMLVideoElement) => node.pause());
     await page.screenshot({ path: `test-results/video-ready-${width}.png` });
-    const downloading = page.waitForEvent('download');
-    await page.getByRole('link', { name: '下载视频' }).click();
-    const download = await downloading;
-    expect(download.suggestedFilename()).toBe(`此刻同频-${date}-回忆视频-拍立得相册.mp4`);
-    expect(await download.failure()).toBeNull();
+    await expect(page.getByRole('link', { name: '下载视频' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: '分享视频' })).toHaveClass(/primary/);
+    await page.getByRole('button', { name: '分享视频' }).click();
+    await expect(page.getByRole('button', { name: '分享视频' })).toBeEnabled();
+    if (!(await page.evaluate(() => (window as any).sharedVideo)))
+      await page.getByRole('button', { name: '分享视频' }).click();
+    await expect
+      .poll(() => page.evaluate(() => (window as any).sharedVideo))
+      .toBe(`此刻同频-${date}-回忆视频-拍立得相册.mp4`);
     await page.getByRole('button', { name: '修改样式与音乐' }).click();
     await expect(page.getByLabel('背景音乐', { exact: true })).toHaveValue('none');
   });
@@ -106,7 +120,7 @@ test('video errors and expired tasks preserve selections and permit regeneration
     ),
   );
   await page.getByLabel('选择日期').fill('2026-08-25');
-  await page.getByRole('button', { name: '生成今日手账' }).click();
+  await page.getByRole('button', { name: '制作回忆' }).click();
   await page.getByRole('button', { name: /生成回忆视频/ }).click();
   await expect(page.getByRole('alert')).toContainText('已过期');
   await expect(page.getByRole('button', { name: '开始生成视频' })).toBeEnabled();

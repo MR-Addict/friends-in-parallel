@@ -67,7 +67,7 @@ test('Mobile two-step publishing, preserving form, all packs, edit/delete and ex
   await expect(page.getByLabel('选择日期')).toHaveValue('2026-08-29');
   await expect(page.getByText('和朋友们在同一天，收集一个小小的开心。')).toBeVisible();
   await page.screenshot({ path: 'test-results/timeline-375.png', fullPage: true });
-  await page.getByRole('button', { name: '生成今日手账' }).click();
+  await page.getByRole('button', { name: '制作回忆' }).click();
   await page.screenshot({ path: 'test-results/export-options-375.png', fullPage: true });
   let releaseExport!: () => void;
   const exportGate = new Promise<void>((resolve) => {
@@ -228,7 +228,7 @@ test('Backend PNG is 1080px, wraps safely and paginates long days; every archive
   await page.setViewportSize({ width: 430, height: 932 });
   await page.goto('/');
   await page.getByLabel('选择日期').fill(date);
-  await page.getByRole('button', { name: '生成今日手账' }).click();
+  await page.getByRole('button', { name: '制作回忆' }).click();
   const generated = page.waitForResponse(
     (r) => r.url().endsWith('/api/exports/images') && r.request().method() === 'POST',
   );

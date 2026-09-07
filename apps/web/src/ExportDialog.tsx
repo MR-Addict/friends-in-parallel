@@ -59,7 +59,7 @@ export function ExportDialog({ date, onClose }: { date: string; onClose: () => v
   }
   return (
     <Modal
-      title={videoStep ? '把这一天，拍成回忆' : result ? '手账预览' : '把这一天，收进手账'}
+      title={videoStep ? '把这一天，拍成回忆' : result ? '手账预览' : '把这一天，留成回忆'}
       onClose={onClose}
       busy={!!busy}
       wide={!!result}
@@ -196,16 +196,6 @@ export function ExportDialog({ date, onClose }: { date: string; onClose: () => v
                 mime: 'image/png',
               }}
             />
-            {result.images.length > 1 && (
-              <ShareButton
-                label="分享图片合集"
-                resource={{
-                  url: result.archiveUrl,
-                  filename: `此刻同频-${date}-手账合集.zip`,
-                  mime: 'application/zip',
-                }}
-              />
-            )}
             {result.images.length > 1 && (
               <a href={result.archiveUrl} className="text-button full" download>
                 <FolderArchive size={16} />

@@ -2,7 +2,6 @@ import { ShareButton } from './ShareButton';
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import {
   ArrowLeft,
-  ArrowDownToLine,
   Film,
   LoaderCircle,
   Music2,
@@ -372,14 +371,9 @@ export function VideoStep({ date, onBack }: { date: string; onBack: () => void }
         {job?.status === 'ready' && job.result ? (
           <>
             {!expired && (
-              <a className="primary full" href={`${job.result.videoUrl}?download=1`} download>
-                <ArrowDownToLine size={18} />
-                下载视频
-              </a>
-            )}
-            {!expired && (
               <ShareButton
                 label="分享视频"
+                variant="primary"
                 resource={{
                   url: `${job.result.videoUrl}?download=1`,
                   filename: `此刻同频-${date}-回忆视频-${style?.name || '回忆'}.mp4`,
@@ -387,7 +381,10 @@ export function VideoStep({ date, onBack }: { date: string; onBack: () => void }
                 }}
               />
             )}
-            <button className={expired ? 'primary full' : 'text-button full'} onClick={configure}>
+            <button
+              className={expired ? 'primary full' : 'secondary full video-reconfigure'}
+              onClick={configure}
+            >
               <RefreshCw size={16} />
               {expired ? '重新生成视频' : '修改样式与音乐'}
             </button>

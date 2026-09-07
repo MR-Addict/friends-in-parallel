@@ -73,16 +73,15 @@ button {
   max-width: 540px;
   min-height: 100dvh;
   margin: auto;
-  padding: 28px 20px 120px;
+  padding: 16px 16px 120px;
 }
 .brand-header {
   gap: 12px;
+  flex-wrap: wrap;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding-bottom: 24px;
-  margin-bottom: 24px;
-  border-bottom: 1px solid var(--line);
+  margin-bottom: 12px;
 }
 .brand-header h1 {
   font-size: 21px;
@@ -116,24 +115,19 @@ button {
   line-height: 1.6;
   color: var(--muted);
 }
-.day-section {
-  margin-bottom: 16px;
-}
-.day-section > .section-heading {
-  margin-bottom: 12px;
-}
 .people-panel {
-  padding: 16px 12px 10px;
-  background: var(--paper);
-  border: 1px solid var(--line);
-  border-radius: 16px;
-}
-.people-panel > .section-heading {
-  padding: 0 4px;
-  margin-bottom: 10px;
+  padding: 0;
 }
 .timeline-heading {
-  margin: 28px 0 20px;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin: 12px 0;
+}
+.timeline-heading .timeline-summary {
+  margin-top: 0;
 }
 .primary,
 .secondary,
@@ -230,14 +224,24 @@ button {
   gap: 4px;
 }
 .export-trigger {
-  color: var(--accent);
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
-  padding: 0 10px;
-  font-size: 12px;
-  border-radius: 10px;
-  background: #f7ece6;
+  padding: 0 12px;
+  min-height: 44px;
+  color: #fff;
+  background: var(--accent);
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.export-trigger:not(:disabled):hover {
+  background: #ae4437;
+}
+.video-reconfigure {
+  margin-top: 8px;
 }
 .date-picker {
   display: flex;
@@ -1012,43 +1016,20 @@ textarea {
 }
 
 /* Browsing controls stay distinct from the moments below. */
-.day-navigation {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  border: 1px solid var(--line);
+.compact-date-picker {
+  padding: 0 8px;
   background: var(--paper);
-  border-radius: 16px;
-  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
 }
-.day-navigation .date-picker {
-  flex: 1;
-  justify-content: center;
-  color: var(--muted);
-}
-.date-picker strong {
-  font-size: 16px;
+.compact-date-picker strong {
+  font-size: 13px;
   font-variant-numeric: tabular-nums;
   font-weight: 600;
 }
-.today-action {
-  flex-shrink: 0;
-  align-self: stretch;
-  border-left: 1px solid var(--line);
-  color: var(--accent);
-  font-size: 13px;
-  font-weight: 600;
-  padding: 0 12px;
-  margin-left: 4px;
-}
-.today-action:disabled {
-  opacity: 1;
-  color: var(--muted);
-}
 .people-filter {
   display: flex;
-  justify-content: space-between;
-  gap: 4px;
+  gap: 6px;
   overflow-x: auto;
   padding: 4px 0 6px;
   scrollbar-width: thin;
@@ -1056,10 +1037,9 @@ textarea {
 .people-filter button {
   display: flex;
   align-items: center;
-  flex: 1 0 44px;
-  flex-direction: column;
-  gap: 8px;
-  padding: 8px;
+  flex: 0 0 auto;
+  gap: 6px;
+  padding: 6px 10px;
   font-size: 11px;
   border-radius: 12px;
   color: var(--muted);
@@ -1072,16 +1052,16 @@ textarea {
 }
 .filter-avatar {
   position: relative;
-  width: 37px;
-  height: 37px;
+  width: 26px;
+  height: 26px;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 50%;
 }
 .filter-avatar img {
-  width: 27px;
-  height: 27px;
+  width: 22px;
+  height: 22px;
   object-fit: contain;
 }
 .filter-avatar .has-moments {

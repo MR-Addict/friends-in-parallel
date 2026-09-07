@@ -3,7 +3,13 @@ import { LoaderCircle, Share2 } from 'lucide-react';
 import { localTime, mediaName, mediaSrc, personOf, type Entry } from './lib';
 
 type Resource = { url: string; filename: string; mime: string };
-type Props = { label: string; resource?: Resource; text?: string; disabled?: boolean };
+type Props = {
+  label: string;
+  resource?: Resource;
+  text?: string;
+  disabled?: boolean;
+  variant?: 'primary' | 'secondary';
+};
 
 export function entryShare(entry: Entry) {
   const url = mediaSrc(entry.media);
@@ -61,7 +67,7 @@ export function ShareButton(props: Props) {
   return <ShareSession key={JSON.stringify([props.resource, props.text])} {...props} />;
 }
 
-function ShareSession({ label, resource, text, disabled }: Props) {
+function ShareSession({ label, resource, text, disabled, variant = 'secondary' }: Props) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const file = useRef<File | undefined>(undefined);
@@ -139,7 +145,7 @@ function ShareSession({ label, resource, text, disabled }: Props) {
     <div className="resource-share">
       <button
         type="button"
-        className="secondary full"
+        className={`${variant} full`}
         disabled={disabled || busy}
         aria-busy={busy}
         aria-live="polite"
