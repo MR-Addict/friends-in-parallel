@@ -26,6 +26,10 @@ export async function createApp(dir = dataDir) {
     storage: multer.memoryStorage(),
     limits: { fileSize: 20 * 1024 * 1024, files: 1, fields: 10, fieldSize: 8192 },
   }).single('photo');
+  app.get('/api/entry-dates', (req, res) => {
+    const first = checkDate(`${req.query.month}-01`);
+    res.json(store.dateCounts(first.slice(0, 7)));
+  });
   app.get('/api/entries', (req, res) => res.json(store.list(checkDate(req.query.date))));
   app.post('/api/entries', upload, async (req, res) =>
     res

@@ -9,6 +9,7 @@ import {
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react';
+import { DateCalendar } from './DateCalendar';
 import { Composer } from './Composer';
 import { Timeline } from './Timeline';
 import { ExportDialog } from './ExportDialog';
@@ -16,6 +17,7 @@ import { Modal } from './Modal';
 import { api, today, dateOf, shiftDate, type Entry } from './lib';
 export default function App() {
   const [date, setDate] = useState(today());
+  const [calendarOpen, setCalendarOpen] = useState(false);
   const [entries, setEntries] = useState<Entry[]>([]);
   const [loading, setLoading] = useState(false),
     [error, setError] = useState(''),
@@ -113,7 +115,6 @@ export default function App() {
         </header>
         <div className="page-intro">
           <p>各自生活，也在一起。</p>
-          <span>朋友们的平行生活手账</span>
         </div>
         <nav className="day-navigation" aria-label="日期导航">
           <button
@@ -136,11 +137,16 @@ export default function App() {
               onChange={(e) => {
                 if (e.target.value) setDate(e.target.value);
               }}
+              aria-haspopup="dialog"
+              aria-expanded={calendarOpen}
               onClick={(e) => {
-                try {
-                  e.currentTarget.showPicker?.();
-                } catch {
-                  /* Native input remains available. */
+                e.preventDefault();
+                setCalendarOpen(true);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  setCalendarOpen(true);
                 }
               }}
             />
@@ -189,6 +195,16 @@ export default function App() {
         <Plus size={20} />
         {date === today() ? '记下一刻' : '补记这一天'}
       </button>
+      {calendarOpen && (
+        <DateCalendar
+          date={date}
+          onClose={() => setCalendarOpen(false)}
+          onSelect={(next) => {
+            setDate(next);
+            setCalendarOpen(false);
+          }}
+        />
+      )}
       {composer && (
         <Composer
           date={date}

@@ -363,6 +363,15 @@ test('Photo drafts survive closing and reload, stay separate by date, and clear 
     .locator('input[type=file]')
     .setInputFiles({ name: 'draft.png', mimeType: 'image/png', buffer });
   await page.getByLabel('想说的话').fill('刷新后仍在的草稿');
+  const draftTime = await page.getByLabel('发生的时间').inputValue();
+  await page.getByRole('button', { name: '清空草稿', exact: true }).click();
+  await expect(page.getByLabel('想说的话')).toHaveValue('');
+  await expect(page.getByAltText('照片预览')).toHaveCount(0);
+  await page.getByRole('button', { name: '撤销清空', exact: true }).click();
+  await expect(page.getByLabel('想说的话')).toHaveValue('刷新后仍在的草稿');
+  await expect(page.getByLabel('发生的时间')).toHaveValue(draftTime);
+  await expect(page.getByAltText('照片预览')).toBeVisible();
+
   await expect(page.getByText('草稿已保存在此设备')).toBeVisible();
   await page.getByRole('button', { name: '关闭', exact: true }).click();
   await page.locator('.floating-create').click();
@@ -384,4 +393,72 @@ test('Photo drafts survive closing and reload, stay separate by date, and clear 
   await expect(page.getByAltText('照片预览')).toHaveCount(0);
   const entries = await (await request.get('/api/entries?date=2026-08-24')).json();
   for (const e of entries) await request.delete('/api/entries/' + e.id);
+});
+
+test('Calendar marks recorded days, supports leap months, and retries failed counts', async ({
+  page,
+  request,
+}) => {
+  const entry = await (
+    await request.post('/api/entries', {
+      data: {
+        personId: 'shui-shui',
+        mediaType: 'sticker',
+        stickerId: 'fluent-1f60a',
+        description: '闰日的瞬间',
+        occurredAt: '2024-02-29T02:00:00Z',
+      },
+    })
+  ).json();
+  try {
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.goto('/');
+    await page.getByLabel('选择日期').fill('2024-02-28');
+    await page.getByLabel('选择日期').click();
+    await expect(
+      page.getByRole('button', { name: '2024-02-29，1 个瞬间', exact: true }),
+    ).toBeVisible();
+    await expect(
+      page
+        .getByRole('button', { name: '2024-02-29，1 个瞬间', exact: true })
+        .locator('.has-records'),
+    ).toHaveCount(1);
+    await expect(page.getByRole('button', { name: /2024-02-30/ })).toHaveCount(0);
+    await page.screenshot({ path: 'test-results/calendar-375.png', fullPage: true });
+    await page.getByRole('button', { name: '2024-02-29，1 个瞬间', exact: true }).click();
+    await expect(page.getByLabel('选择日期')).toHaveValue('2024-02-29');
+    await expect(page.getByText('闰日的瞬间')).toBeVisible();
+    await page.route('**/api/entry-dates?*', (route) => route.abort());
+    await page.getByLabel('选择日期').click();
+    await expect(page.getByText('记录标记加载失败')).toBeVisible();
+    await page.unroute('**/api/entry-dates?*');
+    await page.getByRole('button', { name: '重试', exact: true }).click();
+    await expect(
+      page.getByRole('button', { name: '2024-02-29，1 个瞬间', exact: true }),
+    ).toBeVisible();
+    await page.getByRole('button', { name: '下个月', exact: true }).click();
+    await expect(page.getByLabel('选择月份')).toHaveValue('2024-03');
+    await page.getByRole('dialog').getByRole('button', { name: '回到今天', exact: true }).click();
+    await expect(page.getByRole('button', { name: '后一天', exact: true })).toBeDisabled();
+  } finally {
+    await request.delete('/api/entries/' + entry.id);
+  }
+});
+
+test('Draft undo expires and does not overwrite new writing', async ({ page }) => {
+  await page.clock.install();
+  await page.goto('/');
+  await page.locator('.floating-create').click();
+  await page.getByRole('dialog').getByRole('button', { name: '水水', exact: true }).click();
+  await page.getByRole('button', { name: '下一步' }).click();
+  await page.getByLabel('想说的话').fill('可以撤销的内容');
+  await page.getByRole('button', { name: '清空草稿', exact: true }).click();
+  await expect(page.getByRole('button', { name: '撤销清空', exact: true })).toBeVisible();
+  await page.clock.fastForward(10001);
+  await expect(page.getByRole('button', { name: '撤销清空', exact: true })).toHaveCount(0);
+  await page.getByLabel('想说的话').fill('再试一次');
+  await page.getByRole('button', { name: '清空草稿', exact: true }).click();
+  await page.getByLabel('想说的话').fill('新写的内容');
+  await expect(page.getByRole('button', { name: '撤销清空', exact: true })).toHaveCount(0);
+  await expect(page.getByLabel('想说的话')).toHaveValue('新写的内容');
 });

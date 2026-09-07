@@ -94,6 +94,24 @@ function ComposerEditor({
     [busy, setBusy] = useState(false),
     [progress, setProgress] = useState(0);
   const [draftStatus, setDraftStatus] = useState('');
+  const [undo, setUndo] = useState<{ draft: Draft; clearedTime: string }>();
+  useEffect(() => {
+    if (!undo) return;
+    const timer = setTimeout(() => setUndo(undefined), 10000);
+    return () => clearTimeout(timer);
+  }, [undo]);
+  useEffect(() => {
+    if (
+      undo &&
+      (description ||
+        stickerId ||
+        file ||
+        type !== 'sticker' ||
+        time !== undo.clearedTime ||
+        personId !== undo.draft.personId)
+    )
+      setUndo(undefined);
+  }, [undo, description, stickerId, file, type, time, personId]);
   useEffect(() => {
     if (entry) return;
     let active = true;
@@ -448,20 +466,46 @@ function ComposerEditor({
               <div className="composer-footer">
                 {!entry && (
                   <div className="draft-note">
-                    <span role="status">{draftStatus}</span>
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() => {
-                        setDescription('');
-                        setStickerId('');
-                        setFile(undefined);
-                        setType('sticker');
-                        setTime(`${date}T${localTime().slice(11)}`);
-                      }}
-                    >
-                      清空草稿
-                    </button>
+                    <span role="status">{undo ? '草稿已清空 · 10 秒内可撤销' : draftStatus}</span>
+                    {undo ? (
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => {
+                          const previous = undo.draft;
+                          setPersonId(previous.personId);
+                          setDescription(previous.description);
+                          setStickerId(previous.stickerId);
+                          setFile(previous.file);
+                          setType(previous.type);
+                          setTime(previous.time);
+                          setError('');
+                          setUndo(undefined);
+                        }}
+                      >
+                        撤销清空
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled={busy || (!description && !stickerId && !file)}
+                        onClick={() => {
+                          const clearedTime = `${date}T${localTime().slice(11)}`;
+                          setUndo({
+                            draft: { personId, description, stickerId, file, type, time },
+                            clearedTime,
+                          });
+                          setDescription('');
+                          setStickerId('');
+                          setFile(undefined);
+                          setType('sticker');
+                          setTime(clearedTime);
+                          setError('');
+                        }}
+                      >
+                        清空草稿
+                      </button>
+                    )}
                   </div>
                 )}
                 <button className="primary full" disabled={busy || !ready} type="submit">

@@ -32,6 +32,14 @@ export class Store {
         .sort((a, b) => a.occurredAt.localeCompare(b.occurredAt) || a.id.localeCompare(b.id)),
     );
   }
+  dateCounts(month: string) {
+    const counts: Record<string, number> = {};
+    for (const entry of this.entries) {
+      const date = beijingDate(entry.occurredAt);
+      if (date.startsWith(month + '-')) counts[date] = (counts[date] || 0) + 1;
+    }
+    return counts;
+  }
   private async persist(next: Entry[]) {
     const tmp = path.join(this.dir, `entries.${randomUUID()}.tmp`);
     try {

@@ -253,3 +253,26 @@ test('Sharing groups ascending hours while pagination keeps complete hourly rows
     await f.close();
   }
 });
+
+test('Calendar counts use Beijing dates and reflect edits and deletions', async () => {
+  const f = await fixture();
+  try {
+    const { entry: first } = await post(f.origin, payload({ occurredAt: '2024-02-28T16:00:00Z' }));
+    const { entry: second } = await post(f.origin, payload({ occurredAt: '2024-02-29T15:59:00Z' }));
+    await post(f.origin, payload({ occurredAt: '2024-02-29T16:00:00Z' }));
+    const counts = async () => (await fetch(f.origin + '/api/entry-dates?month=2024-02')).json();
+    assert.deepEqual(await counts(), { '2024-02-29': 2 });
+    await fetch(f.origin + '/api/entries/' + first.id, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload({ occurredAt: '2024-03-01T00:00:00Z' })),
+    });
+    assert.deepEqual(await counts(), { '2024-02-29': 1 });
+    await fetch(f.origin + '/api/entries/' + second.id, { method: 'DELETE' });
+    assert.deepEqual(await counts(), {});
+    assert.equal((await fetch(f.origin + '/api/entry-dates?month=2024-13')).status, 400);
+    assert.equal((await fetch(f.origin + '/api/entry-dates')).status, 400);
+  } finally {
+    await f.close();
+  }
+});
