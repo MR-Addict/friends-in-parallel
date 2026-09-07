@@ -11,6 +11,7 @@ import {
   Camera,
 } from 'lucide-react';
 import { Modal } from './Modal';
+import { preparePhoto } from './photos';
 import { readDraft, writeDraft, type Draft } from './drafts';
 import {
   people,
@@ -93,6 +94,8 @@ function ComposerEditor({
   const [error, setError] = useState(''),
     [busy, setBusy] = useState(false),
     [progress, setProgress] = useState(0);
+  const [processing, setProcessing] = useState(false);
+  const [photoStatus, setPhotoStatus] = useState('');
   const [draftStatus, setDraftStatus] = useState('');
   const [undo, setUndo] = useState<{ draft: Draft; clearedTime: string }>();
   useEffect(() => {
@@ -154,6 +157,7 @@ function ComposerEditor({
   const ready = type === 'photo' ? !!photo : !!stickerId;
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    if (processing || busy) return;
     setError('');
     if (!ready) {
       setError('先选择一份素材吧');
@@ -192,7 +196,7 @@ function ComposerEditor({
       }
       className="composer-modal"
       onClose={onClose}
-      busy={busy}
+      busy={busy || processing}
     >
       {pickerOpen ? (
         <div className="picker-page">
@@ -308,7 +312,7 @@ function ComposerEditor({
                 <button
                   type="button"
                   className="back-person"
-                  disabled={busy}
+                  disabled={busy || processing}
                   onClick={() => setStep(1)}
                 >
                   <ArrowLeft size={15} />
@@ -316,7 +320,7 @@ function ComposerEditor({
                   {personOf(personId).nickname}
                   <span className="muted">· 换一位朋友</span>
                 </button>
-                <fieldset disabled={busy}>
+                <fieldset disabled={busy || processing}>
                   <legend className="field-label">
                     留下此刻 <span>照片或表情，都可以</span>
                   </legend>
@@ -345,20 +349,25 @@ function ComposerEditor({
                     <label className={`photo-upload ${photo ? 'has-photo' : ''}`}>
                       <input
                         type="file"
-                        accept="image/jpeg,image/png,image/webp"
-                        onChange={(e) => {
+                        accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif"
+                        onChange={async (e) => {
                           const f = e.target.files?.[0];
+                          e.target.value = '';
                           if (!f) return;
-                          if (!['image/jpeg', 'image/png', 'image/webp'].includes(f.type)) {
-                            setError('请选择 JPEG、PNG 或 WebP 照片');
-                            return;
-                          }
-                          if (f.size > 20 * 1024 * 1024) {
-                            setError('照片不能超过 20 MB');
-                            return;
-                          }
                           setError('');
-                          setFile(f);
+                          setPhotoStatus('');
+                          setProcessing(true);
+                          try {
+                            const optimized = await preparePhoto(f);
+                            setFile(optimized);
+                            setPhotoStatus(
+                              `已优化 · ${(optimized.size / 1_000_000).toFixed(2)} MB`,
+                            );
+                          } catch (error) {
+                            setError((error as Error).message);
+                          } finally {
+                            setProcessing(false);
+                          }
                         }}
                       />
                       {photo ? (
@@ -374,9 +383,12 @@ function ComposerEditor({
                             <ImagePlus size={28} />
                           </span>
                           <strong>点这里，放一张此刻的照片</strong>
-                          <small>相册或拍照 · 最大 20 MB</small>
+                          <small>支持 iPhone 照片 · 自动压缩至 3 MB 以内</small>
                         </>
                       )}
+                      <small role="status">
+                        {processing ? '正在转换并压缩照片…' : photoStatus}
+                      </small>
                     </label>
                   ) : (
                     <>
@@ -470,7 +482,7 @@ function ComposerEditor({
                     {undo ? (
                       <button
                         type="button"
-                        disabled={busy}
+                        disabled={busy || processing}
                         onClick={() => {
                           const previous = undo.draft;
                           setPersonId(previous.personId);
@@ -488,7 +500,7 @@ function ComposerEditor({
                     ) : (
                       <button
                         type="button"
-                        disabled={busy || (!description && !stickerId && !file)}
+                        disabled={busy || processing || (!description && !stickerId && !file)}
                         onClick={() => {
                           const clearedTime = `${date}T${localTime().slice(11)}`;
                           setUndo({
@@ -508,7 +520,11 @@ function ComposerEditor({
                     )}
                   </div>
                 )}
-                <button className="primary full" disabled={busy || !ready} type="submit">
+                <button
+                  className="primary full"
+                  disabled={busy || processing || !ready}
+                  type="submit"
+                >
                   {busy ? (
                     <>
                       <LoaderCircle className="spin" size={18} />
