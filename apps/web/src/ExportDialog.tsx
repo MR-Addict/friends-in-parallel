@@ -230,18 +230,6 @@ export function ExportDialog({ date, onClose }: { date: string; onClose: () => v
                 mime: 'image/png',
               }}
             />
-            {result.images.length > 1 && (
-              <ShareButton
-                label="分享图片合集"
-                validity={shareValidity}
-                download={{ url: result.archiveUrl, validate }}
-                resource={{
-                  url: result.archiveUrl,
-                  filename: `和朋友的同一时间-${date}-手账合集.zip`,
-                  mime: 'application/zip',
-                }}
-              />
-            )}
           </div>
         </>
       )}

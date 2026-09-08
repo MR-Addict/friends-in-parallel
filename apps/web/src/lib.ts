@@ -19,7 +19,6 @@ export interface Entry {
 }
 export interface ImageExport {
   images: string[];
-  archiveUrl: string;
   expiresAt: string;
 }
 export const localTime = (iso = new Date().toISOString()) =>

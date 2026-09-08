@@ -106,6 +106,15 @@ export async function createApp(
     cache.assertCurrent(date, items[0].sourceRevision!);
     res.json(result);
   });
+  app.post('/api/exports/posts', async (req, res) => {
+    const date = checkDate(req.body?.date);
+    const entryId = req.body?.entryId;
+    if (typeof entryId !== 'string' || !entryId.trim()) throw new HttpError(400, '请选择动态');
+    const items = await snapshot(store, date, entryId);
+    const result = await exports.generate(items, date, true);
+    cache.assertCurrent(date, items[0].sourceRevision!);
+    res.json(result);
+  });
   app.get('/api/exports/video-options', async (_req, res) => res.json(await videos.options()));
   app.post('/api/exports/videos', async (req, res) => {
     const date = checkDate(req.body?.date);
@@ -147,8 +156,7 @@ export async function createApp(
     );
     res.once('finish', release);
     res.once('close', release);
-    if (req.params.name.endsWith('.zip') || req.query.download === '1')
-      res.attachment(downloadName);
+    if (req.query.download === '1') res.attachment(downloadName);
     res.setHeader('Cache-Control', 'private, no-cache');
     res.setHeader('X-Export-Filename', encodeURIComponent(downloadName));
     res.sendFile(filename);

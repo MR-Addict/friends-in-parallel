@@ -388,3 +388,10 @@ export async function imageBlocks(
   }
   return { blocks, pages: partitionImageBlocks(blocks, available, heading) };
 }
+
+/** A single post stays intact, including its full caption. */
+export function postTemplate(item: SnapshotItem, date: string) {
+  return `<!doctype html><html lang="zh-CN"><meta charset="utf-8"><style>${css}
+.sheet{height:auto;min-height:0;padding:48px}.post-media{display:block;width:100%;max-height:1400px;object-fit:contain;border-radius:10px}.post-media.sticker{height:320px}.card{padding:32px}.time{font-size:22px}
+</style><body><main class="sheet"><article class="card"><div class="person"><i class="dot" style="background:${escape(item.person.color)}"></i><strong>${escape(item.person.nickname)}</strong><time class="time">${escape(date)} ${beijingTime(item.entry.occurredAt)}（北京时间）</time></div><img class="post-media ${item.entry.media.type === 'photo' ? '' : 'sticker'}" src="http://render.local/image/0" alt="动态素材"><p class="description">${escape(item.entry.description)}</p></article></main></body></html>`;
+}

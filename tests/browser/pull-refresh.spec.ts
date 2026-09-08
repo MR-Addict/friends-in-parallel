@@ -56,7 +56,8 @@ test('pull refreshes the selected date once, recovers after failure, and keeps t
     (window as Window & { refreshMarker?: boolean }).refreshMarker = true;
   });
   await gesture(page, 150);
-  await expect(page.locator('.pull-refresh')).toContainText('正在刷新');
+  await expect(page.locator('.pull-refresh')).toBeEmpty();
+  await expect(page.getByText('正在翻到这一天…')).toHaveCount(0);
   await expect.poll(() => calls).toBe(1);
   await gesture(page, 150);
   expect(calls).toBe(1);
@@ -189,4 +190,56 @@ test('the first small downward movement on a card button is canceled', async ({ 
     return result;
   });
   expect(canceled).toBe(true);
+});
+
+test('extended pulls show an arrow and retain cards during failed refresh', async ({ page }) => {
+  const date = await page.getByLabel('选择日期').getAttribute('title');
+  await page.route('**/api/entries?*', (route) =>
+    route.fulfill({
+      json: [
+        {
+          id: 'retained',
+          personId: 'lu-yuhan',
+          description: '保留的动态',
+          media: { type: 'sticker', stickerId: 'fluent-1f60a' },
+          occurredAt: `${date}T06:30:00Z`,
+          createdAt: date,
+        },
+      ],
+    }),
+  );
+  await page.reload();
+  await expect(page.locator('.moment-card')).toBeVisible();
+  let finish!: () => void;
+  await page.route('**/api/entries?*', async (route) => {
+    await new Promise<void>((resolve) => {
+      finish = resolve;
+    });
+    await route.fulfill({ status: 500, json: { error: '刷新失败' } });
+  });
+  await page.locator('.timeline-heading').evaluate((target) => {
+    for (const [type, y] of [
+      ['touchstart', 100],
+      ['touchmove', 650],
+    ] as const) {
+      const touch = new Touch({ identifier: 1, target, clientX: 100, clientY: y });
+      target.dispatchEvent(
+        new TouchEvent(type, { bubbles: true, cancelable: true, touches: [touch] }),
+      );
+    }
+  });
+  await expect(page.locator('.pull-refresh svg')).toBeVisible();
+  const height = (await page.locator('.pull-refresh').boundingBox())!.height;
+  expect(height).toBeGreaterThan(96);
+  expect(height).toBeLessThan(180);
+  await page
+    .locator('.timeline-heading')
+    .dispatchEvent('touchend', { touches: [], cancelable: true });
+  await expect.poll(() => !!finish).toBe(true);
+  await expect(page.locator('.pull-refresh')).toBeEmpty();
+  await expect(page.locator('.moment-card')).toBeVisible();
+  await expect(page.getByText('正在翻到这一天…')).toHaveCount(0);
+  finish();
+  await expect(page.getByRole('alert')).toHaveText('刷新失败');
+  await expect(page.locator('.moment-card')).toBeVisible();
 });

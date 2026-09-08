@@ -81,7 +81,7 @@ export function usePullToRefresh(loading: boolean, onRefresh: () => void) {
       }
       event.preventDefault();
       if (dy > 8) suppressClick = true;
-      pull = Math.min(96, Math.max(0, dy * 0.5));
+      pull = 180 * (1 - Math.exp(-Math.max(0, dy) / 280));
       setDistance(pull);
     };
     const touchEnd = (event: TouchEvent) => {

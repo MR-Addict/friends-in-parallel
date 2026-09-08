@@ -109,7 +109,7 @@ test('Image exports reuse persistent content caches, deduplicate concurrent requ
   await assert.rejects(exporter.generate(items, date), /render attempted/);
   await assert.rejects(exporter.file(token, '1.png'), (error: HttpError) => error.status === 404);
   await writeFile(metadataPath, JSON.stringify(metadata));
-  for (const name of ['1.png', 'images.zip']) {
+  for (const name of ['1.png']) {
     const filename = path.join(exporter.dir, token, name);
     const bytes = await readFile(filename);
     await rm(filename);

@@ -16,7 +16,7 @@ try {
   for (const name of await readdir(out)) {
     if (/^\d+\.png$/.test(name) || name === 'images.zip') await rm(path.join(out, name));
   }
-  for (const url of [...result.images, result.archiveUrl]) {
+  for (const url of result.images) {
     const [token, filename] = url.split('/').slice(-2);
     const file = await cache.file(token, filename);
     await copyFile(file.filename, path.join(out, filename));

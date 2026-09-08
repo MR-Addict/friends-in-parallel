@@ -7,6 +7,7 @@ import { chromium } from '@playwright/test';
 import type { SnapshotItem } from '../apps/server/src/exports.js';
 import { publicDir } from '../apps/server/src/config.js';
 import {
+  postTemplate,
   imageBlocks,
   imageTemplate,
   loadImageScene,
@@ -180,5 +181,55 @@ test('adaptive collages preserve media and text, stay compact, paginate and repe
       (await page.locator('.hour-title').first().textContent()) || '',
       /2 位朋友 · 2 条动态/,
     );
+  }
+});
+
+test('post cards preserve full descriptions and uncropped media at all aspect ratios', async (t) => {
+  const browser = await chromium.launch();
+  t.after(() => browser.close());
+  const page = await browser.newPage({ viewport: { width: 1080, height: 1000 } });
+  const font = await readFile(path.join(publicDir, 'fonts/NotoSansCJKsc-Regular.otf'));
+  let current = item(0, 14);
+  await page.route('**/*', (route) =>
+    route.request().url().endsWith('font.otf')
+      ? route.fulfill({
+          body: font,
+          contentType: 'font/otf',
+          headers: { 'Access-Control-Allow-Origin': '*' },
+        })
+      : route.fulfill({ body: current.bytes, contentType: current.mime }),
+  );
+  for (const [width, height] of [
+    [200, 200],
+    [400, 1600],
+    [1600, 400],
+  ]) {
+    current = item(0, 14, '今天与朋友散步。\n中文 <script> & emoji 😊\n' + '完整的描述'.repeat(92));
+    if (width !== height) {
+      current.entry.media = { type: 'photo', filename: 'photo.png', mime: 'image/png' };
+      current.mime = 'image/png';
+      current.bytes = await sharp({ create: { width, height, channels: 3, background: '#8eb7a1' } })
+        .png()
+        .toBuffer();
+    }
+    await loadImageScene(
+      page,
+      postTemplate(current, '2026-09-07').replace('/image/0', `/image/0?shape=${width}x${height}`),
+    );
+    assert.equal(
+      await page.locator('.post-media').evaluate((el) => (el as HTMLImageElement).naturalWidth),
+      width,
+    );
+    assert.equal(await page.locator('.description').textContent(), current.entry.description);
+    assert.equal(await page.locator('script').count(), 0);
+    assert.equal(
+      await page.locator('.post-media').evaluate((el) => getComputedStyle(el).objectFit),
+      'contain',
+    );
+    assert.ok(await page.locator('.sheet').evaluate((el) => el.scrollWidth === el.clientWidth));
+    assert.ok((await page.locator('.sheet').boundingBox())!.height > 400);
+    await page
+      .locator('.sheet')
+      .screenshot({ path: `test-results/post-card-${width}x${height}.png` });
   }
 });

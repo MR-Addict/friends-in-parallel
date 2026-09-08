@@ -18,7 +18,7 @@ async function fixture(t: { after: (fn: () => Promise<void>) => void }) {
   const save = async (kind: 'images' | 'video') => {
     const work = cache.reserve(10_000);
     await mkdir(work.dir, { recursive: true });
-    const names = kind === 'images' ? ['1.png', 'images.zip'] : ['cover.jpg', 'video.mp4'];
+    const names = kind === 'images' ? ['1.png'] : ['cover.jpg', 'video.mp4'];
     for (const name of names) await writeFile(path.join(work.dir, name), Buffer.from('fixture'));
     const key = contentFingerprint([], [kind]);
     await cache.publish(
@@ -32,7 +32,6 @@ async function fixture(t: { after: (fn: () => Promise<void>) => void }) {
           ? {
               expiresAt,
               images: [`/api/exports/files/${work.token}/1.png`],
-              archiveUrl: `/api/exports/files/${work.token}/images.zip`,
             }
           : {
               expiresAt,

@@ -2,19 +2,20 @@ import { readFile, mkdir, readdir } from 'node:fs/promises';
 import path from 'node:path';
 import archiver from 'archiver';
 import { chromium } from 'playwright';
-import { imageBlocks, imageTemplate, loadImageScene, measureImageScene } from './image-layout.js';
+import {
+  imageBlocks,
+  imageTemplate,
+  loadImageScene,
+  measureImageScene,
+  postTemplate,
+} from './image-layout.js';
 import type { Response } from 'express';
 import { publicDir, packs, personById, stickerById, emojiSticker } from './config.js';
 import { beijingTime, HttpError, type Entry, type Person } from './model.js';
 import type { Store } from './store.js';
 import { ExportCache, contentFingerprint, type CacheWork } from './export-cache.js';
-export function exportFilename(date: string, kind: 'materials' | 'images' | 'image', page = 1) {
-  const label =
-    kind === 'materials'
-      ? '素材包'
-      : kind === 'images'
-        ? '手账合集'
-        : `手账-${String(page).padStart(2, '0')}`;
+export function exportFilename(date: string, kind: 'materials' | 'image', page = 1) {
+  const label = kind === 'materials' ? '素材包' : `手账-${String(page).padStart(2, '0')}`;
   return `和朋友的同一时间-${date}-${label}.${kind === 'image' ? 'png' : 'zip'}`;
 }
 export interface SnapshotItem {
@@ -32,9 +33,16 @@ const escape = (text: string) =>
     /[&<>"']/g,
     (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!,
   );
-export async function snapshot(store: Store, date: string): Promise<SnapshotItem[]> {
+export async function snapshot(
+  store: Store,
+  date: string,
+  entryId?: string,
+): Promise<SnapshotItem[]> {
   return store.exclusive(async () => {
-    const entries = store.list(date);
+    const entries = store
+      .list(date)
+      .filter((entry) => entryId === undefined || entry.id === entryId);
+    if (entryId !== undefined && !entries.length) throw new HttpError(404, '动态不存在');
     if (!entries.length) throw new HttpError(400, '这一天还没动态，先冒个泡吧');
     entries.sort(
       (a, b) =>
@@ -168,12 +176,10 @@ export function partitionHeights(heights: number[], available = 11500) {
 }
 interface ImageExportResult {
   images: string[];
-  archiveUrl: string;
   expiresAt: string;
 }
 const exportResult = (token: string, pages: number, expiresAt: string): ImageExportResult => ({
   images: Array.from({ length: pages }, (_, i) => `/api/exports/files/${token}/${i + 1}.png`),
-  archiveUrl: `/api/exports/files/${token}/images.zip`,
   expiresAt,
 });
 export class ImageExports {
@@ -186,8 +192,8 @@ export class ImageExports {
   cleanup() {
     return this.cache.cleanup();
   }
-  async generate(items: SnapshotItem[], date: string): Promise<ImageExportResult> {
-    const [font, renderer, cacheRenderer, layoutSources, licenses] = await Promise.all([
+  async generate(items: SnapshotItem[], date: string, post = false): Promise<ImageExportResult> {
+    const [font, renderer, cacheRenderer, layoutSources] = await Promise.all([
       readFile(path.join(publicDir, 'fonts/NotoSansCJKsc-Regular.otf')),
       readFile(new URL(import.meta.url)),
       readFile(
@@ -203,23 +209,14 @@ export class ImageExports {
           ),
         ),
       ),
-      readdir(path.join(publicDir, 'licenses')).then((names) =>
-        Promise.all(
-          names.sort().map(async (name) => ({
-            name,
-            bytes: await readFile(path.join(publicDir, 'licenses', name)),
-          })),
-        ),
-      ),
     ]);
     const key = contentFingerprint(items, [
-      'images',
+      post ? 'post' : 'images',
       date,
       renderer,
       cacheRenderer,
       ...layoutSources,
       font,
-      ...licenses.flatMap((license) => [license.name, license.bytes]),
     ]);
     const revision = items[0]?.sourceRevision || 'standalone';
     return this.cache.singleFlight(key, async () => {
@@ -227,7 +224,7 @@ export class ImageExports {
       const cached = await this.cache.find<ImageExportResult>(key, 'images');
       if (cached) return cached.result;
       const work = this.cache.reserve(120_000, date, revision);
-      const job = this.render(items, date, key, font, licenses, work);
+      const job = this.render(items, date, key, font, work, post);
       this.cache.track(work, job);
       return job;
     });
@@ -237,8 +234,8 @@ export class ImageExports {
     date: string,
     key: string,
     font: Buffer,
-    licenses: { name: string; bytes: Buffer }[],
     work: CacheWork,
+    post: boolean,
   ) {
     const { token, dir: dest } = work;
     let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined;
@@ -277,43 +274,33 @@ export class ImageExports {
         if (item) return route.fulfill({ body: item.bytes, contentType: item.mime });
         return route.abort();
       });
-      const { blocks, pages: groups } = await imageBlocks(page, items, date);
-      for (let i = 0; i < groups.length; i++) {
-        await loadImageScene(
-          page,
-          imageTemplate(items, blocks, groups[i], date, i + 1, groups.length),
-        );
-        const measured = await measureImageScene(page);
-        if (!measured.fits || measured.height > 12000)
-          throw new Error('Image layout exceeds safe area');
+      const names: Record<string, string> = {};
+      let pages = 1;
+      if (post) {
+        await loadImageScene(page, postTemplate(items[0], date));
         await page
           .locator('.sheet')
-          .screenshot({ path: path.join(dest, `${i + 1}.png`), timeout: 30_000 });
+          .screenshot({ path: path.join(dest, '1.png'), timeout: 30_000 });
+        names['1.png'] = `和朋友的同一时间-${date}-动态.png`;
+      } else {
+        const { blocks, pages: groups } = await imageBlocks(page, items, date);
+        pages = groups.length;
+        for (let i = 0; i < groups.length; i++) {
+          await loadImageScene(
+            page,
+            imageTemplate(items, blocks, groups[i], date, i + 1, groups.length),
+          );
+          const measured = await measureImageScene(page);
+          if (!measured.fits || measured.height > 12000)
+            throw new Error('Image layout exceeds safe area');
+          await page
+            .locator('.sheet')
+            .screenshot({ path: path.join(dest, `${i + 1}.png`), timeout: 30_000 });
+          names[`${i + 1}.png`] = exportFilename(date, 'image', i + 1);
+        }
       }
-      const archive = archiver('zip', { zlib: { level: 6 } });
-      const { createWriteStream } = await import('node:fs');
-      const output = createWriteStream(path.join(dest, 'images.zip'));
-      const finished = new Promise<void>((resolve, reject) => {
-        output.on('close', resolve);
-        output.on('error', reject);
-        archive.on('error', reject);
-      });
-      archive.pipe(output);
-      groups.forEach((_, i) =>
-        archive.file(path.join(dest, `${i + 1}.png`), {
-          name: exportFilename(date, 'image', i + 1),
-        }),
-      );
-      for (const license of licenses)
-        archive.append(license.bytes, { name: `licenses/${license.name}` });
-      await archive.finalize();
-      await finished;
-      const names: Record<string, string> = { 'images.zip': exportFilename(date, 'images') };
-      groups.forEach((_, i) => {
-        names[`${i + 1}.png`] = exportFilename(date, 'image', i + 1);
-      });
       return await this.cache.publish(work, 'images', key, date, names, (expiresAt) =>
-        exportResult(token, groups.length, expiresAt),
+        exportResult(token, pages, expiresAt),
       );
     } catch (e) {
       if (work.signal.aborted && work.signal.reason instanceof HttpError) throw work.signal.reason;
