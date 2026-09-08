@@ -18,6 +18,12 @@ pnpm dev
 
 开发时后端默认使用 4500 端口；修改它时，需同步修改 Vite 的代理配置。
 
+### 安装到桌面（PWA）
+
+通过 HTTPS（本地开发可用 localhost）访问后，可使用浏览器的安装入口；iOS Safari 使用「分享 → 添加到主屏幕」。安装后以独立窗口打开，仍需联网使用。不注册 Service Worker，不添加离线缓存或请求拦截。
+
+安装配置位于 `apps/web/public/manifest.webmanifest`。Logo 源文件为 `apps/web/public/favicon.svg`，修改后运行 `pnpm assets:icons`，重新生成普通安装图标、Android 自适应图标和 iOS 主屏幕图标，并一起提交。
+
 ### 构建与运行
 
 ```sh
