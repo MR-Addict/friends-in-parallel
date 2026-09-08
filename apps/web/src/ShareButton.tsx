@@ -17,6 +17,7 @@ export type PreparedResource = {
 };
 type Props = {
   label: string;
+  iconOnly?: boolean;
   resource?: Resource;
   text?: string;
   disabled?: boolean;
@@ -110,6 +111,7 @@ function ShareSession({
   validity,
   download,
   variant = 'secondary',
+  iconOnly = false,
 }: Props) {
   const metadata = resource || resourceMetadata;
   const hasResource = !!(resource || prepareResource);
@@ -279,7 +281,11 @@ function ShareSession({
     return (
       <div className="resource-share">
         <a
-          className={`${variant} full`}
+          className={iconOnly ? 'share-icon-button' : `${variant} full`}
+          aria-label={
+            iconOnly ? (downloading ? '正在准备下载…' : label.replace(/^分享/, '下载')) : undefined
+          }
+          title={iconOnly ? label.replace(/^分享/, '下载') : undefined}
           href={action?.url || target?.url || '#'}
           download={metadata.filename}
           aria-disabled={disabled || downloading}
@@ -327,9 +333,9 @@ function ShareSession({
           {downloading ? (
             <IslandIcon icon={LoaderCircle} size={18} className="spin" />
           ) : (
-            <IslandIcon icon={ArrowDownToLine} size={18} />
+            <IslandIcon icon={iconOnly ? Share2 : ArrowDownToLine} size={18} />
           )}
-          {downloading ? '正在准备下载…' : label.replace(/^分享/, '下载')}
+          {!iconOnly && (downloading ? '正在准备下载…' : label.replace(/^分享/, '下载'))}
         </a>
         {error && (
           <p className="small-note" role="alert">
@@ -387,9 +393,13 @@ function ShareSession({
   return (
     <div className="resource-share">
       <Button
-        type={variant === 'primary' ? 'primary' : 'default'}
+        type={iconOnly ? 'text' : variant === 'primary' ? 'primary' : 'default'}
         htmlType="button"
-        className={'island-control ' + `${variant} full`}
+        className={
+          'island-control ' + (iconOnly ? 'icon-button share-icon-button' : `${variant} full`)
+        }
+        aria-label={iconOnly ? caption : undefined}
+        title={iconOnly ? caption : undefined}
         disabled={disabled || busy}
         aria-busy={busy}
         aria-live="polite"
@@ -403,7 +413,7 @@ function ShareSession({
         ) : (
           <IslandIcon icon={Share2} size={18} />
         )}
-        {caption}
+        {!iconOnly && caption}
       </Button>
     </div>
   );

@@ -111,7 +111,19 @@ export function Timeline({
                       <img src={`/stickers/fluent/${person.avatar}.png`} alt="" />
                     )}
                   </span>
-                  <span>{person.nickname}</span>
+                  <span>
+                    {person.nickname}
+                    {!loading && !error && (
+                      <span className="friend-post-count">
+                        {' '}
+                        （
+                        {person.id === 'all'
+                          ? entries.length
+                          : entries.filter((entry) => entry.personId === person.id).length}
+                        条）
+                      </span>
+                    )}
+                  </span>
                   <span className="friend-filter-check" aria-hidden="true">
                     {filter === person.id && <IslandIcon icon={Check} size={18} />}
                   </span>
@@ -270,12 +282,13 @@ export function Timeline({
       )}
       {zoom && (
         <Modal
+          className="post-modal"
           title={`${personOf(zoom.personId).nickname} · ${timeOf(zoom.occurredAt)}`}
           onClose={() => setZoom(undefined)}
         >
+          {zoom.description && <p className="moment-description">{zoom.description}</p>}
           <Photo className="zoom-image" src={mediaSrc(zoom.media)} alt={mediaName(zoom.media)} />
           {mediaSrc(zoom.media) && <PostShare entry={zoom} />}
-          {zoom.description && <p className="moment-description">{zoom.description}</p>}
         </Modal>
       )}
     </section>

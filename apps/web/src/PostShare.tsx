@@ -2,15 +2,15 @@ import { useState } from 'react';
 import { api, dateOf, type Entry, type ImageExport } from './lib';
 import { ShareButton, entryShare, type PreparedResource } from './ShareButton';
 
-export function PostShare({ entry }: { entry: Entry }) {
+export function PostShare({ entry, iconOnly = false }: { entry: Entry; iconOnly?: boolean }) {
   return entry.description ? (
-    <RenderedPostShare key={JSON.stringify(entry)} entry={entry} />
+    <RenderedPostShare key={JSON.stringify(entry)} entry={entry} iconOnly={iconOnly} />
   ) : (
-    <ShareButton label="分享图片" {...entryShare(entry)} />
+    <ShareButton iconOnly={iconOnly} label="分享图片" {...entryShare(entry)} />
   );
 }
 
-function RenderedPostShare({ entry }: { entry: Entry }) {
+function RenderedPostShare({ entry, iconOnly = false }: { entry: Entry; iconOnly?: boolean }) {
   const [session, setSession] = useState(0);
   const [error, setError] = useState('');
   const metadata = {
@@ -44,6 +44,7 @@ function RenderedPostShare({ entry }: { entry: Entry }) {
       <ShareButton
         key={session}
         label="分享动态"
+        iconOnly={iconOnly}
         resourceMetadata={metadata}
         prepareResource={prepareResource}
       />
