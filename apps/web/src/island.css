@@ -413,7 +413,7 @@ input:focus-visible,
 .empty-state h2 {
   font-weight: 700;
 }
-.create-dock {
+.floating-actions {
   position: fixed;
   z-index: 4;
   /* Some mobile WebViews do not expose safe-area values. Keep a valid fixed inset. */
@@ -425,6 +425,138 @@ input:focus-visible,
   padding: 5px 7px 10px;
   background: var(--animal-primary-color);
   border-radius: 50px;
+}
+.floating-actions {
+  display: flex;
+  gap: 8px;
+  width: min(calc(100% - 32px), 500px);
+}
+.floating-actions .floating-create {
+  flex: 1;
+  min-width: 0;
+}
+.floating-actions .export-trigger {
+  flex: 0 0 auto;
+  padding: 0 16px;
+}
+.island-control {
+  height: auto;
+  min-height: 44px;
+  white-space: normal;
+}
+.island-control > span {
+  display: contents;
+}
+.island-control.icon-button {
+  padding: 0;
+  width: 44px;
+  min-width: 44px;
+}
+.island-control.full {
+  width: 100%;
+}
+.island-control.primary {
+  min-height: 48px;
+}
+.island-control.text-button {
+  padding: 8px;
+}
+.island-control.person-choice,
+.island-control.back-person {
+  padding: 12px 14px;
+  justify-content: flex-start;
+  text-align: left;
+}
+.island-control.selected-media {
+  min-height: 82px;
+}
+.island-control.moment-media {
+  position: static;
+  padding: 0;
+  display: block;
+}
+.island-control.video-style-option {
+  padding: 0;
+  display: block;
+  text-align: left;
+}
+.island-control.video-style-option .video-style-thumb {
+  display: block;
+}
+.island-control.video-listen {
+  padding: 8px 12px;
+}
+.sticker-grid .island-control {
+  padding: 10px 2px;
+  min-width: 0;
+  font-size: 11px;
+  line-height: 1.5;
+}
+.pack-tabs .island-control {
+  padding: 0 8px;
+  min-width: 0;
+  font-size: 13px;
+  white-space: nowrap;
+}
+.category-tabs .island-control {
+  padding: 0 12px;
+  font-size: 13px;
+  white-space: nowrap;
+}
+.export-options .island-control {
+  justify-content: flex-start;
+  text-align: left;
+}
+.export-options .island-control > span > div {
+  flex: 1;
+  min-width: 0;
+}
+.island-date-input {
+  min-width: 0;
+}
+.time-input > .island-date-input {
+  flex: 1;
+}
+.calendar-month-picker > .island-date-input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+}
+.island-music-select {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+}
+.island-music-select > div {
+  display: block;
+  width: 100%;
+}
+.island-music-select [role='combobox'] {
+  min-height: 44px;
+  width: 100%;
+}
+/* Keep the library's popup inside the narrow dialog, above its music row. */
+.island-music-select [role='listbox'] {
+  left: 0 !important;
+  right: 0 !important;
+  top: auto !important;
+  bottom: 100% !important;
+  margin: 0 0 6px !important;
+  transform: none !important;
+  min-width: 0;
+  width: 100%;
+  max-height: 200px;
+  overflow-y: auto;
+}
+.island-music-select [role='option'] {
+  white-space: normal;
+}
+.compact-date-picker {
+  min-height: 44px;
+  padding: 0 12px;
+}
+.brand-header h1 .brand {
+  font-size: clamp(17px, 3vw, 24px);
 }
 .island-action.floating-create {
   position: relative;
@@ -779,11 +911,12 @@ a.secondary {
     font-size: 11px;
   }
   .people-panel {
-    padding: 16px 10px 8px;
+    padding: 8px 10px;
     border-radius: 24px;
   }
   .people-filter {
     gap: 2px;
+    padding: 4px 0;
   }
   .people-filter button {
     font-size: 10px;
@@ -813,7 +946,7 @@ a.secondary {
     gap: 14px;
   }
   .timeline-heading {
-    margin-top: 24px;
+    margin-top: 16px;
   }
   .moment-card {
     padding: 16px;
@@ -872,7 +1005,23 @@ a.secondary {
 }
 @media (max-width: 360px) {
   .brand-header {
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
+  }
+  .brand-copy {
+    min-width: 0;
+  }
+  .brand-header h1 .brand {
+    font-size: 16px;
+    letter-spacing: 0;
+  }
+  .brand-copy p {
+    font-size: 10px;
+  }
+  .compact-date-picker {
+    padding: 0 8px;
+  }
+  .compact-date-picker strong {
+    font-size: 12px;
   }
   .header-actions {
     margin-left: auto;

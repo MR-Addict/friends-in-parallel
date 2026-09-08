@@ -1,6 +1,24 @@
+import {
+  artDirectionStyles,
+  styleLabels,
+  endingArtwork,
+  randomEnding,
+  endingTransitions,
+  type EndingVariant,
+} from './video-art-direction.js';
 import { mkdir, writeFile, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { chromium, type Page } from 'playwright';
+import {
+  balancedPages,
+  videoGroups,
+  mediaShapes,
+  layoutCandidates,
+  layoutSeed,
+  chooseLayout,
+  type LayoutCandidate,
+  type LayoutSlot,
+} from './video-layout.js';
 import { beijingTime } from './model.js';
 import type { SnapshotItem } from './exports.js';
 import type { VideoStyle } from './video-types.js';
@@ -11,13 +29,21 @@ import type { CacheWork } from './export-cache.js';
 export const VIDEO_WIDTH = 1080,
   VIDEO_HEIGHT = 1920,
   VIDEO_FPS = 30;
+export interface SceneEntry {
+  itemIndex: number;
+  text: string;
+  continuation: number;
+}
 export interface VideoScene {
-  kind: 'title' | 'hour' | 'entry' | 'credits';
+  kind: 'title' | 'entry' | 'ending';
+  endingVariant?: EndingVariant;
   title: string;
   text: string;
   duration: number;
-  itemIndex?: number;
-  continuation?: number;
+  entries?: SceneEntry[];
+  layout?: LayoutCandidate;
+  pageNumber?: number;
+  pageCount?: number;
 }
 const escape = (text: string) =>
   text.replace(
@@ -38,8 +64,7 @@ const styles = `
 .media-box img{width:100%;height:100%;object-fit:contain}.media-box.sticker img{width:340px;height:340px}
 .copy{font-size:40px;line-height:1.6;white-space:pre-wrap;overflow-wrap:anywhere;margin:32px 0 0;max-height:576px}
 .continuation{font-size:24px;letter-spacing:3px;color:var(--accent);margin-top:20px}
-.bottom{position:absolute;bottom:64px;left:80px;right:80px;display:flex;justify-content:space-between;gap:20px;font-size:24px;color:var(--accent)}
-.hero{height:1470px;display:flex;flex-direction:column;justify-content:center;position:relative;padding:30px}.hero .eyebrow{font-size:28px;color:var(--accent);letter-spacing:8px;margin-bottom:36px}.hero h1{font-size:100px;line-height:1.45;letter-spacing:4px;white-space:pre-line;margin:0 0 44px;overflow-wrap:anywhere}.hero p{font-size:34px;line-height:1.9;white-space:pre-wrap;overflow-wrap:anywhere;margin:0}.hour .hero h1{font-size:150px}.credits .hero h1{font-size:68px}.credits .hero p{font-size:27px;line-height:1.8}.ornament{position:absolute;pointer-events:none;opacity:.16;width:560px;height:560px;border:2px solid var(--accent);border-radius:50%;right:-180px;top:260px}.ornament:after{content:'';position:absolute;inset:45px;border:2px solid var(--accent);border-radius:inherit}
+.hero{height:1470px;display:flex;flex-direction:column;justify-content:center;position:relative;padding:30px}.hero .eyebrow{font-size:28px;color:var(--accent);letter-spacing:8px;margin-bottom:36px}.hero h1{font-size:100px;line-height:1.45;letter-spacing:4px;white-space:pre-line;margin:0 0 44px;overflow-wrap:anywhere}.hero p{font-size:34px;line-height:1.9;white-space:pre-wrap;overflow-wrap:anywhere;margin:0}.hour .hero h1{font-size:150px}.ornament{position:absolute;pointer-events:none;opacity:.16;width:560px;height:560px;border:2px solid var(--accent);border-radius:50%;right:-180px;top:260px}.ornament:after{content:'';position:absolute;inset:45px;border:2px solid var(--accent);border-radius:inherit}
 .paper{background-image:repeating-linear-gradient(0deg,transparent,transparent 47px,#8f644b0b 48px)}.paper .card:before{content:'';position:absolute;width:220px;height:46px;background:#c9ac7799;top:-24px;left:calc(50% - 110px);transform:rotate(-3deg)}
 .minimal .card{border:0;border-radius:0;box-shadow:none;padding:44px 24px}.minimal .person{border-left:6px solid var(--accent);padding-left:24px}.minimal .hero{padding:0}.minimal .hero h1{font-size:112px;font-weight:400}.minimal .ornament{display:none}
 .forest .ornament{border-radius:0 100%;transform:rotate(30deg);background:#53795d22;right:-210px;top:40px}.forest .card{border-radius:100px 18px 100px 18px}.forest .rule{height:5px;width:120px}
@@ -54,17 +79,122 @@ const styles = `
 .pixel{background-image:linear-gradient(#8eedb210 2px,transparent 2px),linear-gradient(90deg,#8eedb210 2px,transparent 2px);background-size:64px 64px}.pixel .card{border:8px solid #8eedb2;border-radius:0;box-shadow:12px 12px #151832}.pixel .media-box{border-radius:0}.pixel .person{background:#25284c;padding:12px}.pixel .media-box{height:636px}.pixel .ornament{border:24px solid var(--accent);border-radius:0;width:260px;height:260px;transform:rotate(0deg)}
 `;
 
+const collageStyles = `
+.frame.entry{display:block;padding-bottom:80px}
+.entry .rule{margin-bottom:22px}
+.scene-heading{height:62px;margin:0 0 22px;display:flex;align-items:center;justify-content:space-between;font-size:38px;font-weight:400;letter-spacing:2px}
+.scene-heading small{font-size:24px;color:var(--accent)}
+.board{width:920px;height:1400px;position:relative}
+.entry .board .card{position:absolute;margin:0;padding:24px;display:flex;flex-direction:column;transform:none;min-width:0;border-radius:18px}
+.entry .board .person{font-size:24px;line-height:1.4;margin:0 0 16px;gap:8px;flex-shrink:0;flex-wrap:wrap;padding:0;border:0;background:none}
+.entry .board .person i{width:10px;height:10px}
+.entry .board .person time{font-size:24px;padding:0;border:0;transform:none}
+.entry .board .media-box{height:auto;min-height:150px;flex:1 1 0;border:0;border-radius:8px;position:relative}
+.entry .board .media-box img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
+.entry .board .media-box.sticker{background:transparent}
+.entry .board .media-box.sticker img{inset:50% auto auto 50%;transform:translate(-50%,-50%);max-width:320px;max-height:320px;width:85%;height:85%}
+.entry .board .copy{font-size:28px;line-height:1.5;margin:16px 0 0;max-height:none;padding:0;border:0;flex-shrink:0}
+.entry .board .copy:empty{display:none}
+.entry .board .continuation{font-size:24px;margin-top:12px;flex-shrink:0}
+.entry .board .card:before{width:90px;height:22px;top:-12px;left:calc(50% - 45px)}
+.entry.polaroid .board .card{box-shadow:6px 8px 0 #bfb0a577;border-radius:0}
+.entry.forest .board .card{border-radius:40px 14px 40px 14px}
+.entry.postcard .board .card{border-width:6px;border-radius:0}
+.entry.minimal .board .card,.entry.cinema .board .card,.entry.film .board .card,.entry.comic .board .card,.entry.pixel .board .card{border-radius:0}
+.entry.candy .board .card,.entry.comic .board .card,.entry.neon .board .card,.entry.pixel .board .card{box-shadow:6px 6px 0 var(--accent)}
+.entry.single .board .copy{font-size:36px;line-height:1.5}
+.entry.single .board .media-box{min-height:300px}
+`;
+
 export function videoTemplate(
   scene: VideoScene,
   items: SnapshotItem[],
   date: string,
   style: VideoStyle,
 ) {
-  const item = scene.itemIndex === undefined ? undefined : items[scene.itemIndex];
-  const body = item
-    ? `<article class="card"><div class="person"><i style="background:${escape(item.person.color)}"></i><strong>${escape(item.person.nickname)}</strong><time>${beijingTime(item.entry.occurredAt)}</time></div><div class="media-box ${item.entry.media.type === 'photo' ? '' : 'sticker'}"><img src="http://render.local/image/${scene.itemIndex}" alt="动态素材"></div><p class="copy">${escape(scene.text)}</p>${scene.continuation ? `<div class="continuation">接着记录 · ${scene.continuation + 1}</div>` : ''}</article>`
-    : `<section class="hero"><div class="eyebrow">${scene.kind === 'credits' ? '这一刻，我们同频' : scene.kind === 'hour' ? '同一小时，各自精彩' : '朋友们的一天'}</div><h1>${escape(scene.title)}</h1><p>${escape(scene.text)}</p></section>`;
-  return `<!doctype html><html lang="zh-CN"><meta charset="utf-8"><style>${styles}</style><body><main class="frame ${style.id} ${scene.kind}" style="--bg:${style.background};--ink:${style.ink};--paper:${style.paper};--accent:${style.accent}"><div class="ornament"></div><header class="brand"><span>此刻，同频</span><span>${date}</span></header><div class="rule"></div>${body}<footer class="bottom"><span>${escape(style.name)}</span><span>${scene.kind === 'entry' ? '每个瞬间，都值得收藏' : '各自在生活，也在同频'}</span></footer></main></body></html>`;
+  const body =
+    scene.kind === 'entry'
+      ? `<h2 class="scene-heading" data-label="${styleLabels[style.id] || '今日记录'}"><span>${escape(scene.title)}</span><small>${scene.pageCount && scene.pageCount > 1 ? `${scene.pageNumber} / ${scene.pageCount}` : ''}</small></h2><section class="board">${scene
+          .layout!.slots.map((slot: LayoutSlot) => {
+            const entry = scene.entries!.find((entry) => entry.itemIndex === slot.itemIndex)!;
+            const item = items[entry.itemIndex];
+            return `<article class="card" data-item-index="${entry.itemIndex}" style="left:${slot.x}px;top:${slot.y}px;width:${slot.width}px;height:${slot.height}px"><div class="person"><i style="background:${escape(item.person.color)}"></i><strong>${escape(item.person.nickname)}</strong><time>${beijingTime(item.entry.occurredAt)}</time></div><div class="media-box ${item.entry.media.type === 'photo' ? '' : 'sticker'}"><img src="http://render.local/image/${entry.itemIndex}" alt="动态素材"></div><p class="copy">${escape(entry.text)}</p>${entry.continuation ? `<div class="continuation">接着记录 · ${entry.continuation + 1}</div>` : ''}</article>`;
+          })
+          .join('')}</section>`
+      : scene.kind === 'ending'
+        ? `<section class="hero">${endingArtwork(scene.endingVariant || 'postcard')}<div class="eyebrow">把今天好好收藏</div><h1>${escape(scene.title)}</h1><p>${escape(scene.text)}</p><div class="ending-foot">${new Set(items.map((item) => item.entry.personId)).size} 位朋友 · ${items.length} 个瞬间 · 明日待续</div></section>`
+        : `<section class="hero"><div class="eyebrow">朋友们的一天</div><h1>${escape(scene.title)}</h1><p>${escape(scene.text)}</p></section>`;
+  return `<!doctype html><html lang="zh-CN"><meta charset="utf-8"><style>${styles}${collageStyles}${artDirectionStyles}</style><body><main class="frame ${style.id} ${scene.kind} ${scene.kind === 'ending' ? `ending-${scene.endingVariant || 'postcard'}` : ''} ${scene.entries?.length === 1 ? 'single' : ''}" style="--bg:${style.background};--ink:${style.ink};--paper:${style.paper};--accent:${style.accent}"><div class="ornament"></div><header class="brand"><span>和朋友的同一时间</span><span>${date}</span></header><div class="rule"></div>${body}</main></body></html>`;
+}
+
+/** Check actual rendered geometry, including text, all cards and the footer safe area. */
+export async function measureVideoScene(page: Page): Promise<{ fits: boolean; score: number }> {
+  return page.evaluate(() => {
+    const cards = Array.from(document.querySelectorAll<HTMLElement>('.board .card'));
+    if (!cards.length) {
+      const hero = document.querySelector<HTMLElement>('.hero');
+      return {
+        fits:
+          !!hero &&
+          hero.getBoundingClientRect().bottom < 1820 &&
+          hero.scrollHeight <= hero.clientHeight,
+        score: 0,
+      };
+    }
+    const board = document.querySelector('.board')!.getBoundingClientRect();
+    const rectangles = cards.map((card) => card.getBoundingClientRect());
+    let score = 0;
+    let fits = board.bottom < 1820;
+    cards.forEach((card, i) => {
+      const rect = rectangles[i];
+      const media = card.querySelector<HTMLElement>('.media-box')!;
+      const image = media.querySelector('img')!;
+      const box = media.getBoundingClientRect();
+      const ratio = image.naturalWidth / image.naturalHeight;
+      const imageRect = image.getBoundingClientRect();
+      const area =
+        Math.min(imageRect.width, imageRect.height * ratio) *
+        Math.min(imageRect.height, imageRect.width / ratio);
+      score += media.classList.contains('sticker')
+        ? 0.35 - Math.max(0, box.height - 420) / 3000
+        : (area / (920 * 1400)) * 4 + (area / (box.width * box.height)) * 0.4;
+      if (
+        !image.complete ||
+        !image.naturalWidth ||
+        box.height < 149 ||
+        card.scrollHeight > card.clientHeight + 1 ||
+        card.scrollWidth > card.clientWidth + 1 ||
+        rect.left < board.left - 1 ||
+        rect.right > board.right + 1 ||
+        rect.top < board.top - 1 ||
+        rect.bottom > board.bottom + 1
+      )
+        fits = false;
+      for (const child of card.querySelectorAll<HTMLElement>(
+        '.person,.copy,.continuation,.media-box',
+      )) {
+        const childRect = child.getBoundingClientRect();
+        if (
+          childRect.width &&
+          (childRect.bottom > rect.bottom - 12 ||
+            childRect.right > rect.right - 12 ||
+            child.scrollWidth > child.clientWidth + 1)
+        )
+          fits = false;
+      }
+      for (let j = 0; j < i; j++) {
+        const other = rectangles[j];
+        if (
+          rect.left < other.right - 1 &&
+          rect.right > other.left + 1 &&
+          rect.top < other.bottom - 1 &&
+          rect.bottom > other.top + 1
+        )
+          fits = false;
+      }
+    });
+    return { fits, score };
+  });
 }
 
 export async function loadVideoScene(
@@ -93,82 +223,113 @@ export async function videoScenes(
   const scenes: VideoScene[] = [
     {
       kind: 'title',
-      title: '此刻，\n同频',
+      title: '和朋友的\n同一时间',
       text: `${date}\n${new Set(items.map((item) => item.entry.personId)).size} 位朋友 · ${items.length} 个瞬间`,
       duration: 2,
     },
   ];
-  let hour = '';
-  for (let index = 0; index < items.length; index++) {
-    const nextHour = beijingTime(items[index].entry.occurredAt).slice(0, 2);
-    if (nextHour !== hour) {
-      hour = nextHour;
-      scenes.push({
-        kind: 'hour',
-        title: `${hour}:00`,
-        text: `${hour}:00 — ${hour}:59`,
-        duration: 1.5,
-      });
+  const shapes = await mediaShapes(items);
+  const seed = layoutSeed(items, date, style.id);
+  const duration = (entries: SceneEntry[]) =>
+    Math.ceil(
+      Math.max(
+        4,
+        entries.length * 1.5,
+        entries.reduce((n, entry) => n + Array.from(entry.text).length, 0) / 6 + 1,
+      ),
+    );
+  async function arrange(indices: number[], title: string): Promise<VideoScene[]> {
+    const entries = indices.map((itemIndex) => ({
+      itemIndex,
+      text: items[itemIndex].entry.description,
+      continuation: 0,
+    }));
+    const base: VideoScene = {
+      kind: 'entry',
+      title,
+      text: '',
+      entries,
+      duration: duration(entries),
+    };
+    const candidates = layoutCandidates(indices, shapes, items);
+    const fitting: LayoutCandidate[] = [];
+    for (const candidate of candidates) {
+      await loadVideoScene(page, { ...base, layout: candidate }, items, date, style);
+      const measured = await measureVideoScene(page);
+      if (measured.fits) fitting.push({ ...candidate, score: measured.score });
     }
-    const seed: VideoScene = { kind: 'entry', title: '', text: '', duration: 4, itemIndex: index };
-    await loadVideoScene(page, seed, items, date, style);
-    const chunks = await page.evaluate((text) => {
-      const node = document.querySelector<HTMLElement>('.copy')!;
-      const chars = Array.from(
-        new Intl.Segmenter('zh-CN', { granularity: 'grapheme' }).segment(text),
-        (s) => s.segment,
-      );
-      if (!chars.length) return [''];
-      const result: string[] = [];
-      let start = 0;
-      while (start < chars.length) {
-        let low = 1,
-          high = chars.length - start,
-          best = 0;
-        while (low <= high) {
-          const count = Math.floor((low + high) / 2);
-          // A trailing zero-width character makes trailing blank lines measurable.
-          node.textContent = chars.slice(start, start + count).join('') + '\u200b';
-          if (node.scrollHeight <= 576) {
-            best = count;
-            low = count + 1;
-          } else high = count - 1;
-        }
-        if (!best) throw new Error('Text cannot fit video scene');
-        result.push(chars.slice(start, start + best).join(''));
-        start += best;
+    if (fitting.length)
+      return [
+        {
+          ...base,
+          layout: chooseLayout(
+            fitting,
+            `${seed}:${indices.map((i) => items[i].entry.id).join(',')}`,
+          ),
+        },
+      ];
+    if (indices.length > 1) {
+      // Keep page order chronological while reducing density until every card fits.
+      const middle = Math.ceil(indices.length / 2);
+      return [
+        ...(await arrange(indices.slice(0, middle), title)),
+        ...(await arrange(indices.slice(middle), title)),
+      ];
+    }
+    const chunks: VideoScene[] = [];
+    const chars = Array.from(
+      new Intl.Segmenter('zh-CN', { granularity: 'grapheme' }).segment(entries[0].text),
+      (s) => s.segment,
+    );
+    let start = 0;
+    while (start < chars.length) {
+      let low = 1,
+        high = chars.length - start,
+        best = 0;
+      const entry = { ...entries[0], continuation: chunks.length };
+      while (low <= high) {
+        const count = Math.floor((low + high) / 2);
+        // Keep trailing blank lines measurable, without changing the saved text.
+        entry.text = chars.slice(start, start + count).join('') + '\u200b';
+        await loadVideoScene(
+          page,
+          { ...base, entries: [entry], layout: candidates[0] },
+          items,
+          date,
+          style,
+        );
+        if ((await measureVideoScene(page)).fits) {
+          best = count;
+          low = count + 1;
+        } else high = count - 1;
       }
-      return result;
-    }, items[index].entry.description);
-    chunks.forEach((text, continuation) =>
-      scenes.push({
-        ...seed,
-        text,
-        continuation,
-        duration: Math.max(4, Math.ceil(Array.from(text).length / 6) + 1),
-      }),
+      if (!best) throw new Error('Text cannot fit video scene');
+      entry.text = chars.slice(start, start + best).join('');
+      chunks.push({
+        ...base,
+        entries: [{ ...entry }],
+        layout: candidates[0],
+        duration: duration([entry]),
+      });
+      start += best;
+    }
+    if (!chunks.length) throw new Error('Media or person cannot fit video scene');
+    return chunks;
+  }
+  for (const group of videoGroups(items)) {
+    const pages: VideoScene[] = [];
+    for (const indices of balancedPages(group.indices))
+      pages.push(...(await arrange(indices, group.title)));
+    pages.forEach((scene, i) =>
+      scenes.push({ ...scene, pageNumber: i + 1, pageCount: pages.length }),
     );
   }
-  const assetCredits = [...new Set(items.map((item) => item.credit).filter(Boolean))];
-  const lines = ['谢谢你，分享今天。', '', ...assetCredits];
-  if (assetCredits.some((credit) => credit.includes('Twemoji')))
-    lines.push('Twemoji: creativecommons.org/licenses/by/4.0/');
-  if (assetCredits.some((credit) => credit.includes('OpenMoji')))
-    lines.push('OpenMoji: creativecommons.org/licenses/by-sa/4.0/');
-  if (music)
-    lines.push(
-      '',
-      music.title,
-      'Kevin MacLeod (incompetech.com)',
-      'CC BY 4.0',
-      'https://creativecommons.org/licenses/by/4.0/',
-      '音乐已裁剪 / 循环、调整响度并淡入淡出',
-    );
   scenes.push({
-    kind: 'credits',
-    title: '把今天，\n留给未来。',
-    text: lines.join('\n'),
-    duration: Math.max(5, Math.ceil(lines.length / 2)),
+    kind: 'ending',
+    endingVariant: randomEnding(),
+    title: '今天先到这儿',
+    text: '明天接着冒泡。',
+    duration: 2,
   });
   return scenes;
 }
@@ -224,10 +385,7 @@ export async function renderVideo(
       const scene = scenes[i];
       const frame = path.join(scratch, `${i}.png`);
       await loadVideoScene(page, scene, items, date, style);
-      const fits = await page.evaluate(() => {
-        const content = document.querySelector('.card') || document.querySelector('.hero');
-        return !!content && content.getBoundingClientRect().bottom < 1820;
-      });
+      const { fits } = await measureVideoScene(page);
       if (!fits) throw new Error('Scene content overflows safe area');
       await page.screenshot({ path: frame, type: 'png' });
       if (!i)
@@ -253,7 +411,7 @@ export async function renderVideo(
         );
       args.push('-loop', '1', '-framerate', '30', '-t', String(clipDuration), '-i', frame);
       let filter = i
-        ? `[0:v]settb=AVTB[a];[1:v]settb=AVTB[b];[a][b]xfade=transition=${style.transition}:duration=${transition}:offset=0`
+        ? `[0:v]settb=AVTB[a];[1:v]settb=AVTB[b];[a][b]xfade=transition=${scene.kind === 'ending' ? endingTransitions[scene.endingVariant || 'postcard'] : style.transition}:duration=${transition}:offset=0`
         : '[0:v]null';
       if (style.id === 'polaroid')
         filter += `,rotate=0.008*sin(min(t/0.6\\,1)*PI):c=${style.background.replace('#', '0x')}`;

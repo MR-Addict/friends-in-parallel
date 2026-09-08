@@ -1,5 +1,5 @@
-import { Icon as IslandIcon, Button } from 'animal-island-ui';
-import { useEffect, useState } from 'react';
+import { Input, Icon as IslandIcon, Button } from 'animal-island-ui';
+import { useEffect, useRef, useState } from 'react';
 import {
   ArrowLeft,
   ArrowRight,
@@ -50,7 +50,7 @@ export function Composer(props: ComposerProps) {
   }, [props.date, props.entry]);
   if (!loaded)
     return (
-      <Modal title="记下一刻" onClose={props.onClose}>
+      <Modal title="冒个泡" onClose={props.onClose}>
         <p className="muted">正在打开草稿…</p>
       </Modal>
     );
@@ -69,13 +69,14 @@ function ComposerEditor({
       people.some((p) => p.id === initialPerson) ? initialPerson : '',
     );
   const [type, setType] = useState<'photo' | 'sticker'>(
-    entry ? (entry.media.type === 'photo' ? 'photo' : 'sticker') : draft?.type || 'sticker',
+    entry ? (entry.media.type === 'photo' ? 'photo' : 'sticker') : draft?.type || 'photo',
   );
   const [description, setDescription] = useState(entry?.description ?? draft?.description ?? ''),
     [time, setTime] = useState(
       entry ? localTime(entry.occurredAt) : draft?.time || `${date}T${localTime().slice(11)}`,
     );
   const [pickerOpen, setPickerOpen] = useState(false);
+  const filePickerOpen = useRef(false);
   const legacyEmoji = entry?.media.type === 'emoji' ? entry.media.emoji : '';
   const [stickerId, setStickerId] = useState(
     entry?.media.type === 'sticker'
@@ -109,7 +110,7 @@ function ComposerEditor({
       (description ||
         stickerId ||
         file ||
-        type !== 'sticker' ||
+        type !== 'photo' ||
         time !== undo.clearedTime ||
         personId !== undo.draft.personId)
     )
@@ -118,12 +119,18 @@ function ComposerEditor({
   useEffect(() => {
     if (entry) return;
     let active = true;
-    setDraftStatus('正在保存草稿…');
+    const statusTimer = window.setTimeout(() => {
+      if (active) setDraftStatus('正在保存草稿…');
+    }, 300);
     void writeDraft(date, { personId, type, description, time, stickerId, file }).then((saved) => {
-      if (active) setDraftStatus(saved ? '草稿已保存在此设备' : '草稿暂存于当前页面，请勿刷新');
+      if (active) {
+        window.clearTimeout(statusTimer);
+        setDraftStatus(saved ? '草稿已保存在此设备' : '草稿暂存于当前页面，请勿刷新');
+      }
     });
     return () => {
       active = false;
+      window.clearTimeout(statusTimer);
     };
   }, [date, entry, personId, type, description, time, stickerId, file]);
   useEffect(() => {
@@ -206,18 +213,17 @@ function ComposerEditor({
   }
   return (
     <Modal
-      title={
-        pickerOpen ? '选择表情' : entry ? '编辑动态' : step === 1 ? '这一刻，属于谁' : '记下一刻'
-      }
+      title={pickerOpen ? '选择表情' : entry ? '编辑动态' : step === 1 ? '谁来冒个泡？' : '冒个泡'}
       className="composer-modal"
       onClose={onClose}
       busy={busy}
+      cancelGuard={filePickerOpen}
     >
       {pickerOpen ? (
         <div className="picker-page">
           <Button
             type="text"
-            className="text-button island-action"
+            className="island-control text-button"
             onClick={() => setPickerOpen(false)}
           >
             <IslandIcon icon={ArrowLeft} size={16} />
@@ -226,34 +232,37 @@ function ComposerEditor({
           <div className="sticker-picker">
             <div className="pack-tabs">
               {packs.map((p) => (
-                <button
-                  type="button"
+                <Button
+                  type="text"
+                  htmlType="button"
                   key={p.id}
-                  className={pack === p.id ? 'active' : ''}
+                  className={'island-control ' + (pack === p.id ? 'active' : '')}
                   onClick={() => setPack(p.id)}
                 >
                   {p.name}
-                </button>
+                </Button>
               ))}
             </div>
             <div className="category-tabs">
               {['全部', '最近', '心情', '吃喝', '工作学习', '休息玩乐'].map((c) => (
-                <button
-                  type="button"
-                  className={category === c ? 'active' : ''}
+                <Button
+                  type="text"
+                  htmlType="button"
+                  className={'island-control ' + (category === c ? 'active' : '')}
                   key={c}
                   onClick={() => setCategory(c)}
                 >
                   {c}
-                </button>
+                </Button>
               ))}
             </div>
             <div className="sticker-grid">
               {filtered.map((s) => (
-                <button
-                  type="button"
+                <Button
+                  type="text"
+                  htmlType="button"
                   key={s.id}
-                  className={stickerId === s.id ? 'selected' : ''}
+                  className={'island-control ' + (stickerId === s.id ? 'selected' : '')}
                   aria-pressed={stickerId === s.id}
                   onClick={() => choose(s)}
                 >
@@ -262,7 +271,7 @@ function ComposerEditor({
                   {stickerId === s.id && (
                     <IslandIcon icon={Check} className="sticker-check" size={14} />
                   )}
-                </button>
+                </Button>
               ))}
               {!filtered.length && (
                 <p className="picker-empty">
@@ -279,10 +288,13 @@ function ComposerEditor({
               <p className="muted person-intro">选好后，下次会直接为你打开编辑页。</p>
               <div className="person-list" role="group" aria-label="选择人物">
                 {people.map((p) => (
-                  <button
+                  <Button
+                    type="text"
                     key={p.id}
                     aria-pressed={personId === p.id}
-                    className={`person-choice ${personId === p.id ? 'selected' : ''}`}
+                    className={
+                      'island-control ' + `person-choice ${personId === p.id ? 'selected' : ''}`
+                    }
                     style={
                       {
                         '--person-color': p.color,
@@ -298,13 +310,13 @@ function ComposerEditor({
                     <span className="choice-check">
                       {personId === p.id && <IslandIcon icon={Check} size={16} />}
                     </span>
-                  </button>
+                  </Button>
                 ))}
               </div>
               <div className="composer-footer">
                 <Button
                   type="primary"
-                  className="primary full island-action"
+                  className="island-control primary full"
                   disabled={!personId}
                   onClick={() => {
                     preference('parallel.person', personId);
@@ -318,9 +330,10 @@ function ComposerEditor({
           ) : (
             <form onSubmit={submit}>
               <div className="editor-fields">
-                <button
-                  type="button"
-                  className="back-person"
+                <Button
+                  type="text"
+                  htmlType="button"
+                  className="island-control back-person"
                   disabled={busy}
                   onClick={() => setStep(1)}
                 >
@@ -337,7 +350,7 @@ function ComposerEditor({
                   <span className="change-person">
                     换一位朋友 <IslandIcon icon={ChevronRight} size={15} />
                   </span>
-                </button>
+                </Button>
                 <fieldset disabled={busy} className="editor-sections" aria-label="动态内容">
                   <section className="editor-section">
                     <div className="editor-section-heading">
@@ -345,7 +358,7 @@ function ComposerEditor({
                         <IslandIcon icon={ImagePlus} size={18} />
                       </span>
                       <div>
-                        <h3>留下此刻</h3>
+                        <h3>今天在干嘛？</h3>
                         <p>照片或表情，选一种记录</p>
                       </div>
                       <span className="field-badge">必选</span>
@@ -357,10 +370,11 @@ function ComposerEditor({
                           { id: 'sticker', label: '表情', Icon: Smile },
                         ] as const
                       ).map(({ id, label, Icon }) => (
-                        <button
+                        <Button
+                          type="text"
                           key={id}
-                          type="button"
-                          className={type === id ? 'active' : ''}
+                          htmlType="button"
+                          className={'island-control ' + (type === id ? 'active' : '')}
                           aria-pressed={type === id}
                           onClick={() => {
                             setType(id);
@@ -369,7 +383,7 @@ function ComposerEditor({
                         >
                           <Icon size={17} />
                           {label}
-                        </button>
+                        </Button>
                       ))}
                     </div>
                     {type === 'photo' ? (
@@ -378,7 +392,11 @@ function ComposerEditor({
                           type="file"
                           aria-label="上传照片"
                           accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif"
+                          onClick={() => {
+                            filePickerOpen.current = true;
+                          }}
                           onChange={(e) => {
+                            filePickerOpen.current = false;
                             const f = e.target.files?.[0];
                             e.target.value = '';
                             if (!f) return;
@@ -406,7 +424,7 @@ function ComposerEditor({
                             <span className="upload-icon">
                               <IslandIcon icon={ImagePlus} size={28} />
                             </span>
-                            <strong>点这里，放一张此刻的照片</strong>
+                            <strong>放张照片，让朋友瞅瞅</strong>
                             <small>支持 iPhone 照片 · 最大 20 MB · 上传后自动优化</small>
                           </>
                         )}
@@ -417,9 +435,10 @@ function ComposerEditor({
                         )}
                       </label>
                     ) : (
-                      <button
-                        type="button"
-                        className="selected-media"
+                      <Button
+                        type="text"
+                        htmlType="button"
+                        className="island-control selected-media"
                         aria-label={stickerId ? '更换表情' : '选择表情'}
                         onClick={() => setPickerOpen(true)}
                       >
@@ -432,7 +451,7 @@ function ComposerEditor({
                           <IslandIcon icon={Smile} size={32} />
                         )}
                         <span>{stickerId ? '更换表情' : '选择表情'}</span>
-                      </button>
+                      </Button>
                     )}
                   </section>
                   <section className="editor-section">
@@ -473,7 +492,8 @@ function ComposerEditor({
                       </div>
                     </div>
                     <div className="time-input">
-                      <input
+                      <Input
+                        className="island-date-input"
                         required
                         type="datetime-local"
                         id="moment-time"
@@ -481,9 +501,14 @@ function ComposerEditor({
                         value={time}
                         onChange={(e) => setTime(e.target.value)}
                       />
-                      <button type="button" onClick={() => setTime(localTime())}>
+                      <Button
+                        className="island-control"
+                        type="text"
+                        htmlType="button"
+                        onClick={() => setTime(localTime())}
+                      >
                         现在
-                      </button>
+                      </Button>
                     </div>
                   </section>
                 </fieldset>
@@ -498,8 +523,10 @@ function ComposerEditor({
                   <div className="draft-note">
                     <span role="status">{undo ? '草稿已清空 · 10 秒内可撤销' : draftStatus}</span>
                     {undo ? (
-                      <button
-                        type="button"
+                      <Button
+                        className="island-control"
+                        type="text"
+                        htmlType="button"
                         disabled={busy}
                         onClick={() => {
                           const previous = undo.draft;
@@ -514,10 +541,12 @@ function ComposerEditor({
                         }}
                       >
                         撤销清空
-                      </button>
+                      </Button>
                     ) : (
-                      <button
-                        type="button"
+                      <Button
+                        className="island-control"
+                        type="text"
+                        htmlType="button"
                         disabled={busy || (!description && !stickerId && !file)}
                         onClick={() => {
                           const clearedTime = `${date}T${localTime().slice(11)}`;
@@ -528,19 +557,19 @@ function ComposerEditor({
                           setDescription('');
                           setStickerId('');
                           setFile(undefined);
-                          setType('sticker');
+                          setType('photo');
                           setTime(clearedTime);
                           setError('');
                         }}
                       >
                         清空草稿
-                      </button>
+                      </Button>
                     )}
                   </div>
                 )}
                 <Button
                   type="primary"
-                  className="primary full island-action"
+                  className="island-control primary full"
                   disabled={busy || !ready}
                   htmlType="submit"
                 >

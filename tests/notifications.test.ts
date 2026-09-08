@@ -1,3 +1,4 @@
+import { personById } from '../apps/server/src/config.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createNotifier, notificationHtml } from '../apps/server/src/notifications.js';
@@ -26,7 +27,7 @@ test('HTML notification sends preview and clickable link to self or topic', asyn
         assert.equal(body.topic, topic || undefined);
         assert.equal(body.token, 'test-token');
         assert.equal(body.channel, 'wechat');
-        assert.match(body.title, /陆语涵/);
+        assert.ok(body.title.includes(personById('lu-yuhan').nickname));
         assert.match(body.content, /2026-08-30 14:30/);
         assert.match(body.content, /https:\/\/example.com/);
         assert.equal(body.template, 'html');

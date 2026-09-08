@@ -1,3 +1,5 @@
+import { endingVariants } from '../apps/server/src/video-art-direction.js';
+import { imageBlocks, imageTemplate } from '../apps/server/src/image-layout.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, readFile, rm, readdir, mkdir, copyFile, writeFile } from 'node:fs/promises';
@@ -19,6 +21,7 @@ import {
   videoTemplate,
   loadVideoScene,
   renderVideo,
+  measureVideoScene,
 } from '../apps/server/src/video-renderer.js';
 import { publicDir } from '../apps/server/src/config.js';
 import { snapshot, ImageExports } from '../apps/server/src/exports.js';
@@ -133,40 +136,89 @@ test('video layouts preserve 500 characters, blank lines, emoji and all media wi
   });
   for (const style of videoStyles) {
     const scenes = await videoScenes(page, f.items, date, style, videoMusic[0]);
+    assert.ok(endingVariants.includes(scenes.at(-1)!.endingVariant!));
+    assert.deepEqual(scenes.at(-1), {
+      endingVariant: scenes.at(-1)!.endingVariant,
+      kind: 'ending',
+      title: '今天先到这儿',
+      text: '明天接着冒泡。',
+      duration: 2,
+    });
+    await loadVideoScene(page, scenes.at(-1)!, f.items, date, style);
+    assert.ok((await measureVideoScene(page)).fits, `${style.id}: ending must fit`);
+    await loadVideoScene(page, scenes[0], f.items, date, style);
+    assert.ok((await measureVideoScene(page)).fits, `${style.id}: title must fit`);
+    const brandFits = await page.locator('.brand').evaluate((node) => {
+      const [name, date] = Array.from(node.children).map((child) => child.getBoundingClientRect());
+      return name.right <= date.left;
+    });
+    assert.ok(brandFits, `${style.id}: brand and date must not overlap`);
+    for (const scene of scenes) {
+      const html = videoTemplate(scene, f.items, date, style);
+      assert.ok(html.includes('和朋友的同一时间'));
+      assert.ok(!html.includes(style.name));
+      assert.doesNotMatch(
+        html,
+        /Kevin MacLeod|creativecommons.org|CC BY|Twemoji|OpenMoji|音乐已裁剪/,
+      );
+    }
     const entries = scenes.filter((scene) => scene.kind === 'entry');
     assert.ok(entries.length > 1);
     assert.equal(
       entries
-        .filter((scene) => scene.itemIndex === 0)
-        .map((scene) => scene.text)
+        .flatMap((scene) => scene.entries || [])
+        .filter((entry) => entry.itemIndex === 0)
+        .map((entry) => entry.text)
         .join(''),
       text,
     );
-    assert.deepEqual([...new Set(entries.map((scene) => scene.itemIndex))], [0, 1, 2, 3, 4]);
+    assert.deepEqual(
+      [
+        ...new Set(entries.flatMap((scene) => scene.entries!.map((entry) => entry.itemIndex))),
+      ].sort(),
+      [0, 1, 2, 3, 4],
+    );
     assert.equal(scenes[1].title, '14:00');
     for (const scene of entries) {
       await loadVideoScene(page, scene, f.items, date, style);
-      assert.equal(await page.locator('.copy').textContent(), scene.text);
-      const ink = await page.locator('.frame').evaluate((node) => getComputedStyle(node).color);
-      assert.equal(
-        await page.locator('.copy').evaluate((node) => getComputedStyle(node).color),
-        ink,
-      );
-      if (['cinema', 'film', 'night', 'neon', 'pixel'].includes(style.id))
-        assert.notEqual(ink, 'rgb(0, 0, 0)');
-      assert.ok(await page.locator('.copy').evaluate((node) => node.scrollHeight <= 576));
-      assert.ok(
-        await page.locator('.card').evaluate((node) => node.getBoundingClientRect().bottom < 1820),
-      );
+      for (const entry of scene.entries!) {
+        const card = page.locator(`[data-item-index="${entry.itemIndex}"]`);
+        assert.equal(await card.locator('.copy').textContent(), entry.text);
+        const ink = await page.locator('.frame').evaluate((node) => getComputedStyle(node).color);
+        assert.equal(
+          await card.locator('.copy').evaluate((node) => getComputedStyle(node).color),
+          ink,
+        );
+        if (['cinema', 'film', 'night', 'neon', 'pixel'].includes(style.id))
+          assert.notEqual(ink, 'rgb(0, 0, 0)');
+        assert.equal(
+          await card.locator('img').evaluate((node) => getComputedStyle(node).objectFit),
+          'contain',
+        );
+      }
+      assert.ok((await measureVideoScene(page)).fits, `${style.id}: scene must fit`);
     }
     assert.ok(!videoTemplate(entries[0], f.items, date, style).includes('文字<&>'));
   }
   f.items[0].entry.description = '字'.repeat(500);
   const long = await videoScenes(page, f.items, date, videoStyles[0]);
+  assert.equal(long.at(-1)?.kind, 'ending');
+  const { blocks: rows } = await imageBlocks(page, f.items, date);
+  const html = imageTemplate(
+    f.items,
+    rows,
+    rows.map((_, i) => i),
+    date,
+    1,
+    1,
+  );
+  assert.ok(html.includes('和朋友的同一时间'));
+  assert.doesNotMatch(html, /CC BY|Twemoji|OpenMoji|class="credit"/);
   assert.equal(
     long
-      .filter((scene) => scene.itemIndex === 0)
-      .map((scene) => scene.text)
+      .flatMap((scene) => scene.entries || [])
+      .filter((entry) => entry.itemIndex === 0)
+      .map((entry) => entry.text)
       .join(''),
     '字'.repeat(500),
   );
@@ -188,7 +240,7 @@ test('real MP4 exports deduplicate, survive restart, expose ranged downloads and
     (e: HttpError) => e.status === 429,
   );
   const done = await complete(videos, a.jobId);
-  assert.ok(done.result!.duration > 10);
+  assert.equal(done.result!.duration, 9);
   assert.deepEqual(
     await new VideoExports(new ExportCache(f.dir)).start(f.items, date, 'paper', 'carefree'),
     done,
@@ -331,7 +383,7 @@ test('short background music loops through the full video, and the final audio m
       await readFile(path.join(publicDir, 'fonts/NotoSansCJKsc-Regular.otf')),
       () => {},
     );
-    assert.ok(result.duration > 10);
+    assert.equal(result.duration, 9);
     const info = JSON.parse(
       await videoProcess(
         'ffprobe',

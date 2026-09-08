@@ -18,7 +18,8 @@ export async function createApp(
 ) {
   const store = new Store(dir);
   await store.init();
-  const cache = new ExportCache(dir);
+  const cache = new ExportCache(dir, Date.now, store);
+  store.onDatesChanged = (dates) => cache.invalidate(dates);
   const exports = new ImageExports(cache);
   const videos = new VideoExports(cache);
   const app = express();
@@ -36,10 +37,35 @@ export async function createApp(
     await cache.cleanup();
     next();
   });
-  const upload = multer({
+  const parseUpload = multer({
     storage: multer.memoryStorage(),
     limits: { fileSize: MAX_PHOTO_BYTES, files: 1, fields: 10, fieldSize: 8192 },
   }).single('photo');
+  const upload: express.RequestHandler = (req, res, next) => {
+    parseUpload(req, res, (error: unknown) => {
+      // Busboy framing errors are plain Errors, not MulterErrors. Keep this
+      // mapping here so unrelated application/storage failures remain 500s.
+      if (
+        error instanceof Error &&
+        [
+          'Unexpected end of form',
+          'Unexpected end of file',
+          'Multipart: Boundary not found',
+          'Malformed part header',
+        ].includes(error.message)
+      ) {
+        console.warn('[upload] Invalid or incomplete multipart request', {
+          method: req.method,
+          reason: error.message,
+          contentLength: req.get('content-length'),
+          complete: req.complete,
+        });
+        next(new HttpError(400, '上传内容不完整或格式有误，请重新选择照片并重试'));
+        return;
+      }
+      next(error);
+    });
+  };
   async function saveEntry(body: Record<string, unknown>, file?: Express.Multer.File, id?: string) {
     const input = await validateEntry(body, file);
     let bytes = file?.buffer;
@@ -75,7 +101,10 @@ export async function createApp(
   });
   app.post('/api/exports/images', async (req, res) => {
     const date = checkDate(req.body?.date);
-    res.json(await exports.generate(await snapshot(store, date), date));
+    const items = await snapshot(store, date);
+    const result = await exports.generate(items, date);
+    cache.assertCurrent(date, items[0].sourceRevision!);
+    res.json(result);
   });
   app.get('/api/exports/video-options', async (_req, res) => res.json(await videos.options()));
   app.post('/api/exports/videos', async (req, res) => {
@@ -107,6 +136,10 @@ export async function createApp(
     }
     await streamArchive(res, items, date);
   });
+  app.get('/api/exports/:token/validity', async (req, res) => {
+    if (!(await cache.read(req.params.token))) throw new HttpError(404, '导出已过期，请重新生成');
+    res.sendStatus(204);
+  });
   app.get('/api/exports/files/:token/:name', async (req, res) => {
     const { filename, downloadName, release } = await cache.acquireFile(
       req.params.token,
@@ -116,6 +149,8 @@ export async function createApp(
     res.once('close', release);
     if (req.params.name.endsWith('.zip') || req.query.download === '1')
       res.attachment(downloadName);
+    res.setHeader('Cache-Control', 'private, no-cache');
+    res.setHeader('X-Export-Filename', encodeURIComponent(downloadName));
     res.sendFile(filename);
   });
   app.use('/api', (_req, _res, next) => next(new HttpError(404, '接口不存在')));
@@ -142,6 +177,10 @@ export async function createApp(
         res.destroy();
         return;
       }
+      res.setHeader('Cache-Control', 'no-store');
+      res.removeHeader('X-Export-Filename');
+      res.removeHeader('ETag');
+      res.removeHeader('Last-Modified');
       if (error instanceof multer.MulterError) {
         res.status(400).json({
           error:

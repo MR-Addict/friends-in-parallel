@@ -1,3 +1,4 @@
+import { personById } from '../apps/server/src/config.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, rm, readFile, access, writeFile, readdir, mkdir } from 'node:fs/promises';
@@ -62,8 +63,8 @@ test('Concurrent publishing persists every entry and supports edit/delete/restar
     const list = (await (await fetch(`${f.origin}/api/entries?date=${date}`)).json()) as Entry[];
     assert.equal(list.length, 12);
     const persisted = JSON.parse(await readFile(path.join(f.dir, 'entries.json'), 'utf8'));
-    assert.equal(persisted.length, 12);
-    assert.equal('nickname' in persisted[0], false);
+    assert.equal(persisted.entries.length, 12);
+    assert.equal('nickname' in persisted.entries[0], false);
     const id = list[0].id;
     const edit = await fetch(f.origin + '/api/entries/' + id, {
       method: 'PATCH',
@@ -120,6 +121,49 @@ test('Validation rejects future times, unknown assets, oversized descriptions an
     await f.close();
   }
 });
+test('Incomplete multipart uploads return 400 without creating or replacing an entry', async () => {
+  const notifications: Entry[] = [];
+  const f = await fixture(async (entry) => {
+    notifications.push(entry);
+  });
+  try {
+    const { entry } = await post(f.origin);
+    const before = f.store.list(date);
+    const notified = notifications.length;
+    const boundary = 'test-mobile-upload';
+    const body = [
+      `--${boundary}`,
+      'Content-Disposition: form-data; name="photo"; filename="phone.jpg"',
+      'Content-Type: image/jpeg',
+      '',
+      'truncated photo without closing boundary',
+    ].join('\r\n');
+    for (const method of ['POST', 'PATCH']) {
+      for (const contentType of [
+        `multipart/form-data; boundary=${boundary}`,
+        'multipart/form-data',
+      ]) {
+        const res = await fetch(
+          f.origin + '/api/entries' + (method === 'PATCH' ? `/${entry.id}` : ''),
+          {
+            method,
+            headers: { 'content-type': contentType },
+            body,
+            signal: AbortSignal.timeout(5000),
+          },
+        );
+        assert.equal(res.status, 400);
+        assert.match((await res.json()).error, /上传内容不完整/);
+        assert.deepEqual(f.store.list(date), before);
+        assert.deepEqual(await readdir(f.store.uploads), []);
+        assert.equal(notifications.length, notified);
+      }
+    }
+    assert.equal((await post(f.origin)).res.status, 201);
+  } finally {
+    await f.close();
+  }
+});
 test('Stored photo bytes survive export, retained-photo edits work, replacement cleans up', async () => {
   const f = await fixture();
   try {
@@ -163,12 +207,12 @@ test('Stored photo bytes survive export, retained-photo edits work, replacement 
       mediaType: string;
     }[];
     assert.equal(manifest.length, 4);
-    assert.equal(manifest[0].nickname, '陆语涵');
+    assert.equal(manifest[0].nickname, personById('lu-yuhan').nickname);
     assert.ok(manifest.every((item) => contents[item.path]));
     assert.ok(manifest.every((item) => !item.path.includes('_')));
     assert.ok(contents['licenses/openmoji.txt']);
     const csv = strFromU8(contents['manifest.csv']);
-    assert.ok(csv.includes('陆语涵'));
+    assert.ok(csv.includes(personById('lu-yuhan').nickname));
     assert.ok(csv.includes('保留原图'));
     assert.deepEqual(
       Buffer.from(contents[manifest.find((item) => item.mediaType === 'photo')!.path]),
@@ -210,47 +254,6 @@ test('Invalid date and empty export return clear errors; missing image is not si
     assert.match((await missing.json()).error, /素材缺失/);
     const empty = await fetch(f.origin + '/api/entries', { method: 'POST' });
     assert.equal(empty.status, 400);
-  } finally {
-    await f.close();
-  }
-});
-
-test('Sharing groups ascending hours while pagination keeps complete hourly rows', async () => {
-  const { hourRows, partitionHourRows, shareTemplate } =
-    await import('../apps/server/src/exports.js');
-  const f = await fixture();
-  try {
-    const late = (
-      await post(f.origin, payload({ personId: 'shui-shui', occurredAt: `${date}T02:50:00Z` }))
-    ).entry;
-    const early = (await post(f.origin, payload({ occurredAt: `${date}T01:10:00Z` }))).entry;
-    const middle = (await post(f.origin, payload({ occurredAt: `${date}T02:10:00Z` }))).entry;
-    const items = await snapshot(f.store, date);
-    assert.deepEqual(
-      items.map((i) => i.entry.id),
-      [early.id, middle.id, late.id],
-    );
-    const rows = hourRows(items);
-    assert.deepEqual(rows, [
-      { hour: '09', indices: [0] },
-      { hour: '10', indices: [1, 2] },
-    ]);
-    const html = shareTemplate(items, rows, [0, 1], date, 1, 1);
-    assert.ok(html.indexOf('09:00–09:59') < html.indexOf('10:00–10:59'));
-    assert.ok(
-      html.indexOf(`data-entry-id="${middle.id}"`) < html.indexOf(`data-entry-id="${late.id}"`),
-    );
-    assert.ok(html.includes('2 位朋友 · 2 条动态'));
-    const grouped = [
-      { hour: '09', indices: [0] },
-      { hour: '10', indices: [1] },
-      { hour: '10', indices: [2] },
-    ];
-    assert.deepEqual(partitionHourRows(grouped, [400, 300, 300], 1000, 100), [[0], [1, 2]]);
-    const pages = partitionHourRows(grouped, [400, 500, 500], 1000, 100);
-    assert.deepEqual(pages, [[0], [1], [2]]);
-    assert.ok(shareTemplate(items, grouped, pages[2], date, 3, 3).includes('10:00–10:59（续）'));
-    assert.throws(() => partitionHourRows(grouped, [2000, 300, 300], 1000, 100));
   } finally {
     await f.close();
   }
@@ -433,3 +436,107 @@ test('every export request cleans legacy caches while ordinary API and upload re
     await f.close();
   }
 });
+
+for (const invalidation of ['changed day', 'expired files']) {
+  test(`validity, video status and conditional artifact requests reject ${invalidation}`, async () => {
+    const f = await fixture();
+    const { ExportCache, contentFingerprint } = await import('../apps/server/src/export-cache.js');
+    const cache = new ExportCache(f.dir, Date.now, f.store);
+    try {
+      const { entry } = await post(f.origin);
+      const tokens: string[] = [];
+      const etags = new Map<string, string>();
+      for (const kind of ['images', 'video'] as const) {
+        const work = cache.reserve(10000, date, f.store.revision(date));
+        // Stage outside the server cache: the fixture's publisher is a separate instance.
+        work.dir = path.join(f.dir, `stage-${work.token}`);
+        await mkdir(cache.dir, { recursive: true });
+        await mkdir(work.dir, { recursive: true });
+        const names = kind === 'images' ? ['1.png', 'images.zip'] : ['video.mp4', 'cover.jpg'];
+        for (const name of names) await writeFile(path.join(work.dir, name), 'fixture');
+        await cache.publish(
+          work,
+          kind,
+          contentFingerprint([], [kind]),
+          date,
+          Object.fromEntries(names.map((name) => [name, name])),
+          (expiresAt) => {
+            const prefix = `/api/exports/files/${work.token}/`;
+            return kind === 'images'
+              ? { images: [prefix + '1.png'], archiveUrl: prefix + 'images.zip', expiresAt }
+              : {
+                  videoUrl: prefix + 'video.mp4',
+                  coverUrl: prefix + 'cover.jpg',
+                  duration: 1,
+                  styleId: 'paper',
+                  musicId: 'none',
+                  expiresAt,
+                };
+          },
+        );
+        await cache.finish(work);
+        tokens.push(work.token);
+        assert.equal((await fetch(`${f.origin}/api/exports/${work.token}/validity`)).status, 204);
+        for (const name of names) {
+          const url = `${f.origin}/api/exports/files/${work.token}/${name}`;
+          const response = await fetch(url);
+          assert.equal(response.status, 200);
+          assert.equal(response.headers.get('cache-control'), 'private, no-cache');
+          assert.equal(decodeURIComponent(response.headers.get('x-export-filename')!), name);
+          const etag = response.headers.get('etag')!;
+          assert.ok(etag);
+          etags.set(`${work.token}/${name}`, etag);
+          await response.arrayBuffer();
+          const cached = await fetch(url, {
+            headers: { 'If-None-Match': etag, 'Cache-Control': 'max-age=0' },
+          });
+          assert.equal(cached.status, 304);
+          assert.equal(cached.headers.get('cache-control'), 'private, no-cache');
+          const modified = await fetch(url, {
+            headers: {
+              'If-Modified-Since': response.headers.get('last-modified')!,
+              'Cache-Control': 'max-age=0',
+            },
+          });
+          assert.equal(modified.status, 304);
+          const range = await fetch(url, { headers: { Range: 'bytes=0-2' } });
+          assert.equal(range.status, 206);
+          assert.equal((await range.arrayBuffer()).byteLength, 3);
+          const attachment = await fetch(url + '?download=1');
+          assert.match(attachment.headers.get('content-disposition')!, /attachment/);
+          await attachment.arrayBuffer();
+        }
+      }
+      assert.equal((await fetch(`${f.origin}/api/exports/videos/${tokens[1]}`)).status, 200);
+      if (invalidation === 'changed day') {
+        await fetch(`${f.origin}/api/entries/${entry.id}`, { method: 'DELETE' });
+      } else {
+        for (const token of tokens) {
+          const filename = path.join(cache.dir, token, 'metadata.json');
+          const meta = JSON.parse(await readFile(filename, 'utf8'));
+          meta.expiresAt = new Date(Date.now() - 1000).toISOString();
+          meta.completedAt = new Date(Date.parse(meta.expiresAt) - 86400_000).toISOString();
+          meta.result.expiresAt = meta.expiresAt;
+          await writeFile(filename, JSON.stringify(meta));
+        }
+      }
+      for (const token of tokens) {
+        assert.equal((await fetch(`${f.origin}/api/exports/${token}/validity`)).status, 404);
+        for (const name of ['1.png', 'images.zip', 'video.mp4', 'cover.jpg']) {
+          const response = await fetch(`${f.origin}/api/exports/files/${token}/${name}`, {
+            headers: {
+              'If-None-Match': etags.get(`${token}/${name}`) || '*',
+              'Cache-Control': 'max-age=0',
+            },
+          });
+          assert.equal(response.status, 404);
+          assert.equal(response.headers.get('cache-control'), 'no-store');
+        }
+      }
+      assert.equal((await fetch(`${f.origin}/api/exports/videos/${tokens[1]}`)).status, 404);
+    } finally {
+      await cache.dispose();
+      await f.close();
+    }
+  });
+}

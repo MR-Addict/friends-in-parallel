@@ -1,10 +1,10 @@
 import { Icon as IslandIcon, Button } from 'animal-island-ui';
-import { ShareButton } from './ShareButton';
 import { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, ArrowDownToLine, Check, Copy, LoaderCircle } from 'lucide-react';
+import { ShareButton } from './ShareButton';
+import { ArrowLeft, Check, Copy } from 'lucide-react';
 
 function archivePrompt(date: string) {
-  return `请阅读我上传的「此刻同频」素材 ZIP，为 ${date} 这一天的朋友动态创作图片或视频。
+  return `请阅读我上传的「和朋友的同一时间」素材 ZIP，为 ${date} 这一天的朋友动态创作图片或视频。
 
 【我的创作要求】
 默认生成一张温暖、自然的朋友日常手账拼贴图，竖版 9:16，保留照片主体，用清晰简洁的中文标注昵称、时间和片段。
@@ -14,13 +14,12 @@ function archivePrompt(date: string) {
 - manifest.json：完整动态清单（数组），是素材与文字的对应依据。
 - manifest.csv：同一批动态的便于表格阅读的清单，UTF-8 BOM 编码；无需和 JSON 重复计数。
 - <personId>/：按朋友 ID 分组的素材文件夹。图片文件名形如「日期-时-分-动态ID.扩展名」。请以清单中的 path 找文件，不要猜路径。
-- licenses/：表情、贴纸等素材的许可与署名说明。
 
 【清单字段与使用方式】
 - id 是动态 ID；personId 是朋友 ID；nickname 是显示昵称。以 ID 关联素材，以昵称呈现人物。
-- occurredAt 是原始 ISO 时间；beijingTime 是北京时间（UTC+08:00）。按 occurredAt 从早到晚整理，以北京时间展示；同一小时不同朋友的动态可以并排呈现，体现“各自在生活，也在同频”。
+- occurredAt 是原始 ISO 时间；beijingTime 是北京时间（UTC+08:00）。按 occurredAt 从早到晚整理，以北京时间展示；同一小时不同朋友的动态可以并排呈现，体现“同一时间，朋友们各自的小日常”。
 - description 是这条动态的原始描述；mediaType 区分 photo（照片）、sticker（贴纸）和 emoji（表情）。贴纸不是朋友的真实肖像。
-- path 是 ZIP 内相对路径；JSON 的 media 提供素材类型等信息；credit 是素材署名。请结合 licenses/ 保留必要署名。
+- path 是 ZIP 内相对路径；JSON 的 media 提供素材类型等信息。
 - 照片可能是服务器优化后的版本，也可能是保留的原始 HEIC/HEIF。若打不开，请尝试转换或明确列出无法读取的素材，不要假装已经看过。
 
 【创作步骤】
@@ -39,7 +38,7 @@ export function ArchiveStep({
   date: string;
   busy: boolean;
   onBack: () => void;
-  onDownload: () => void;
+  onDownload: () => Promise<void>;
 }) {
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState('');
@@ -70,7 +69,7 @@ export function ArchiveStep({
   return (
     <>
       <div className="archive-step">
-        <Button type="text" className="text-button island-action" disabled={busy} onClick={onBack}>
+        <Button type="text" className="island-control text-button" disabled={busy} onClick={onBack}>
           <IslandIcon icon={ArrowLeft} size={16} />
           返回导出选项
         </Button>
@@ -79,7 +78,7 @@ export function ArchiveStep({
             <label htmlFor="archive-prompt">AI 提示词</label>
             <Button
               type="text"
-              className="icon-button island-action"
+              className="island-control icon-button"
               aria-label={copied ? '提示词已复制' : '复制提示词'}
               title={copied ? '提示词已复制' : '复制提示词'}
               onClick={copy}
@@ -106,26 +105,14 @@ export function ArchiveStep({
         )}
       </div>
       <div className="export-download-bar">
-        <Button
-          type="primary"
-          className="primary full island-action"
-          disabled={busy}
-          aria-busy={busy}
-          onClick={onDownload}
-        >
-          {busy ? (
-            <IslandIcon icon={LoaderCircle} size={18} className="spin" />
-          ) : (
-            <IslandIcon icon={ArrowDownToLine} size={18} />
-          )}
-          {busy ? '正在准备压缩包…' : '下载压缩包'}
-        </Button>
         <ShareButton
           label="分享压缩包"
+          variant="primary"
           disabled={busy}
+          download={{ onDownload }}
           resource={{
             url: `/api/exports/archive?date=${date}`,
-            filename: `此刻同频-${date}-素材包.zip`,
+            filename: `和朋友的同一时间-${date}-素材包.zip`,
             mime: 'application/zip',
           }}
         />

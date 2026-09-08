@@ -1,6 +1,7 @@
 import { Icon as IslandIcon, Button } from 'animal-island-ui';
+import { useExportValidity } from './useExportValidity';
 import { ShareButton } from './ShareButton';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Image,
   Film,
@@ -23,22 +24,38 @@ export function ExportDialog({ date, onClose }: { date: string; onClose: () => v
   const [busy, setBusy] = useState(''),
     [error, setError] = useState(''),
     [result, setResult] = useState<ImageExport>();
+  const alive = useRef(true);
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+    };
+  }, []);
+  const { validate, shareValidity } = useExportValidity(
+    result?.images[0],
+    result?.expiresAt,
+    (message) => {
+      setResult(undefined);
+      setPageIndex(0);
+      setError(message);
+    },
+    setError,
+  );
   async function images() {
     setPageIndex(0);
     setBusy('images');
     setError('');
     try {
-      setResult(
-        await api<ImageExport>('/api/exports/images', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ date }),
-        }),
-      );
+      const value = await api<ImageExport>('/api/exports/images', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ date }),
+      });
+      if (alive.current) setResult(value);
     } catch (e) {
-      setError((e as Error).message);
+      if (alive.current) setError((e as Error).message);
     } finally {
-      setBusy('');
+      if (alive.current) setBusy('');
     }
   }
   async function archive() {
@@ -53,14 +70,14 @@ export function ExportDialog({ date, onClose }: { date: string; onClose: () => v
       a.click();
       a.remove();
     } catch (e) {
-      setError((e as Error).message);
+      if (alive.current) setError((e as Error).message);
     } finally {
-      setBusy('');
+      if (alive.current) setBusy('');
     }
   }
   return (
     <Modal
-      title={videoStep ? '把这一天，拍成回忆' : result ? '手账预览' : '把这一天，收进手账'}
+      title={videoStep ? '把这一天，拍成回忆' : result ? '手账预览' : '把这一天，留成回忆'}
       onClose={onClose}
       busy={!!busy}
       wide={!!result}
@@ -86,7 +103,13 @@ export function ExportDialog({ date, onClose }: { date: string; onClose: () => v
       ) : !result ? (
         <>
           <div className="export-options">
-            <button disabled={!!busy} aria-busy={busy === 'images'} onClick={images}>
+            <Button
+              className="island-control"
+              type="text"
+              disabled={!!busy}
+              aria-busy={busy === 'images'}
+              onClick={images}
+            >
               <span className="export-icon peach">
                 <IslandIcon icon={Image} size={25} />
               </span>
@@ -99,8 +122,10 @@ export function ExportDialog({ date, onClose }: { date: string; onClose: () => v
               ) : (
                 <IslandIcon icon={ArrowDownToLine} size={20} />
               )}
-            </button>
-            <button
+            </Button>
+            <Button
+              className="island-control"
+              type="text"
               disabled={!!busy}
               onClick={() => {
                 setVideoStep(true);
@@ -115,9 +140,10 @@ export function ExportDialog({ date, onClose }: { date: string; onClose: () => v
                 <small>12 种画面风格 · 24 首配乐 · 收藏完整的一天</small>
               </div>
               <IslandIcon icon={ArrowDownToLine} size={20} />
-            </button>
-            <button
-              className="export-materials-option"
+            </Button>
+            <Button
+              type="text"
+              className="island-control export-materials-option"
               disabled={!!busy}
               onClick={() => {
                 setArchiveStep(true);
@@ -128,15 +154,15 @@ export function ExportDialog({ date, onClose }: { date: string; onClose: () => v
                 <IslandIcon icon={FolderArchive} size={25} />
               </span>
               <div>
-                <strong>下载素材 ZIP</strong>
-                <small>下一步：复制 AI 提示词，再下载素材</small>
+                <strong>素材 ZIP</strong>
+                <small>下一步：复制 AI 提示词，分享素材</small>
               </div>
               {busy === 'archive' ? (
                 <IslandIcon icon={LoaderCircle} size={20} className="spin" />
               ) : (
                 <IslandIcon icon={ArrowDownToLine} size={20} />
               )}
-            </button>
+            </Button>
           </div>
           <p className="small-note">图片太长时会分成多张，完整保留每一个瞬间。</p>
         </>
@@ -145,7 +171,7 @@ export function ExportDialog({ date, onClose }: { date: string; onClose: () => v
           <div className="export-preview-scroll" ref={previewRef}>
             <Button
               type="text"
-              className="text-button island-action"
+              className="island-control text-button"
               onClick={() => setResult(undefined)}
             >
               <IslandIcon icon={ArrowLeft} size={16} />
@@ -164,11 +190,12 @@ export function ExportDialog({ date, onClose }: { date: string; onClose: () => v
               <nav className="export-pagination" aria-label="导出图片翻页">
                 <Button
                   type="text"
-                  className="icon-button island-action"
+                  className="island-control icon-button"
                   aria-label="上一张图片"
                   disabled={pageIndex === 0}
-                  onClick={() => {
-                    setPageIndex((i) => i - 1);
+                  onClick={async () => {
+                    if (!(await validate())) return;
+                    setPageIndex((i) => Math.max(0, i - 1));
                     previewRef.current?.scrollTo(0, 0);
                   }}
                 >
@@ -179,11 +206,12 @@ export function ExportDialog({ date, onClose }: { date: string; onClose: () => v
                 </span>
                 <Button
                   type="text"
-                  className="icon-button island-action"
+                  className="island-control icon-button"
                   aria-label="下一张图片"
                   disabled={pageIndex === result.images.length - 1}
-                  onClick={() => {
-                    setPageIndex((i) => i + 1);
+                  onClick={async () => {
+                    if (!(await validate())) return;
+                    setPageIndex((i) => Math.min(result.images.length - 1, i + 1));
                     previewRef.current?.scrollTo(0, 0);
                   }}
                 >
@@ -191,33 +219,28 @@ export function ExportDialog({ date, onClose }: { date: string; onClose: () => v
                 </Button>
               </nav>
             )}
-            <a className="primary full" href={`${result.images[pageIndex]}?download=1`} download>
-              <IslandIcon icon={ArrowDownToLine} size={18} />
-              {result.images.length === 1 ? '下载图片' : '下载当前图片'}
-            </a>
             <ShareButton
+              validity={shareValidity}
+              variant="primary"
+              download={{ url: `${result.images[pageIndex]}?download=1`, validate }}
               label={result.images.length === 1 ? '分享图片' : '分享当前图片'}
               resource={{
-                url: `${result.images[pageIndex]}?download=1`,
-                filename: `此刻同频-${date}-手账-${String(pageIndex + 1).padStart(2, '0')}.png`,
+                url: result.images[pageIndex],
+                filename: `和朋友的同一时间-${date}-手账-${String(pageIndex + 1).padStart(2, '0')}.png`,
                 mime: 'image/png',
               }}
             />
             {result.images.length > 1 && (
               <ShareButton
                 label="分享图片合集"
+                validity={shareValidity}
+                download={{ url: result.archiveUrl, validate }}
                 resource={{
                   url: result.archiveUrl,
-                  filename: `此刻同频-${date}-手账合集.zip`,
+                  filename: `和朋友的同一时间-${date}-手账合集.zip`,
                   mime: 'application/zip',
                 }}
               />
-            )}
-            {result.images.length > 1 && (
-              <a href={result.archiveUrl} className="text-button full" download>
-                <IslandIcon icon={FolderArchive} size={16} />
-                下载图片合集
-              </a>
             )}
           </div>
         </>

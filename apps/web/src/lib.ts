@@ -70,6 +70,15 @@ export function uploadEntry(
       if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
     };
     xhr.onload = () => {
+      // Reverse proxies commonly return HTML for size limits and timeouts.
+      if (xhr.status === 413) {
+        reject(new Error('照片超过服务器上传限制，请缩小照片或联系管理员'));
+        return;
+      }
+      if (xhr.status === 408 || xhr.status === 504) {
+        reject(new Error('上传超时了，请检查网络后重试'));
+        return;
+      }
       let data;
       try {
         data = JSON.parse(xhr.responseText);

@@ -1,4 +1,4 @@
-import { Icon as IslandIcon, Button } from 'animal-island-ui';
+import { Input, Icon as IslandIcon, Button } from 'animal-island-ui';
 import { useEffect, useState } from 'react';
 import { ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react';
 import { Modal } from './Modal';
@@ -52,7 +52,8 @@ export function DateCalendar({
             {month.slice(0, 4)} 年 {Number(month.slice(5))} 月{' '}
             <IslandIcon icon={ChevronDown} size={14} />
           </span>
-          <input
+          <Input
+            className="island-date-input"
             type="month"
             aria-label="选择月份"
             value={month}
@@ -92,7 +93,9 @@ export function DateCalendar({
           const value = `${month}-${String(day).padStart(2, '0')}`;
           const count = counts?.[value] || 0;
           return (
-            <button
+            <Button
+              className="island-control"
+              type="text"
               key={index}
               disabled={value > today()}
               aria-pressed={value === date}
@@ -102,7 +105,7 @@ export function DateCalendar({
             >
               <span>{day}</span>
               <i aria-hidden="true" className={count ? 'has-records' : ''} />
-            </button>
+            </Button>
           );
         })}
       </div>

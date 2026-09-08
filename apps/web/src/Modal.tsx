@@ -1,5 +1,5 @@
 import { Icon as IslandIcon, Button } from 'animal-island-ui';
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useRef, type MutableRefObject, type ReactNode } from 'react';
 import { X } from 'lucide-react';
 export function Modal({
   title,
@@ -8,6 +8,7 @@ export function Modal({
   wide = false,
   busy = false,
   className = '',
+  cancelGuard,
 }: {
   title: string;
   onClose: () => void;
@@ -15,6 +16,7 @@ export function Modal({
   wide?: boolean;
   busy?: boolean;
   className?: string;
+  cancelGuard?: MutableRefObject<boolean>;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => {
@@ -62,6 +64,10 @@ export function Modal({
       aria-label={title}
       onCancel={(e) => {
         e.preventDefault();
+        if (cancelGuard?.current) {
+          cancelGuard.current = false;
+          return;
+        }
         if (!busy) onClose();
       }}
       onClick={(e) => {
@@ -73,7 +79,7 @@ export function Modal({
           <h2>{title}</h2>
           <Button
             type="text"
-            className="icon-button island-action"
+            className="island-control icon-button"
             aria-label="关闭"
             onClick={onClose}
             disabled={busy}

@@ -14,6 +14,7 @@
     "test": "tsx scripts/download-music.ts && tsx --test tests/*.test.ts",
     "test:e2e": "playwright test",
     "setup:browser": "playwright install chromium",
+    "assets:icons": "tsx scripts/generate-icons.ts",
     "assets:download": "tsx scripts/download-assets.ts",
     "format": "prettier -c --write .",
     "format:check": "prettier --check .",

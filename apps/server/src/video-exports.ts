@@ -10,7 +10,10 @@ import { renderVideo } from './video-renderer.js';
 import type { VideoExportJob, VideoExportOptions, VideoExportResult } from './video-types.js';
 
 export class VideoExports {
-  private jobs = new Map<string, { job: VideoExportJob; touched: number }>();
+  private jobs = new Map<
+    string,
+    { job: VideoExportJob; touched: number; sourceRevision: string }
+  >();
   private running = new Map<string, string>();
   private capability?: Promise<boolean>;
   constructor(readonly cache: ExportCache) {}
@@ -54,6 +57,13 @@ export class VideoExports {
   async status(id: string): Promise<VideoExportJob> {
     this.prune();
     const record = this.jobs.get(id);
+    if (record) {
+      try {
+        this.cache.assertCurrent(record.job.date, record.sourceRevision);
+      } catch {
+        throw new HttpError(404, '动态已更新，请重新生成');
+      }
+    }
     if (record && record.job.status !== 'ready') return { ...record.job };
     const meta = await this.cache.read<VideoExportResult>(id);
     if (meta?.kind === 'video') return this.ready(id, meta.date, meta.result);
@@ -66,16 +76,24 @@ export class VideoExports {
     musicId: unknown,
   ): Promise<VideoExportJob> {
     this.prune();
-    if (!items.length) throw new HttpError(400, '这一天还没有动态，先记下一刻吧');
+    if (!items.length) throw new HttpError(400, '这一天还没动态，先冒个泡吧');
     const { style, music } = videoSelection(styleId, musicId);
     const [font, audio, ...sources] = await Promise.all([
       readFile(path.join(publicDir, 'fonts/NotoSansCJKsc-Regular.otf')),
       music ? musicBytes(music) : Promise.resolve(undefined),
-      ...['video-exports', 'video-renderer', 'video-process', 'exports', 'export-cache'].map(
-        (name) =>
-          readFile(
-            new URL(`./${name}${import.meta.url.endsWith('.ts') ? '.ts' : '.js'}`, import.meta.url),
-          ),
+      ...[
+        'video-exports',
+        'video-renderer',
+        'video-art-direction',
+        'video-layout',
+        'collage-layout',
+        'video-process',
+        'exports',
+        'export-cache',
+      ].map((name) =>
+        readFile(
+          new URL(`./${name}${import.meta.url.endsWith('.ts') ? '.ts' : '.js'}`, import.meta.url),
+        ),
       ),
       readdir(path.join(publicDir, 'licenses')).then(async (names) =>
         Buffer.concat(
@@ -101,14 +119,16 @@ export class VideoExports {
       audio || Buffer.alloc(0),
       ...sources,
     ]);
+    const revision = items[0]?.sourceRevision || 'standalone';
     return this.cache.singleFlight(`start:${key}`, async () => {
+      this.cache.assertCurrent(date, revision);
       const meta = await this.cache.find<VideoExportResult>(key, 'video');
       if (meta) return this.ready(meta.token, date, meta.result);
       const pending = this.running.get(key);
       if (pending) return this.status(pending);
       if (!(await this.available()))
         throw new HttpError(503, '视频生成暂不可用，请检查服务端 FFmpeg 安装后重试');
-      const work = this.cache.reserve(30 * 60_000);
+      const work = this.cache.reserve(30 * 60_000, date, revision);
       const job: VideoExportJob = {
         jobId: work.token,
         statusUrl: `/api/exports/videos/${work.token}`,
@@ -119,7 +139,7 @@ export class VideoExports {
         phase: '正在准备画面',
         progress: 0,
       };
-      this.jobs.set(work.token, { job, touched: Date.now() });
+      this.jobs.set(work.token, { job, touched: Date.now(), sourceRevision: revision });
       this.running.set(key, work.token);
       const finished = (async () => {
         try {
@@ -142,8 +162,8 @@ export class VideoExports {
             key,
             date,
             {
-              'video.mp4': `此刻同频-${date}-回忆视频-${style.name}.mp4`,
-              'cover.jpg': `此刻同频-${date}-视频封面.jpg`,
+              'video.mp4': `和朋友的同一时间-${date}-回忆视频.mp4`,
+              'cover.jpg': `和朋友的同一时间-${date}-视频封面.jpg`,
             },
             (expiresAt): VideoExportResult => ({
               videoUrl: `/api/exports/files/${work.token}/video.mp4`,
@@ -159,12 +179,15 @@ export class VideoExports {
           console.error('Video export failed:', error);
           job.status = 'failed';
           job.phase = '生成未完成';
-          job.error = work.signal.aborted
-            ? '生成超时或服务已重启，请重新生成'
-            : '视频生成失败，请重试；若持续失败，请检查服务端视频组件与素材';
+          job.error =
+            work.signal.reason instanceof HttpError
+              ? work.signal.reason.message
+              : work.signal.aborted
+                ? '生成超时或服务已重启，请重新生成'
+                : '视频生成失败，请重试；若持续失败，请检查服务端视频组件与素材';
         } finally {
           this.running.delete(key);
-          this.jobs.set(work.token, { job, touched: Date.now() });
+          this.jobs.set(work.token, { job, touched: Date.now(), sourceRevision: revision });
           await this.cache.finish(work);
         }
       })();

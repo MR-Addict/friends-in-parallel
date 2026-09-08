@@ -1,25 +1,24 @@
-import { Icon as IslandIcon, Button, Card, Title } from 'animal-island-ui';
-import { useEffect, useState } from 'react';
-import { IslandScene } from './IslandScene';
-import {
-  Plus,
-  Check,
-  LoaderCircle,
-  RefreshCw,
-  Download,
-  CalendarDays,
-  ChevronLeft,
-  ChevronRight,
-} from 'lucide-react';
+import { Icon as IslandIcon, Button } from 'animal-island-ui';
+import { useEffect, useRef, useState } from 'react';
+import { Plus, Check, LoaderCircle, Clapperboard, CalendarDays } from 'lucide-react';
 import { DateCalendar } from './DateCalendar';
 import { Composer } from './Composer';
 import { Timeline } from './Timeline';
 import { ExportDialog } from './ExportDialog';
+import videoMusic from './config/video-music.json';
 import { Modal } from './Modal';
-import { api, today, dateOf, shiftDate, type Entry } from './lib';
+import { api, today, dateOf, readPreference, preference, type Entry } from './lib';
 export default function App() {
+  const [lastPersonId, setLastPersonId] = useState(() =>
+    readPreference('parallel.lastSubmittedPerson', readPreference('parallel.person', '')),
+  );
   const [date, setDate] = useState(today());
   const [calendarOpen, setCalendarOpen] = useState(false);
+  const calendarTrigger = useRef<HTMLButtonElement>(null);
+  function closeCalendar() {
+    setCalendarOpen(false);
+    requestAnimationFrame(() => calendarTrigger.current?.focus({ preventScroll: true }));
+  }
   const [entries, setEntries] = useState<Entry[]>([]);
   const [loading, setLoading] = useState(false),
     [error, setError] = useState(''),
@@ -64,11 +63,14 @@ export default function App() {
     return () => clearTimeout(id);
   }, [focusId, entries, loading]);
   function saved(entry: Entry) {
+    setExportOpen(false);
+    setLastPersonId(entry.personId);
+    preference('parallel.lastSubmittedPerson', entry.personId);
     setComposer(null);
     setDate(dateOf(entry.occurredAt));
     setFocusId(entry.id);
     setRevision((n) => n + 1);
-    setToast(composer?.entry ? '修改已保存' : '这一刻，记下了');
+    setToast(composer?.entry ? '修改已保存' : '冒泡成功，朋友们看得到啦');
   }
   async function remove() {
     if (!deleteEntry) return;
@@ -76,6 +78,7 @@ export default function App() {
     setDeleteError('');
     try {
       await api(`/api/entries/${deleteEntry.id}`, { method: 'DELETE' });
+      setExportOpen(false);
       setDeleteEntry(undefined);
       setRevision((n) => n + 1);
       setToast('这条动态已删除');
@@ -91,110 +94,39 @@ export default function App() {
         <header className="brand-header">
           <div className="brand-copy">
             <h1>
-              <a className="brand" href="/" aria-label="此刻，同频首页">
-                此刻，同频
+              <a className="brand" href="/" aria-label="和朋友的同一时间首页">
+                和朋友的同一时间
               </a>
             </h1>
-            <p>各自生活，也在一起。</p>
+            <p>同一时间，看看朋友们都在干嘛。</p>
           </div>
           <div className="header-actions">
-            <Button
-              type="text"
-              className="icon-button island-action"
-              aria-label="刷新时间线"
-              onClick={() => setRevision((n) => n + 1)}
-              disabled={loading}
+            <button
+              ref={calendarTrigger}
+              type="button"
+              className="date-picker compact-date-picker"
+              title={date}
+              aria-label="选择日期"
+              aria-haspopup="dialog"
+              aria-expanded={calendarOpen}
+              onClick={() => setCalendarOpen(true)}
             >
-              <IslandIcon icon={RefreshCw} size={18} className={loading ? 'spin' : ''} />
-            </Button>
-            <Button
-              type="default"
-              className="export-trigger island-action"
-              aria-label="生成今日手账"
-              title="生成所选日期的手账"
-              onClick={() => setExportOpen(true)}
-              disabled={!entries.length || loading || !!error}
-            >
-              <IslandIcon icon={Download} size={16} />
-              <span>生成手账</span>
-            </Button>
+              <span>
+                <IslandIcon icon={CalendarDays} size={16} />
+                <strong>
+                  {date === today()
+                    ? '今天'
+                    : (date.slice(0, 4) === today().slice(0, 4) ? date.slice(5) : date).replaceAll(
+                        '-',
+                        '/',
+                      )}
+                </strong>
+              </span>
+            </button>
           </div>
         </header>
-        <Card className="island-welcome">
-          <div className="welcome-copy">
-            <Title size="small" color="app-yellow">
-              我们的日常小岛
-            </Title>
-            <h2>
-              小小的日常，
-              <br />
-              大大的我们。
-            </h2>
-            <p>把普通的一天，装进共同的回忆里。</p>
-          </div>
-          <IslandScene />
-        </Card>
-        <section className="day-section" aria-labelledby="browse-date-heading">
-          <div className="section-heading">
-            <h2 id="browse-date-heading">翻看日常</h2>
-            <span>选一天，看看大家的生活</span>
-          </div>
-          <nav className="day-navigation" aria-label="日期导航">
-            <Button
-              type="text"
-              className="icon-button island-action"
-              aria-label="前一天"
-              onClick={() => setDate(shiftDate(date, -1))}
-            >
-              <IslandIcon icon={ChevronLeft} size={20} />
-            </Button>
-            <label className="date-picker">
-              <span>
-                <IslandIcon icon={CalendarDays} size={18} />
-                <strong>{date.replaceAll('-', '/')}</strong>
-              </span>
-              <input
-                type="date"
-                aria-label="选择日期"
-                value={date}
-                max={today()}
-                onChange={(e) => {
-                  if (e.target.value) setDate(e.target.value);
-                }}
-                aria-haspopup="dialog"
-                aria-expanded={calendarOpen}
-                onClick={(e) => {
-                  e.preventDefault();
-                  setCalendarOpen(true);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    setCalendarOpen(true);
-                  }
-                }}
-              />
-            </label>
-            <Button
-              type="text"
-              className="icon-button island-action"
-              aria-label="后一天"
-              disabled={date >= today()}
-              onClick={() => setDate(shiftDate(date, 1))}
-            >
-              <IslandIcon icon={ChevronRight} size={20} />
-            </Button>
-            <button
-              className="today-action"
-              aria-label="回到今天"
-              disabled={date === today()}
-              onClick={() => setDate(today())}
-            >
-              今天
-            </button>
-          </nav>
-        </section>
         <Timeline
+          lastPersonId={lastPersonId}
           entries={entries}
           loading={loading}
           error={error}
@@ -208,28 +140,40 @@ export default function App() {
           focusId={focusId}
         />
         <footer className="app-footer">
-          <span>此刻，同频 © {today().slice(0, 4)}</span>
-          <button onClick={() => setCredits(true)}>素材鸣谢</button>
+          <Button className="island-control" type="text" onClick={() => setCredits(true)}>
+            素材鸣谢
+          </Button>
         </footer>
       </main>
-      <div className="create-dock">
+      <div className="floating-actions">
         <Button
           type="primary"
-          className="floating-create island-action"
-          aria-label={date === today() ? '记下一刻' : '补记这一天'}
+          className="island-control floating-create"
+          aria-label={date === today() ? '冒个泡' : '补个泡'}
           onClick={() => setComposer({})}
         >
           <IslandIcon icon={Plus} size={20} />
-          {date === today() ? '记下一刻' : '补记这一天'}
+          {date === today() ? '冒个泡' : '补个泡'}
+        </Button>
+        <Button
+          type="default"
+          className="island-control export-trigger"
+          aria-label="制作回忆"
+          title="手账长图 · 回忆视频 · 素材导出"
+          onClick={() => setExportOpen(true)}
+          disabled={!entries.length || loading || !!error}
+        >
+          <IslandIcon icon={Clapperboard} size={18} />
+          <span>制作回忆</span>
         </Button>
       </div>
       {calendarOpen && (
         <DateCalendar
           date={date}
-          onClose={() => setCalendarOpen(false)}
+          onClose={closeCalendar}
           onSelect={(next) => {
             setDate(next);
-            setCalendarOpen(false);
+            closeCalendar();
           }}
         />
       )}
@@ -241,7 +185,13 @@ export default function App() {
           onSaved={saved}
         />
       )}
-      {exportOpen && <ExportDialog date={date} onClose={() => setExportOpen(false)} />}
+      {exportOpen && (
+        <ExportDialog
+          key={`${date}:${revision}`}
+          date={date}
+          onClose={() => setExportOpen(false)}
+        />
+      )}
       {deleteEntry && (
         <Modal title="要删掉这一刻吗？" onClose={() => setDeleteEntry(undefined)} busy={deleting}>
           <p className="muted">这条动态和上传的照片会被删除，无法撤回。</p>
@@ -253,7 +203,7 @@ export default function App() {
           <div className="confirm-actions">
             <Button
               type="default"
-              className="secondary island-action"
+              className="island-control secondary"
               disabled={deleting}
               onClick={() => setDeleteEntry(undefined)}
             >
@@ -262,7 +212,7 @@ export default function App() {
             <Button
               type="default"
               danger
-              className="danger-button island-action"
+              className="island-control danger-button"
               disabled={deleting}
               onClick={remove}
             >
@@ -286,7 +236,8 @@ export default function App() {
             >
               CC BY-NC 4.0 许可 · 非商业使用
             </a>
-            <p>本项目使用以下开源素材，图片未经修改。</p>
+            <p>和朋友的同一时间 © {today().slice(0, 4)}</p>
+            <p>谢谢这些让日常更可爱的小伙伴！以下开源图片未经修改。</p>
             <a href="https://github.com/microsoft/fluentui-emoji" target="_blank" rel="noreferrer">
               Fluent Emoji · © Microsoft
             </a>
@@ -301,6 +252,20 @@ export default function App() {
             <a href="/licenses/openmoji.txt">CC BY-SA 4.0 许可</a>
             <p>Noto Sans CJK · © The Noto Project Authors</p>
             <a href="/licenses/font.txt">SIL Open Font License 1.1</a>
+            <h3>陪我们冒泡的音乐</h3>
+            <p>音乐会按视频长度裁剪或循环，调整响度并淡入淡出。</p>
+            {videoMusic.map((music) => (
+              <div key={music.id}>
+                <a href={music.source} target="_blank" rel="noreferrer">
+                  {music.title} · {music.artist} / Incompetech
+                </a>
+                {' · '}
+                <a href={music.licenseUrl} target="_blank" rel="noreferrer">
+                  {music.license}
+                </a>
+              </div>
+            ))}
+            <a href="/licenses/music.txt">完整音乐许可与来源</a>
           </div>
         </Modal>
       )}
