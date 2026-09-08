@@ -1,19 +1,36 @@
 import { Icon as IslandIcon, Button } from 'animal-island-ui';
 import { useEffect, useRef, useState } from 'react';
-import { useShareValidity, type ShareValidity } from './useShareValidity';
+import type { ShareValidity } from './shareValidity';
 import { ArrowDownToLine, LoaderCircle, Share2 } from 'lucide-react';
 import { localTime, mediaName, mediaSrc, personOf, type Entry } from './lib';
 
 type Resource = { url: string; filename: string; mime: string };
+type Download = {
+  url?: string;
+  validate?: () => Promise<boolean>;
+  onDownload?: () => Promise<void>;
+};
+export type PreparedResource = {
+  resource: Resource;
+  validity?: ShareValidity;
+  download?: Download;
+};
 type Props = {
   label: string;
   resource?: Resource;
   text?: string;
   disabled?: boolean;
   validity?: ShareValidity;
-  download?: { url?: string; validate?: () => Promise<boolean>; onDownload?: () => Promise<void> };
+  download?: Download;
   variant?: 'primary' | 'secondary';
-};
+} & (
+  | {
+      // Metadata allows an immediate download fallback without generating the resource.
+      resourceMetadata: Pick<Resource, 'filename' | 'mime'>;
+      prepareResource: (signal: AbortSignal) => Promise<PreparedResource>;
+    }
+  | { resourceMetadata?: never; prepareResource?: never }
+);
 
 export function entryShare(entry: Entry) {
   const url = mediaSrc(entry.media);
@@ -72,6 +89,8 @@ export function ShareButton(props: Props) {
     <ShareSession
       key={JSON.stringify([
         props.resource,
+        props.resourceMetadata,
+        props.disabled,
         props.text,
         props.validity?.url,
         props.validity?.expiresAt,
@@ -84,21 +103,26 @@ export function ShareButton(props: Props) {
 function ShareSession({
   label,
   resource,
+  resourceMetadata,
+  prepareResource,
   text,
   disabled,
   validity,
   download,
   variant = 'secondary',
 }: Props) {
+  const metadata = resource || resourceMetadata;
+  const hasResource = !!(resource || prepareResource);
+  const [resolved, setResolved] = useState<PreparedResource>();
+  const current = useRef<PreparedResource | undefined>(undefined);
   const [supported] = useState(() =>
     canShare(
-      resource ? { files: [new File([], resource.filename, { type: resource.mime })] } : { text },
+      metadata ? { files: [new File([], metadata.filename, { type: metadata.mime })] } : { text },
     ),
   );
-  const [status, setStatus] = useState<'preparing' | 'ready' | 'failed' | 'unsupported'>(
-    resource ? 'preparing' : 'ready',
-  );
-  const [attempt, setAttempt] = useState(0);
+  const [status, setStatus] = useState<
+    'idle' | 'preparing' | 'checking' | 'ready' | 'failed' | 'unsupported'
+  >(hasResource ? 'idle' : 'ready');
   const [progress, setProgress] = useState<number>();
   const [sharing, setSharing] = useState(false);
   const [downloading, setDownloading] = useState(false);
@@ -108,25 +132,86 @@ function ShareSession({
   const latestValidity = useRef(validity);
   latestValidity.current = validity;
   const alive = useRef(true);
-  const check = useShareValidity(validity, supported && status === 'ready' && !disabled);
+  const request = useRef<AbortController | undefined>(undefined);
 
   useEffect(() => {
     alive.current = true;
     return () => {
       alive.current = false;
+      request.current?.abort();
+      file.current = undefined;
+      current.current = undefined;
     };
   }, []);
-  useEffect(() => {
-    if (!supported || !resource || disabled) return;
+  function expire(value: ShareValidity) {
+    file.current = undefined;
+    current.current = undefined;
+    setResolved(undefined);
+    setStatus('idle');
+    setError('动态已更新或导出已过期，请重新生成');
+    value.onExpired('动态已更新或导出已过期，请重新生成');
+  }
+
+  async function resolveResource(signal: AbortSignal) {
+    if (current.current) return current.current;
+    const value = prepareResource
+      ? await prepareResource(signal)
+      : resource
+        ? { resource, validity: latestValidity.current, download }
+        : undefined;
+    if (signal.aborted || !value) throw new Error('Preparation cancelled');
+    current.current = value;
+    setResolved(value);
+    return value;
+  }
+
+  async function validate(value: ShareValidity | undefined, signal: AbortSignal) {
+    if (signal.aborted) return false;
+    if (!value) return true;
+    if (Date.now() >= Date.parse(value.expiresAt)) {
+      expire(value);
+      return false;
+    }
     const controller = new AbortController();
-    const prepare = async () => {
-      setStatus('preparing');
-      setProgress(undefined);
-      try {
+    const abort = () => controller.abort();
+    signal.addEventListener('abort', abort, { once: true });
+    const timeout = setTimeout(abort, 10_000);
+    try {
+      const response = await fetch(value.url, { signal: controller.signal, cache: 'no-store' });
+      if (signal.aborted) return false;
+      if (response.status === 404 || Date.now() >= Date.parse(value.expiresAt)) {
+        expire(value);
+        return false;
+      }
+      if (response.status !== 204) throw new Error('Validation failed');
+      return true;
+    } finally {
+      clearTimeout(timeout);
+      signal.removeEventListener('abort', abort);
+    }
+  }
+
+  async function prepare() {
+    if (locked.current || disabled) return;
+    locked.current = true;
+    const controller = new AbortController();
+    request.current = controller;
+    setStatus('preparing');
+    setProgress(undefined);
+    setError('');
+    try {
+      const value = await resolveResource(controller.signal);
+      if (controller.signal.aborted) return;
+      const resource = value.resource;
+      if (value.validity && Date.now() >= Date.parse(value.validity.expiresAt)) {
+        expire(value.validity);
+        return;
+      }
+      if (!file.current) {
         const response = await fetch(resource.url, { signal: controller.signal });
         if (controller.signal.aborted) return;
-        if (response.status === 404 && latestValidity.current) {
-          latestValidity.current.onExpired('动态已更新或导出已过期，请重新生成');
+        if (response.status === 404 && value.validity) {
+          expire(value.validity);
           return;
         }
         if (!response.ok) throw new Error('File read failed');
@@ -171,27 +256,32 @@ function ShareSession({
           return;
         }
         file.current = prepared;
-        setStatus('ready');
-      } catch {
-        if (!controller.signal.aborted) setStatus('failed');
       }
-    };
-    void prepare();
-    return () => {
-      controller.abort();
-      file.current = undefined;
-    };
-  }, [supported, resource?.url, resource?.filename, resource?.mime, text, disabled, attempt]);
+      setStatus('checking');
+      if (await validate(value.validity, controller.signal)) {
+        if (!controller.signal.aborted) setStatus('ready');
+      }
+    } catch {
+      if (!controller.signal.aborted) setStatus('failed');
+    } finally {
+      if (request.current === controller) {
+        request.current = undefined;
+        locked.current = false;
+      }
+    }
+  }
 
   const fallback = !supported || status === 'unsupported';
   if (fallback) {
-    if (!resource) return null;
+    if (!metadata) return null;
+    const target = resolved?.resource || resource;
+    const action = resolved?.download || download;
     return (
       <div className="resource-share">
         <a
           className={`${variant} full`}
-          href={download?.url || resource.url}
-          download={resource.filename}
+          href={action?.url || target?.url || '#'}
+          download={metadata.filename}
           aria-disabled={disabled || downloading}
           aria-busy={downloading}
           onClick={async (event) => {
@@ -199,17 +289,27 @@ function ShareSession({
               event.preventDefault();
               return;
             }
-            if (!download?.validate && !download?.onDownload) return;
+            if (!prepareResource && !action?.validate && !action?.onDownload) return;
             event.preventDefault();
             locked.current = true;
             setDownloading(true);
             setError('');
+            const controller = new AbortController();
+            request.current = controller;
             try {
-              if (download.onDownload) await download.onDownload();
-              else if (await download.validate!()) {
-                if (!alive.current) return;
+              const value = prepareResource ? await resolveResource(controller.signal) : undefined;
+              if (controller.signal.aborted) return;
+              const resource = value?.resource || target!;
+              const download = value?.download || action;
+              if (download?.onDownload) await download.onDownload();
+              else if (
+                download?.validate
+                  ? await download.validate()
+                  : await validate(value?.validity, controller.signal)
+              ) {
+                if (!alive.current || controller.signal.aborted) return;
                 const link = document.createElement('a');
-                link.href = download.url || resource.url;
+                link.href = download?.url || resource.url;
                 link.download = resource.filename;
                 document.body.append(link);
                 link.click();
@@ -218,6 +318,7 @@ function ShareSession({
             } catch {
               if (alive.current) setError('下载失败，请重试');
             } finally {
+              request.current = undefined;
               locked.current = false;
               if (alive.current) setDownloading(false);
             }
@@ -240,12 +341,13 @@ function ShareSession({
   }
   async function share() {
     if (locked.current || disabled || status !== 'ready') return;
-    if (!check.isFresh()) {
-      check.recheck();
+    const expiry = current.current?.validity || latestValidity.current;
+    if (expiry && Date.now() >= Date.parse(expiry.expiresAt)) {
+      expire(expiry);
       return;
     }
     const data = { ...(file.current ? { files: [file.current] } : {}), ...(text ? { text } : {}) };
-    if (resource && !file.current) return;
+    if (hasResource && !file.current) return;
     if (!canShare(data)) {
       setError('');
       setStatus('unsupported');
@@ -271,19 +373,17 @@ function ShareSession({
     }
   }
   const preparing = status === 'preparing';
-  const checking = status === 'ready' && check.state === 'checking';
+  const checking = status === 'checking';
   const busy = preparing || checking || sharing;
   const caption = preparing
     ? `正在准备分享…${progress === undefined ? '' : ` ${progress}%`}`
-    : status === 'failed'
-      ? '准备失败，点击重试'
-      : checking
-        ? '正在检查有效性…'
-        : check.state === 'failed'
-          ? '重新检查'
-          : sharing
-            ? '正在分享…'
-            : error || label;
+    : checking
+      ? '正在检查有效性…'
+      : status === 'failed'
+        ? '准备失败，点击重试'
+        : sharing
+          ? '正在分享…'
+          : error || (status === 'ready' && hasResource ? '已准备好，再次点击分享' : label);
   return (
     <div className="resource-share">
       <Button
@@ -294,8 +394,7 @@ function ShareSession({
         aria-busy={busy}
         aria-live="polite"
         onClick={() => {
-          if (status === 'failed') setAttempt((n) => n + 1);
-          else if (check.state === 'failed') check.recheck();
+          if (status === 'idle' || status === 'failed') void prepare();
           else void share();
         }}
       >

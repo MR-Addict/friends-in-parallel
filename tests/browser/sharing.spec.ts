@@ -2,18 +2,22 @@ import { selectDate } from './calendar';
 import { test, expect, type Page } from '@playwright/test';
 
 const date = '2026-08-24';
+const readyLabel = '已准备好，再次点击分享';
+async function prepareResource(page: Page, label = '分享图片') {
+  await page.getByRole('button', { name: label, exact: true }).click();
+  await expect(page.getByRole('button', { name: readyLabel })).toBeEnabled();
+}
+async function shareResource(page: Page, label = '分享图片') {
+  const ready = page.getByRole('button', { name: readyLabel });
+  if (!(await ready.count())) await prepareResource(page, label);
+  await ready.click();
+}
+
 async function mockShare(page: Page, mode = 'ok') {
   await page.addInitScript((mode) => {
-    const state = { mode, active: true, calls: [] as unknown[] };
+    const activation = navigator.userActivation;
+    const state = { mode, calls: [] as unknown[] };
     (window as any).sharing = state;
-    Object.defineProperty(navigator, 'userActivation', {
-      configurable: true,
-      value: {
-        get isActive() {
-          return state.active;
-        },
-      },
-    });
     Object.defineProperty(navigator, 'canShare', {
       configurable: true,
       value:
@@ -30,6 +34,7 @@ async function mockShare(page: Page, mode = 'ok') {
     Object.defineProperty(navigator, 'share', {
       configurable: true,
       value: async (data: ShareData) => {
+        if (!activation.isActive) throw new Error('Share requires user activation');
         if (state.mode === 'cancel') throw new DOMException('Cancelled', 'AbortError');
         if (state.mode === 'denied') throw new DOMException('Blocked', 'NotAllowedError');
         if (state.mode === 'failure') throw new DOMException('Failed', 'DataError');
@@ -146,7 +151,7 @@ for (const mode of ['missing', 'unsupported']) {
   });
 }
 for (const width of [375, 430]) {
-  test(`preload image and share with one click, hiding download at ${width}px`, async ({
+  test(`prepare image on first click and share on second click, hiding download at ${width}px`, async ({
     page,
   }) => {
     let reads = 0;
@@ -157,9 +162,12 @@ for (const width of [375, 430]) {
     await page.setViewportSize({ width, height: 812 });
     await openImage(page);
     await expect(page.getByRole('button', { name: '分享图片' })).toBeInViewport();
+    expect(reads).toBe(0);
+    await prepareResource(page);
     expect(reads).toBe(1);
+    expect(await calls(page)).toHaveLength(0);
     await expect(page.getByRole('link', { name: '下载图片', exact: true })).toHaveCount(0);
-    await page.getByRole('button', { name: '分享图片' }).click();
+    await shareResource(page, '分享图片');
     await expect
       .poll(() => calls(page))
       .toEqual([
@@ -180,16 +188,17 @@ for (const width of [375, 430]) {
 test('prepared file is reused after successful sharing', async ({ page }) => {
   await mockShare(page);
   await openImage(page);
-  await page.getByRole('button', { name: '分享图片' }).click();
+  await shareResource(page, '分享图片');
   await expect.poll(async () => (await calls(page)).length).toBe(1);
   await page.route('**/share/single.png', (route) => route.abort());
-  await page.getByRole('button', { name: '分享图片' }).click();
+  await shareResource(page, '分享图片');
   await expect.poll(async () => (await calls(page)).length).toBe(2);
 });
 
 test('unsupported actual file falls back to download after preparation', async ({ page }) => {
   await mockShare(page, 'actual');
   await openImage(page);
+  await page.getByRole('button', { name: '分享图片' }).click();
   await expect(page.getByRole('link', { name: '下载图片', exact: true })).toBeEnabled();
   await expect(page.locator('.resource-share button')).toHaveCount(0);
   expect(await calls(page)).toHaveLength(0);
@@ -202,8 +211,10 @@ for (const mode of ['cancel', 'failure']) {
     const button = page.locator('.resource-share button');
     await expect(button).toHaveText('分享图片');
     await button.click();
+    await expect(button).toHaveText(readyLabel);
+    await button.click();
     await expect(button).toBeEnabled();
-    await expect(button).toHaveText(mode === 'cancel' ? '分享图片' : '分享失败，点击重试');
+    await expect(button).toHaveText(mode === 'cancel' ? readyLabel : '分享失败，点击重试');
     await expect(page.getByRole('link', { name: '下载图片', exact: true })).toHaveCount(0);
     await page.route('**/share/single.png', (route) => route.abort());
     await page.evaluate(() => {
@@ -218,6 +229,7 @@ test('fetch failure retries; closing during preparation never opens share', asyn
   await mockShare(page);
   await page.route('**/share/single.png', (route) => route.fulfill({ status: 500 }));
   await openImage(page);
+  await page.getByRole('button', { name: '分享图片' }).click();
   await expect(page.getByRole('button', { name: '准备失败，点击重试' })).toBeEnabled();
   let release!: () => void;
   const pending = new Promise<void>((resolve) => {
@@ -233,7 +245,7 @@ test('fetch failure retries; closing during preparation never opens share', asyn
   release();
   await openImage(page);
   expect(await calls(page)).toHaveLength(0);
-  await expect(page.getByText('文件已准备好，点击分享')).toHaveCount(0);
+  await expect(page.getByText(readyLabel)).toHaveCount(0);
 });
 
 test('paginated exports only share the current image', async ({ page }) => {
@@ -256,11 +268,8 @@ test('paginated exports only share the current image', async ({ page }) => {
   await page.getByRole('button', { name: '生成手账长图' }).click();
   await expect(page.getByRole('button', { name: '分享当前图片' })).toBeEnabled();
   await page.getByRole('button', { name: '下一张图片' }).click();
-  await expect(page.getByText('文件已准备好，点击分享')).toHaveCount(0);
-  await page.evaluate(() => {
-    (window as any).sharing.active = true;
-  });
-  await page.getByRole('button', { name: '分享当前图片' }).click();
+  await expect(page.getByText(readyLabel)).toHaveCount(0);
+  await shareResource(page, '分享当前图片');
   await expect
     .poll(async () => (await calls(page))[0]?.files[0])
     .toEqual({ name: `和朋友的同一时间-${date}-手账-02.png`, type: 'image/png', body: 'page2' });
@@ -303,7 +312,7 @@ test('entry menu and photo detail share the original image', async ({ page }) =>
   await page.goto('/');
   await selectDate(page, date);
   await page.getByRole('button', { name: /更多操作：.*14:30/ }).click();
-  await page.getByRole('button', { name: '分享图片' }).click();
+  await shareResource(page, '分享图片');
   await expect
     .poll(async () => (await calls(page))[0]?.files[0])
     .toMatchObject({ type: 'image/jpeg', body: 'original-photo' });
@@ -312,7 +321,7 @@ test('entry menu and photo detail share the original image', async ({ page }) =>
   await expect(
     page.getByRole('dialog').getByRole('link', { name: /下载照片|下载图片/ }),
   ).toHaveCount(0);
-  await page.getByRole('button', { name: '分享图片' }).click();
+  await shareResource(page, '分享图片');
   await expect.poll(async () => (await calls(page))[1]?.files[0].body).toBe('original-photo');
   await page.getByRole('button', { name: '关闭', exact: true }).click();
   await page.getByRole('button', { name: /更多操作：.*13:30/ }).click();
@@ -369,7 +378,7 @@ for (const mode of ['ok', 'missing']) {
       await expect(page.getByRole('link', { name: '下载视频' })).toHaveCount(0);
       await expect(page.getByRole('button', { name: '分享视频' })).toHaveClass(/primary/);
       await expect(page.getByRole('button', { name: '修改样式与音乐' })).toHaveClass(/secondary/);
-      await page.getByRole('button', { name: '分享视频' }).click();
+      await shareResource(page, '分享视频');
       await expect
         .poll(async () => (await calls(page))[0]?.files[0])
         .toEqual({
@@ -420,7 +429,7 @@ test('sticker shares original SVG with its MIME type', async ({ page }) => {
   await page.goto('/');
   await selectDate(page, date);
   await page.locator('.moment-media').click();
-  await page.getByRole('button', { name: '分享图片' }).click();
+  await shareResource(page, '分享图片');
   await expect
     .poll(async () => (await calls(page))[0]?.files[0])
     .toEqual({
@@ -457,7 +466,7 @@ test('materials ZIP prefers sharing and home creation card is visible', async ({
   await page.getByRole('button', { name: '素材 ZIP' }).click();
   await expect(page.getByRole('button', { name: '分享压缩包', exact: true })).toBeEnabled();
   await expect(page.getByRole('link', { name: '下载压缩包' })).toHaveCount(0);
-  await page.getByRole('button', { name: '分享压缩包' }).click();
+  await shareResource(page, '分享压缩包');
   await expect
     .poll(async () => (await calls(page))[0]?.files[0])
     .toEqual({
@@ -496,16 +505,23 @@ for (const width of [375, 430]) {
   });
 }
 
-test('a prepared image is discarded by the next periodic validity check', async ({ page }) => {
+test('ready files stay shareable without periodic or visibility validation', async ({ page }) => {
   await mockShare(page);
   await page.clock.install();
+  let checks = 0;
+  await page.route('**/api/exports/*/validity', (route) => {
+    checks++;
+    return route.fulfill({ status: checks === 1 ? 204 : 404 });
+  });
   await openImage(page);
-  await expect(page.getByRole('button', { name: '分享图片', exact: true })).toBeEnabled();
-  await page.route('**/api/exports/*/validity', (route) => route.fulfill({ status: 404 }));
-  await page.clock.fastForward(30001);
-  await expect(page.locator('.export-previews')).toHaveCount(0);
-  await expect(page.getByRole('alert')).toContainText('重新生成');
-  expect(await calls(page)).toHaveLength(0);
+  expect(checks).toBe(0);
+  await prepareResource(page);
+  expect(checks).toBe(1);
+  await page.clock.fastForward(31000);
+  await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+  await shareResource(page);
+  expect(checks).toBe(1);
+  await expect.poll(async () => (await calls(page)).length).toBe(1);
 });
 
 test('validation network failures keep the image for retry; confirmed expiry hides it on download', async ({
@@ -533,7 +549,7 @@ test('the long-image preview disappears at its expiry without polling', async ({
   await expect(page.getByRole('alert')).toContainText('已过期');
 });
 
-test('slow preparation and validation finish before a single synchronous share click', async ({
+test('slow preparation and validation finish between the preparation and synchronous share clicks', async ({
   page,
 }) => {
   await mockShare(page);
@@ -555,12 +571,13 @@ test('slow preparation and validation finish before a single synchronous share c
     await route.fulfill({ status: 204 });
   });
   await openImage(page);
+  await page.getByRole('button', { name: /分享图片|分享当前图片/ }).click();
   await expect(page.getByRole('button', { name: /正在准备分享/ })).toBeDisabled();
   expect(await calls(page)).toHaveLength(0);
   releaseFile();
   await expect(page.getByRole('button', { name: '正在检查有效性…' })).toBeDisabled();
   releaseCheck();
-  const button = page.getByRole('button', { name: '分享图片', exact: true });
+  const button = page.getByRole('button', { name: readyLabel, exact: true });
   await expect(button).toBeEnabled();
   // No request is allowed between readiness and the final user gesture.
   await page.route('**/api/exports/*/validity', (route) => route.abort());
@@ -581,9 +598,7 @@ test('slow preparation and validation finish before a single synchronous share c
   ).toBe(true);
 });
 
-test('validation timeout retries without downloading again and visibility rechecks', async ({
-  page,
-}) => {
+test('validation timeout retries without downloading again', async ({ page }) => {
   await mockShare(page);
   await page.clock.install();
   let reads = 0;
@@ -599,41 +614,26 @@ test('validation timeout retries without downloading again and visibility rechec
     await route.fulfill({ status: 204 }).catch(() => {});
   });
   await openImage(page);
+  await page.getByRole('button', { name: '分享图片' }).click();
   await expect(page.getByRole('button', { name: '正在检查有效性…' })).toBeDisabled();
   await page.clock.fastForward(10001);
-  await expect(page.getByRole('button', { name: '重新检查' })).toBeEnabled();
+  await expect(page.getByRole('button', { name: '准备失败，点击重试' })).toBeEnabled();
   await page.route('**/api/exports/*/validity', (route) => route.fulfill({ status: 204 }));
   release();
-  await page.getByRole('button', { name: '重新检查' }).click();
-  await expect(page.getByRole('button', { name: '分享图片', exact: true })).toBeEnabled();
+  await page.getByRole('button', { name: '准备失败，点击重试' }).click();
+  await expect(page.getByRole('button', { name: readyLabel })).toBeEnabled();
   expect(reads).toBe(1);
-  await page.evaluate(() => {
-    Object.defineProperty(document, 'hidden', { configurable: true, value: true });
-    document.dispatchEvent(new Event('visibilitychange'));
-  });
-  await page.clock.fastForward(31000);
-  await expect(page.getByRole('button', { name: '正在检查有效性…' })).toBeDisabled();
-  await page.route('**/api/exports/*/validity', (route) => route.fulfill({ status: 404 }));
-  await page.evaluate(() => {
-    Object.defineProperty(document, 'hidden', { configurable: true, value: false });
-    document.dispatchEvent(new Event('visibilitychange'));
-  });
-  await expect(page.locator('.export-previews')).toHaveCount(0);
   expect(await calls(page)).toHaveLength(0);
 });
 
-test('a stale timestamp blocks sharing even before the refresh timer executes', async ({
-  page,
-}) => {
+test('the ready click checks expiry even before the expiry timer runs', async ({ page }) => {
   await mockShare(page);
   await page.clock.install();
   await openImage(page);
-  const button = page.getByRole('button', { name: '分享图片', exact: true });
-  await expect(button).toBeEnabled();
-  await page.route('**/api/exports/*/validity', (route) => route.fulfill({ status: 503 }));
-  await page.clock.setSystemTime(new Date(Date.now() + 31000));
-  await button.click();
-  await expect(page.getByRole('button', { name: '重新检查' })).toBeEnabled();
+  await prepareResource(page);
+  await page.clock.setSystemTime(new Date(Date.now() + 61000));
+  await page.getByRole('button', { name: readyLabel }).click();
+  await expect(page.locator('.export-previews')).toHaveCount(0);
   expect(await calls(page)).toHaveLength(0);
 });
 
@@ -662,11 +662,12 @@ test('switching pages during preparation discards the old request', async ({ pag
     route.fulfill({ body: 'collection', contentType: 'application/zip' }),
   );
   await openImage(page);
+  await page.getByRole('button', { name: /分享图片|分享当前图片/ }).click();
   await expect(page.getByRole('button', { name: /正在准备分享/ })).toBeDisabled();
   await page.getByRole('button', { name: '下一张图片' }).click();
   await expect(page.getByRole('button', { name: '分享当前图片' })).toBeEnabled();
   release();
-  await page.getByRole('button', { name: '分享当前图片' }).click();
+  await shareResource(page, '分享当前图片');
   await expect.poll(async () => (await calls(page))[0]?.files[0]?.body).toBe('new-page');
 });
 
@@ -674,6 +675,7 @@ test('a missing export during preparation immediately clears its result', async 
   await mockShare(page);
   await page.route('**/share/single.png', (route) => route.fulfill({ status: 404 }));
   await openImage(page);
+  await page.getByRole('button', { name: '分享图片' }).click();
   await expect(page.getByRole('alert')).toContainText('重新生成');
   await expect(page.locator('.export-previews')).toHaveCount(0);
   expect(await calls(page)).toHaveLength(0);
@@ -686,7 +688,7 @@ test('permission-denied sharing becomes a validated download without auto-downlo
   let downloads = 0;
   page.on('download', () => downloads++);
   await openImage(page);
-  await page.getByRole('button', { name: '分享图片', exact: true }).click();
+  await shareResource(page, '分享图片');
   const fallback = page.getByRole('link', { name: '下载图片', exact: true });
   await expect(fallback).toBeEnabled();
   expect(downloads).toBe(0);
@@ -757,8 +759,9 @@ for (const mode of ['ok', 'missing']) {
     await selectDate(page, date);
     for (const target of ['.card-actions', '.moment-media']) {
       await page.locator(target).click();
+      expect(generations).toBe(target === '.card-actions' ? 0 : 1);
       if (mode === 'ok') {
-        await page.getByRole('button', { name: '分享动态' }).click();
+        await shareResource(page, '分享动态');
         await expect.poll(async () => (await calls(page)).length).toBe(generations);
         expect((await calls(page)).at(-1).files).toEqual([
           {
@@ -781,6 +784,7 @@ for (const mode of ['ok', 'missing']) {
 test('post generation retries failures and expired cards', async ({ page }) => {
   await mockShare(page);
   let attempts = 0;
+  let expiresAt = new Date(Date.now() + 60000).toISOString();
   await page.route('**/api/exports/posts', (route) => {
     attempts++;
     return attempts === 1
@@ -788,7 +792,7 @@ test('post generation retries failures and expired cards', async ({ page }) => {
       : route.fulfill({
           json: {
             images: ['/api/exports/files/post/1.png'],
-            expiresAt: new Date(Date.now() + 60000).toISOString(),
+            expiresAt,
           },
         });
   });
@@ -798,10 +802,98 @@ test('post generation retries failures and expired cards', async ({ page }) => {
   await page.goto('/');
   await selectDate(page, date);
   await page.locator('.card-actions').click();
-  await expect(page.getByRole('alert')).toHaveText('生成失败');
-  await page.getByRole('button', { name: '重新生成动态' }).click();
-  await expect(page.getByRole('button', { name: '分享动态' })).toBeEnabled();
+  expect(attempts).toBe(0);
+  await page.getByRole('button', { name: '分享动态' }).click();
+  await expect(page.getByRole('button', { name: '准备失败，点击重试' })).toBeEnabled();
+  await prepareResource(page, '准备失败，点击重试');
   await page.route('**/api/exports/*/validity', (route) => route.fulfill({ status: 404 }));
-  await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
-  await expect(page.getByRole('button', { name: '重新生成动态' })).toBeVisible();
+  await page.clock.install();
+  await page.clock.setSystemTime(new Date(Date.now() + 61000));
+  await page.getByRole('button', { name: readyLabel }).click();
+  await expect(page.getByRole('alert')).toContainText('重新生成');
+  await expect(page.getByRole('button', { name: '分享动态' })).toBeVisible();
+  await page.route('**/api/exports/*/validity', (route) => route.fulfill({ status: 204 }));
+  expiresAt = new Date(Date.now() + 180000).toISOString();
+  await prepareResource(page, '分享动态');
+  expect(attempts).toBe(3);
+});
+
+test('preparation reports progress and ignores duplicate clicks', async ({ page }) => {
+  await mockShare(page);
+  await page.addInitScript(() => {
+    const originalFetch = window.fetch;
+    (window as any).fileReads = 0;
+    window.fetch = (input, init) => {
+      if (String(input) !== '/share/single.png') return originalFetch(input, init);
+      (window as any).fileReads++;
+      const stream = new ReadableStream({
+        start(controller) {
+          controller.enqueue(new TextEncoder().encode('first'));
+          (window as any).finishFile = () => {
+            controller.enqueue(new TextEncoder().encode('other'));
+            controller.close();
+          };
+        },
+      });
+      return Promise.resolve(
+        new Response(stream, {
+          headers: { 'Content-Type': 'image/png', 'Content-Length': '10' },
+        }),
+      );
+    };
+  });
+  await openImage(page);
+  const button = page.locator('.resource-share button');
+  await button.evaluate((node: HTMLButtonElement) => {
+    node.click();
+    node.click();
+  });
+  await expect(button).toHaveText('正在准备分享… 50%');
+  await expect(button).toBeDisabled();
+  expect(await page.evaluate(() => (window as any).fileReads)).toBe(1);
+  expect(await calls(page)).toHaveLength(0);
+  await page.evaluate(() => (window as any).finishFile());
+  await expect(button).toHaveText(readyLabel);
+  await expect(button).toHaveAttribute('aria-live', 'polite');
+  expect(await calls(page)).toHaveLength(0);
+  await button.click();
+  await expect.poll(async () => (await calls(page))[0]?.files[0].body).toBe('firstother');
+});
+
+test('closing during post generation discards the pending result', async ({ page }) => {
+  await mockShare(page);
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let generations = 0;
+  await page.route('**/api/exports/posts', async (route) => {
+    generations++;
+    await gate;
+    await route
+      .fulfill({
+        json: {
+          images: ['/api/exports/files/post/1.png'],
+          expiresAt: new Date(Date.now() + 60000).toISOString(),
+        },
+      })
+      .catch(() => {});
+  });
+  let reads = 0;
+  await page.route('**/api/exports/files/post/1.png', (route) => {
+    reads++;
+    return route.fulfill({ body: 'card', contentType: 'image/png' });
+  });
+  await page.goto('/');
+  await selectDate(page, date);
+  await page.locator('.card-actions').click();
+  expect(generations).toBe(0);
+  await page.getByRole('button', { name: '分享动态' }).click();
+  await expect.poll(() => generations).toBe(1);
+  await page.getByRole('button', { name: '关闭', exact: true }).click();
+  release();
+  await page.locator('.card-actions').click();
+  await expect(page.getByRole('button', { name: '分享动态' })).toBeEnabled();
+  expect(reads).toBe(0);
+  expect(await calls(page)).toHaveLength(0);
 });
