@@ -437,60 +437,106 @@ test('every export request cleans legacy caches while ordinary API and upload re
   }
 });
 
-test('validity, video status and every artifact URL reject a changed day', async () => {
-  const f = await fixture();
-  const { ExportCache, contentFingerprint } = await import('../apps/server/src/export-cache.js');
-  const cache = new ExportCache(f.dir, Date.now, f.store);
-  try {
-    const { entry } = await post(f.origin);
-    const tokens: string[] = [];
-    for (const kind of ['images', 'video'] as const) {
-      const work = cache.reserve(10000, date, f.store.revision(date));
-      // Stage outside the server cache: the fixture's publisher is a separate instance.
-      work.dir = path.join(f.dir, `stage-${work.token}`);
-      await mkdir(cache.dir, { recursive: true });
-      await mkdir(work.dir, { recursive: true });
-      const names = kind === 'images' ? ['1.png', 'images.zip'] : ['video.mp4', 'cover.jpg'];
-      for (const name of names) await writeFile(path.join(work.dir, name), 'fixture');
-      await cache.publish(
-        work,
-        kind,
-        contentFingerprint([], [kind]),
-        date,
-        Object.fromEntries(names.map((name) => [name, name])),
-        (expiresAt) => {
-          const prefix = `/api/exports/files/${work.token}/`;
-          return kind === 'images'
-            ? { images: [prefix + '1.png'], archiveUrl: prefix + 'images.zip', expiresAt }
-            : {
-                videoUrl: prefix + 'video.mp4',
-                coverUrl: prefix + 'cover.jpg',
-                duration: 1,
-                styleId: 'paper',
-                musicId: 'none',
-                expiresAt,
-              };
-        },
-      );
-      await cache.finish(work);
-      tokens.push(work.token);
-      assert.equal((await fetch(`${f.origin}/api/exports/${work.token}/validity`)).status, 204);
-      for (const name of names)
-        assert.equal(
-          (await fetch(`${f.origin}/api/exports/files/${work.token}/${name}`)).status,
-          200,
+for (const invalidation of ['changed day', 'expired files']) {
+  test(`validity, video status and conditional artifact requests reject ${invalidation}`, async () => {
+    const f = await fixture();
+    const { ExportCache, contentFingerprint } = await import('../apps/server/src/export-cache.js');
+    const cache = new ExportCache(f.dir, Date.now, f.store);
+    try {
+      const { entry } = await post(f.origin);
+      const tokens: string[] = [];
+      const etags = new Map<string, string>();
+      for (const kind of ['images', 'video'] as const) {
+        const work = cache.reserve(10000, date, f.store.revision(date));
+        // Stage outside the server cache: the fixture's publisher is a separate instance.
+        work.dir = path.join(f.dir, `stage-${work.token}`);
+        await mkdir(cache.dir, { recursive: true });
+        await mkdir(work.dir, { recursive: true });
+        const names = kind === 'images' ? ['1.png', 'images.zip'] : ['video.mp4', 'cover.jpg'];
+        for (const name of names) await writeFile(path.join(work.dir, name), 'fixture');
+        await cache.publish(
+          work,
+          kind,
+          contentFingerprint([], [kind]),
+          date,
+          Object.fromEntries(names.map((name) => [name, name])),
+          (expiresAt) => {
+            const prefix = `/api/exports/files/${work.token}/`;
+            return kind === 'images'
+              ? { images: [prefix + '1.png'], archiveUrl: prefix + 'images.zip', expiresAt }
+              : {
+                  videoUrl: prefix + 'video.mp4',
+                  coverUrl: prefix + 'cover.jpg',
+                  duration: 1,
+                  styleId: 'paper',
+                  musicId: 'none',
+                  expiresAt,
+                };
+          },
         );
+        await cache.finish(work);
+        tokens.push(work.token);
+        assert.equal((await fetch(`${f.origin}/api/exports/${work.token}/validity`)).status, 204);
+        for (const name of names) {
+          const url = `${f.origin}/api/exports/files/${work.token}/${name}`;
+          const response = await fetch(url);
+          assert.equal(response.status, 200);
+          assert.equal(response.headers.get('cache-control'), 'private, no-cache');
+          assert.equal(decodeURIComponent(response.headers.get('x-export-filename')!), name);
+          const etag = response.headers.get('etag')!;
+          assert.ok(etag);
+          etags.set(`${work.token}/${name}`, etag);
+          await response.arrayBuffer();
+          const cached = await fetch(url, {
+            headers: { 'If-None-Match': etag, 'Cache-Control': 'max-age=0' },
+          });
+          assert.equal(cached.status, 304);
+          assert.equal(cached.headers.get('cache-control'), 'private, no-cache');
+          const modified = await fetch(url, {
+            headers: {
+              'If-Modified-Since': response.headers.get('last-modified')!,
+              'Cache-Control': 'max-age=0',
+            },
+          });
+          assert.equal(modified.status, 304);
+          const range = await fetch(url, { headers: { Range: 'bytes=0-2' } });
+          assert.equal(range.status, 206);
+          assert.equal((await range.arrayBuffer()).byteLength, 3);
+          const attachment = await fetch(url + '?download=1');
+          assert.match(attachment.headers.get('content-disposition')!, /attachment/);
+          await attachment.arrayBuffer();
+        }
+      }
+      assert.equal((await fetch(`${f.origin}/api/exports/videos/${tokens[1]}`)).status, 200);
+      if (invalidation === 'changed day') {
+        await fetch(`${f.origin}/api/entries/${entry.id}`, { method: 'DELETE' });
+      } else {
+        for (const token of tokens) {
+          const filename = path.join(cache.dir, token, 'metadata.json');
+          const meta = JSON.parse(await readFile(filename, 'utf8'));
+          meta.expiresAt = new Date(Date.now() - 1000).toISOString();
+          meta.completedAt = new Date(Date.parse(meta.expiresAt) - 86400_000).toISOString();
+          meta.result.expiresAt = meta.expiresAt;
+          await writeFile(filename, JSON.stringify(meta));
+        }
+      }
+      for (const token of tokens) {
+        assert.equal((await fetch(`${f.origin}/api/exports/${token}/validity`)).status, 404);
+        for (const name of ['1.png', 'images.zip', 'video.mp4', 'cover.jpg']) {
+          const response = await fetch(`${f.origin}/api/exports/files/${token}/${name}`, {
+            headers: {
+              'If-None-Match': etags.get(`${token}/${name}`) || '*',
+              'Cache-Control': 'max-age=0',
+            },
+          });
+          assert.equal(response.status, 404);
+          assert.equal(response.headers.get('cache-control'), 'no-store');
+        }
+      }
+      assert.equal((await fetch(`${f.origin}/api/exports/videos/${tokens[1]}`)).status, 404);
+    } finally {
+      await cache.dispose();
+      await f.close();
     }
-    assert.equal((await fetch(`${f.origin}/api/exports/videos/${tokens[1]}`)).status, 200);
-    await fetch(`${f.origin}/api/entries/${entry.id}`, { method: 'DELETE' });
-    for (const token of tokens) {
-      assert.equal((await fetch(`${f.origin}/api/exports/${token}/validity`)).status, 404);
-      for (const name of ['1.png', 'images.zip', 'video.mp4', 'cover.jpg'])
-        assert.equal((await fetch(`${f.origin}/api/exports/files/${token}/${name}`)).status, 404);
-    }
-    assert.equal((await fetch(`${f.origin}/api/exports/videos/${tokens[1]}`)).status, 404);
-  } finally {
-    await cache.dispose();
-    await f.close();
-  }
-});
+  });
+}

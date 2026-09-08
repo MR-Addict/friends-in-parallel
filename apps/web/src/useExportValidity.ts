@@ -23,7 +23,7 @@ export function useExportValidity(
       clearTimeout(timer);
     };
   }, [url, expiresAt]);
-  return async () => {
+  const validate = async () => {
     if (!url || current.current !== url) return false;
     try {
       const token = url.split('/')[4];
@@ -40,5 +40,16 @@ export function useExportValidity(
       if (current.current === url) onError('暂时无法检查导出，请重试');
       return false;
     }
+  };
+  return {
+    validate,
+    shareValidity:
+      url && expiresAt
+        ? {
+            url: `/api/exports/${encodeURIComponent(url.split('/')[4])}/validity`,
+            expiresAt,
+            onExpired,
+          }
+        : undefined,
   };
 }

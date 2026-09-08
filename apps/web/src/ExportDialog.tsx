@@ -30,7 +30,7 @@ export function ExportDialog({ date, onClose }: { date: string; onClose: () => v
       alive.current = false;
     };
   }, []);
-  const validate = useExportValidity(
+  const { validate, shareValidity } = useExportValidity(
     result?.images[0],
     result?.expiresAt,
     (message) => {
@@ -225,10 +225,10 @@ export function ExportDialog({ date, onClose }: { date: string; onClose: () => v
               {result.images.length === 1 ? '下载图片' : '下载当前图片'}
             </a>
             <ShareButton
-              validate={validate}
+              validity={shareValidity}
               label={result.images.length === 1 ? '分享图片' : '分享当前图片'}
               resource={{
-                url: `${result.images[pageIndex]}?download=1`,
+                url: result.images[pageIndex],
                 filename: `和朋友的同一时间-${date}-手账-${String(pageIndex + 1).padStart(2, '0')}.png`,
                 mime: 'image/png',
               }}

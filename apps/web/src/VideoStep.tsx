@@ -117,7 +117,7 @@ export function VideoStep({ date, onBack }: { date: string; onBack: () => void }
       clearTimeout(timer);
     };
   }, [jobId, key]);
-  const validate = useExportValidity(
+  const { validate, shareValidity } = useExportValidity(
     job?.result?.videoUrl,
     job?.result?.expiresAt,
     (message) => {
@@ -374,11 +374,11 @@ export function VideoStep({ date, onBack }: { date: string; onBack: () => void }
         {job?.status === 'ready' && job.result ? (
           <>
             <ShareButton
-              validate={validate}
+              validity={shareValidity}
               label="分享视频"
               variant="primary"
               resource={{
-                url: `${job.result.videoUrl}?download=1`,
+                url: job.result.videoUrl,
                 filename: `和朋友的同一时间-${date}-回忆视频.mp4`,
                 mime: 'video/mp4',
               }}

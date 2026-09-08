@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useShareValidity, type ShareValidity } from './useShareValidity';
 import { LoaderCircle, Share2 } from 'lucide-react';
 import { localTime, mediaName, mediaSrc, personOf, type Entry } from './lib';
 
@@ -8,7 +9,7 @@ type Props = {
   resource?: Resource;
   text?: string;
   disabled?: boolean;
-  validate?: () => Promise<boolean>;
+  validity?: ShareValidity;
   variant?: 'primary' | 'secondary';
 };
 
@@ -65,97 +66,170 @@ function responseFilename(header: string | null, fallback: string) {
 
 // Remount the session whenever its content changes, dropping prepared file references.
 export function ShareButton(props: Props) {
-  return <ShareSession key={JSON.stringify([props.resource, props.text])} {...props} />;
+  return (
+    <ShareSession
+      key={JSON.stringify([
+        props.resource,
+        props.text,
+        props.validity?.url,
+        props.validity?.expiresAt,
+      ])}
+      {...props}
+    />
+  );
 }
 
-function ShareSession({ label, resource, text, disabled, validate, variant = 'secondary' }: Props) {
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
-  const file = useRef<File | undefined>(undefined);
-  const controller = useRef<AbortController | undefined>(undefined);
-  const locked = useRef(false);
-  const alive = useRef(true);
-  useEffect(() => {
-    alive.current = true;
-    return () => {
-      alive.current = false;
-      controller.current?.abort();
-      file.current = undefined;
-    };
-  }, []);
+function ShareSession({ label, resource, text, disabled, validity, variant = 'secondary' }: Props) {
   const [supported] = useState(() =>
     canShare(
       resource ? { files: [new File([], resource.filename, { type: resource.mime })] } : { text },
     ),
   );
-  if (!supported) return null;
+  const [status, setStatus] = useState<'preparing' | 'ready' | 'failed' | 'unsupported'>(
+    resource ? 'preparing' : 'ready',
+  );
+  const [attempt, setAttempt] = useState(0);
+  const [progress, setProgress] = useState<number>();
+  const [sharing, setSharing] = useState(false);
+  const [error, setError] = useState('');
+  const file = useRef<File | undefined>(undefined);
+  const locked = useRef(false);
+  const latestValidity = useRef(validity);
+  latestValidity.current = validity;
+  const alive = useRef(true);
+  const check = useShareValidity(validity, supported && status === 'ready' && !disabled);
 
-  async function share() {
-    if (locked.current || disabled) return;
-    locked.current = true;
-    setBusy(true);
-    setError('');
-    let opening = false;
-    let fetched = false;
-    try {
-      if (validate && !(await validate())) return;
-      if (!alive.current) return;
-      if (resource && !file.current) {
-        fetched = true;
-        controller.current = new AbortController();
-        const response = await fetch(resource.url, { signal: controller.current.signal });
-        if (!response.ok) throw new Error('文件读取失败，请重试；资源可能已过期');
-        const blob = await response.blob();
-        if (!alive.current) return;
-        // Reject an access-gate HTML response instead of sharing it as a resource.
-        if (!blob.size || blob.type.includes('text/html')) throw new Error('文件读取失败，请重试');
-        file.current = new File(
-          [blob],
-          responseFilename(response.headers.get('Content-Disposition'), resource.filename),
-          { type: resource.mime },
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+    };
+  }, []);
+  useEffect(() => {
+    if (!supported || !resource || disabled) return;
+    const controller = new AbortController();
+    const prepare = async () => {
+      setStatus('preparing');
+      setProgress(undefined);
+      try {
+        const response = await fetch(resource.url, { signal: controller.signal });
+        if (controller.signal.aborted) return;
+        if (response.status === 404 && latestValidity.current) {
+          latestValidity.current.onExpired('动态已更新或导出已过期，请重新生成');
+          return;
+        }
+        if (!response.ok) throw new Error('File read failed');
+        const total = Number(response.headers.get('Content-Length'));
+        const reliable =
+          Number.isSafeInteger(total) &&
+          total > 0 &&
+          (!response.headers.get('Content-Encoding') ||
+            response.headers.get('Content-Encoding') === 'identity');
+        let blob: Blob;
+        if (response.body && reliable) {
+          const reader = response.body.getReader();
+          const chunks: Uint8Array<ArrayBuffer>[] = [];
+          let loaded = 0;
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            chunks.push(value);
+            loaded += value.byteLength;
+            if (!controller.signal.aborted)
+              setProgress(Math.min(100, Math.floor((loaded / total) * 100)));
+          }
+          blob = new Blob(chunks, { type: response.headers.get('Content-Type') || '' });
+        } else blob = await response.blob();
+        if (controller.signal.aborted) return;
+        if (!blob.size || blob.type.includes('text/html')) throw new Error('Invalid file');
+        let filename = responseFilename(
+          response.headers.get('Content-Disposition'),
+          resource.filename,
         );
+        const exportedName = response.headers.get('X-Export-Filename');
+        if (exportedName) {
+          try {
+            filename = decodeURIComponent(exportedName);
+          } catch {
+            /* Use the supplied name. */
+          }
+        }
+        const prepared = new File([blob], filename, { type: resource.mime });
+        if (!canShare({ files: [prepared], ...(text ? { text } : {}) })) {
+          setStatus('unsupported');
+          return;
+        }
+        file.current = prepared;
+        setStatus('ready');
+      } catch {
+        if (!controller.signal.aborted) setStatus('failed');
       }
-      if (!alive.current) return;
-      if (!canShare(file.current ? { files: [file.current] } : { text })) {
-        file.current = undefined;
+    };
+    void prepare();
+    return () => {
+      controller.abort();
+      file.current = undefined;
+    };
+  }, [supported, resource?.url, resource?.filename, resource?.mime, text, disabled, attempt]);
 
-        setError('暂不支持分享');
-        return;
-      }
-
-      // Slow fetches can outlive the click's transient activation.
-      if (fetched && navigator.userActivation?.isActive !== true) return;
-      opening = true;
-      await navigator.share({
-        ...(file.current ? { files: [file.current] } : {}),
-        ...(text ? { text } : {}),
-      });
-      if (alive.current) {
-        file.current = undefined;
-      }
+  if (!supported) return null;
+  async function share() {
+    if (locked.current || disabled || status !== 'ready') return;
+    if (!check.isFresh()) {
+      check.recheck();
+      return;
+    }
+    const data = { ...(file.current ? { files: [file.current] } : {}), ...(text ? { text } : {}) };
+    if (resource && !file.current) return;
+    if (!canShare(data)) {
+      setStatus('unsupported');
+      return;
+    }
+    locked.current = true;
+    setSharing(true);
+    setError('');
+    try {
+      await navigator.share(data);
     } catch (e) {
-      if (!alive.current) return;
-      if (e instanceof DOMException && e.name === 'AbortError') return;
-      if (opening && e instanceof DOMException && e.name === 'NotAllowedError') {
-        setError('请再次点击分享');
-      } else setError(opening ? '分享失败，点击重试' : '读取失败，点击重试');
+      if (alive.current && !(e instanceof DOMException && e.name === 'AbortError'))
+        setError('分享失败，点击重试');
     } finally {
       locked.current = false;
-      if (alive.current) setBusy(false);
+      if (alive.current) setSharing(false);
     }
   }
+  const preparing = status === 'preparing';
+  const checking = status === 'ready' && check.state === 'checking';
+  const busy = preparing || checking || sharing;
+  const caption = preparing
+    ? `正在准备分享…${progress === undefined ? '' : ` ${progress}%`}`
+    : status === 'failed'
+      ? '准备失败，点击重试'
+      : status === 'unsupported'
+        ? '暂不支持分享'
+        : checking
+          ? '正在检查有效性…'
+          : check.state === 'failed'
+            ? '重新检查'
+            : sharing
+              ? '正在分享…'
+              : error || label;
   return (
     <div className="resource-share">
       <button
         type="button"
         className={`${variant} full`}
-        disabled={disabled || busy}
+        disabled={disabled || busy || status === 'unsupported'}
         aria-busy={busy}
         aria-live="polite"
-        onClick={share}
+        onClick={() => {
+          if (status === 'failed') setAttempt((n) => n + 1);
+          else if (check.state === 'failed') check.recheck();
+          else void share();
+        }}
       >
         {busy ? <LoaderCircle size={18} className="spin" /> : <Share2 size={18} />}
-        {busy ? '正在准备分享…' : error || label}
+        {caption}
       </button>
     </div>
   );

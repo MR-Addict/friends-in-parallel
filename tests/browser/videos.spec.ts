@@ -104,8 +104,6 @@ for (const width of [375, 430, 1100]) {
     await expect(page.getByRole('button', { name: '分享视频' })).toHaveClass(/primary/);
     await page.getByRole('button', { name: '分享视频' }).click();
     await expect(page.getByRole('button', { name: '分享视频' })).toBeEnabled();
-    if (!(await page.evaluate(() => (window as any).sharedVideo)))
-      await page.getByRole('button', { name: '分享视频' }).click();
     await expect
       .poll(() => page.evaluate(() => (window as any).sharedVideo))
       .toBe(`和朋友的同一时间-${date}-回忆视频.mp4`);
@@ -114,9 +112,8 @@ for (const width of [375, 430, 1100]) {
       const videoUrl = await video.getAttribute('src');
       await request.delete(`/api/entries/${latest[0].id}`);
       expect((await request.get(videoUrl!)).status()).toBe(404);
-      // An idle preview stays put until the next interaction checks its version.
-      await expect(video).toBeVisible();
-      await page.getByRole('button', { name: '分享视频' }).click();
+      // Returning to the page revalidates the prepared file immediately.
+      await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
       await expect(video).toHaveCount(0);
       await expect(page.getByRole('alert')).toContainText('重新生成');
       const saved = await page.evaluate(

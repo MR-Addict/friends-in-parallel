@@ -149,6 +149,8 @@ export async function createApp(
     res.once('close', release);
     if (req.params.name.endsWith('.zip') || req.query.download === '1')
       res.attachment(downloadName);
+    res.setHeader('Cache-Control', 'private, no-cache');
+    res.setHeader('X-Export-Filename', encodeURIComponent(downloadName));
     res.sendFile(filename);
   });
   app.use('/api', (_req, _res, next) => next(new HttpError(404, '接口不存在')));
@@ -175,6 +177,10 @@ export async function createApp(
         res.destroy();
         return;
       }
+      res.setHeader('Cache-Control', 'no-store');
+      res.removeHeader('X-Export-Filename');
+      res.removeHeader('ETag');
+      res.removeHeader('Last-Modified');
       if (error instanceof multer.MulterError) {
         res.status(400).json({
           error:
