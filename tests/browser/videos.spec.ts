@@ -50,19 +50,23 @@ for (const width of [375, 430, 1100]) {
     await page.getByRole('button', { name: /生成回忆视频/ }).click();
     await expect(page.locator('.video-style-option')).toHaveCount(12);
     await expect(page.getByRole('dialog')).not.toContainText(/Kevin MacLeod|CC BY|署名|许可/);
-    await expect(page.getByLabel('背景音乐', { exact: true }).locator('option')).toHaveCount(25);
+    await page.getByRole('combobox', { name: '背景音乐' }).click();
+    await expect(page.getByRole('option')).toHaveCount(25);
+    await page.getByRole('combobox', { name: '背景音乐' }).press('Escape');
     await expect(page.getByRole('button', { name: '开始生成视频' })).toBeInViewport();
     await page.screenshot({ path: `test-results/video-options-${width}.png` });
     await page.getByRole('button', { name: '试听背景音乐' }).click();
     await expect(page.getByRole('button', { name: '停止试听' })).toBeVisible();
-    await page.getByLabel('背景音乐', { exact: true }).selectOption('none');
+    await page.getByRole('combobox', { name: '背景音乐' }).click();
+    await page.getByRole('option', { name: '无音乐 · 安静回顾' }).click();
     await expect(page.getByRole('button', { name: '试听背景音乐' })).toBeDisabled();
     await page.getByRole('button', { name: /拍立得相册/ }).click();
-    await expect(page.getByLabel('背景音乐', { exact: true })).toHaveValue('daily-beetle');
-    await page.getByLabel('背景音乐', { exact: true }).selectOption('none');
+    await expect(page.getByLabel('背景音乐', { exact: true })).toContainText('Daily Beetle');
+    await page.getByRole('combobox', { name: '背景音乐' }).click();
+    await page.getByRole('option', { name: '无音乐 · 安静回顾' }).click();
     await page.getByRole('button', { name: '返回导出选项' }).click();
     await page.getByRole('button', { name: /生成回忆视频/ }).click();
-    await expect(page.getByLabel('背景音乐', { exact: true })).toHaveValue('none');
+    await expect(page.getByLabel('背景音乐', { exact: true })).toContainText('无音乐');
     await expect(page.getByRole('button', { name: /拍立得相册/ })).toHaveAttribute(
       'aria-pressed',
       'true',
@@ -124,7 +128,7 @@ for (const width of [375, 430, 1100]) {
     } else {
       await page.getByRole('button', { name: '修改样式与音乐' }).click();
     }
-    await expect(page.getByLabel('背景音乐', { exact: true })).toHaveValue('none');
+    await expect(page.getByLabel('背景音乐', { exact: true })).toContainText('无音乐');
   });
 }
 test('video errors and expired tasks preserve selections and permit regeneration', async ({
@@ -147,7 +151,7 @@ test('video errors and expired tasks preserve selections and permit regeneration
     'aria-pressed',
     'true',
   );
-  await expect(page.getByLabel('背景音乐', { exact: true })).toHaveValue('none');
+  await expect(page.getByLabel('背景音乐', { exact: true })).toContainText('无音乐');
   await page.route('**/api/exports/videos', (route) =>
     route.fulfill({ status: 429, json: { error: '另一份手账或视频正在生成，请稍后再试' } }),
   );

@@ -1,3 +1,4 @@
+import { Icon as IslandIcon, Button } from 'animal-island-ui';
 import { useEffect, useRef, useState } from 'react';
 import { ShareButton } from './ShareButton';
 import { ArrowLeft, Check, Copy } from 'lucide-react';
@@ -68,21 +69,26 @@ export function ArchiveStep({
   return (
     <>
       <div className="archive-step">
-        <button className="text-button" disabled={busy} onClick={onBack}>
-          <ArrowLeft size={16} />
+        <Button type="text" className="island-control text-button" disabled={busy} onClick={onBack}>
+          <IslandIcon icon={ArrowLeft} size={16} />
           返回导出选项
-        </button>
+        </Button>
         <div className="archive-prompt-box">
           <div className="archive-prompt-heading">
             <label htmlFor="archive-prompt">AI 提示词</label>
-            <button
-              className="icon-button"
+            <Button
+              type="text"
+              className="island-control icon-button"
               aria-label={copied ? '提示词已复制' : '复制提示词'}
               title={copied ? '提示词已复制' : '复制提示词'}
               onClick={copy}
             >
-              {copied ? <Check size={18} /> : <Copy size={18} />}
-            </button>
+              {copied ? (
+                <IslandIcon icon={Check} size={18} />
+              ) : (
+                <IslandIcon icon={Copy} size={18} />
+              )}
+            </Button>
           </div>
           <textarea
             id="archive-prompt"

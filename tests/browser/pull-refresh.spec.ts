@@ -9,7 +9,7 @@ test.beforeEach(async ({ context, page }) => {
   ]);
   await page.route('**/api/entries?*', (route) => route.fulfill({ json: [] }));
   await page.goto('/');
-  await expect(page.locator('.timeline-summary')).toContainText('0 个瞬间');
+  await expect(page.getByRole('heading', { name: '朋友们还没冒泡，先来一条？' })).toBeVisible();
 });
 
 async function gesture(
@@ -65,7 +65,7 @@ test('pull refreshes the selected date once, recovers after failure, and keeps t
   await expect(page.locator('.pull-refresh')).toBeEmpty();
   await page.route('**/api/entries?*', (route) => route.fulfill({ json: [] }));
   await gesture(page, 150);
-  await expect(page.locator('.timeline-summary')).toContainText('0 个瞬间');
+  await expect(page.getByRole('heading', { name: '朋友们还没冒泡，先来一条？' })).toBeVisible();
   await expect(page.getByLabel('选择日期')).toHaveAttribute('title', selectedDate!);
   expect(
     await page.evaluate(() => (window as Window & { refreshMarker?: boolean }).refreshMarker),
@@ -83,7 +83,7 @@ test('short, horizontal, upward, canceled, scrolled and dialog gestures do not r
   await gesture(page, 150, { dx: 200 });
   await gesture(page, -150);
   await gesture(page, 150, { cancel: true });
-  await gesture(page, 150, { dx: 200, target: '.people-filter button:first-child' });
+  await gesture(page, 150, { dx: 200, target: '.friend-filter-trigger' });
   await page.evaluate(() => {
     document.body.style.minHeight = '2000px';
     window.scrollTo(0, 200);
@@ -176,7 +176,7 @@ test('pulling a card image refreshes without opening it, while a tap still opens
 });
 
 test('the first small downward movement on a card button is canceled', async ({ page }) => {
-  const canceled = await page.locator('.people-filter button:first-child').evaluate((target) => {
+  const canceled = await page.locator('.friend-filter-trigger').evaluate((target) => {
     const emit = (type: string, y: number) => {
       const touch = new Touch({ identifier: 1, target, clientX: 100, clientY: y });
       const event = new TouchEvent(type, { bubbles: true, cancelable: true, touches: [touch] });

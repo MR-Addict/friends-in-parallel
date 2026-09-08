@@ -174,9 +174,6 @@ html.pull-refresh-enabled body {
   line-height: 1.6;
   color: var(--muted);
 }
-.people-panel {
-  padding: 0;
-}
 .timeline-heading {
   display: flex;
   align-items: baseline;
@@ -184,9 +181,6 @@ html.pull-refresh-enabled body {
   flex-wrap: wrap;
   gap: 4px 12px;
   margin: 12px 0;
-}
-.timeline-heading .timeline-summary {
-  margin-top: 0;
 }
 .primary,
 .secondary,
@@ -353,15 +347,6 @@ input[type='datetime-local'] {
   background: #eeeae5;
   color: var(--ink);
   font-weight: 600;
-}
-.timeline-summary {
-  color: var(--muted);
-  font-size: 12px;
-  margin-top: 8px;
-  display: flex;
-  justify-content: space-between;
-  gap: 8px;
-  flex-wrap: wrap;
 }
 .hour-heading {
   display: flex;
@@ -1077,61 +1062,6 @@ textarea {
   font-size: 13px;
   font-variant-numeric: tabular-nums;
   font-weight: 600;
-}
-.people-filter {
-  display: flex;
-  gap: 6px;
-  overflow-x: auto;
-  padding: 4px 0 6px;
-  scrollbar-width: thin;
-}
-.people-filter button {
-  display: flex;
-  align-items: center;
-  flex: 0 0 auto;
-  gap: 6px;
-  padding: 6px 10px;
-  font-size: 11px;
-  border-radius: 12px;
-  color: var(--muted);
-  white-space: nowrap;
-}
-.people-filter button.active {
-  background: #f7eee7;
-  color: var(--ink);
-  font-weight: 600;
-}
-.filter-avatar {
-  position: relative;
-  width: 26px;
-  height: 26px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-}
-.filter-avatar img {
-  width: 22px;
-  height: 22px;
-  object-fit: contain;
-}
-.filter-avatar .has-moments {
-  position: absolute;
-  bottom: 0;
-  right: 0;
-  width: 8px;
-  height: 8px;
-  background: #78906f;
-  border: 2px solid #faf9f6;
-  border-radius: 50%;
-}
-.all-friends {
-  background: #e8e2d9;
-  color: #776a5a;
-}
-.people-filter button.active .filter-avatar {
-  outline: 1px solid #a49482;
-  outline-offset: 3px;
 }
 .hour-heading > time {
   font-weight: 600;

@@ -82,7 +82,7 @@ try {
     '--env-file-if-exists=../../.env',
     '--watch',
     '--import',
-    require.resolve('tsx'),
+    pathToFileURL(require.resolve('tsx')).href,
     'src/index.ts',
   ]);
   start(web, [

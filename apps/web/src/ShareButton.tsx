@@ -1,3 +1,4 @@
+import { Icon as IslandIcon, Button } from 'animal-island-ui';
 import { useEffect, useRef, useState } from 'react';
 import { useShareValidity, type ShareValidity } from './useShareValidity';
 import { ArrowDownToLine, LoaderCircle, Share2 } from 'lucide-react';
@@ -223,9 +224,9 @@ function ShareSession({
           }}
         >
           {downloading ? (
-            <LoaderCircle size={18} className="spin" />
+            <IslandIcon icon={LoaderCircle} size={18} className="spin" />
           ) : (
-            <ArrowDownToLine size={18} />
+            <IslandIcon icon={ArrowDownToLine} size={18} />
           )}
           {downloading ? '正在准备下载…' : label.replace(/^分享/, '下载')}
         </a>
@@ -285,9 +286,10 @@ function ShareSession({
             : error || label;
   return (
     <div className="resource-share">
-      <button
-        type="button"
-        className={`${variant} full`}
+      <Button
+        type={variant === 'primary' ? 'primary' : 'default'}
+        htmlType="button"
+        className={'island-control ' + `${variant} full`}
         disabled={disabled || busy}
         aria-busy={busy}
         aria-live="polite"
@@ -297,9 +299,13 @@ function ShareSession({
           else void share();
         }}
       >
-        {busy ? <LoaderCircle size={18} className="spin" /> : <Share2 size={18} />}
+        {busy ? (
+          <IslandIcon icon={LoaderCircle} size={18} className="spin" />
+        ) : (
+          <IslandIcon icon={Share2} size={18} />
+        )}
         {caption}
-      </button>
+      </Button>
     </div>
   );
 }

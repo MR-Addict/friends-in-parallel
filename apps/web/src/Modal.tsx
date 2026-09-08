@@ -1,3 +1,4 @@
+import { Icon as IslandIcon, Button } from 'animal-island-ui';
 import { useEffect, useRef, type MutableRefObject, type ReactNode } from 'react';
 import { X } from 'lucide-react';
 export function Modal({
@@ -43,6 +44,7 @@ export function Modal({
       revealInput();
     };
     resize();
+    window.addEventListener('resize', resize);
     viewport?.addEventListener('resize', resize);
     viewport?.addEventListener('scroll', resize);
     const previous = document.body.style.overflow;
@@ -50,6 +52,7 @@ export function Modal({
     return () => {
       cancelAnimationFrame(frame);
       el.removeEventListener('focusin', revealInput);
+      window.removeEventListener('resize', resize);
       viewport?.removeEventListener('resize', resize);
       viewport?.removeEventListener('scroll', resize);
       el.close();
@@ -76,9 +79,15 @@ export function Modal({
       <div className="sheet-inner">
         <header className="sheet-heading">
           <h2>{title}</h2>
-          <button className="icon-button" aria-label="关闭" onClick={onClose} disabled={busy}>
-            <X size={21} />
-          </button>
+          <Button
+            type="text"
+            className="island-control icon-button"
+            aria-label="关闭"
+            onClick={onClose}
+            disabled={busy}
+          >
+            <IslandIcon icon={X} size={21} />
+          </Button>
         </header>
         <div className="sheet-content">{children}</div>
       </div>

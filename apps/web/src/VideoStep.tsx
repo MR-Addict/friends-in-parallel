@@ -1,3 +1,4 @@
+import { Icon as IslandIcon, Button, Progress, Select } from 'animal-island-ui';
 import { useExportValidity } from './useExportValidity';
 import { ShareButton } from './ShareButton';
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
@@ -189,28 +190,33 @@ export function VideoStep({ date, onBack }: { date: string; onBack: () => void }
   return (
     <>
       <div className="export-preview-scroll video-step">
-        <button
-          className="text-button"
+        <Button
+          type="text"
+          className="island-control text-button"
           onClick={() => {
             stop();
             onBack();
           }}
         >
-          <ArrowLeft size={16} />
+          <IslandIcon icon={ArrowLeft} size={16} />
           返回导出选项
-        </button>
+        </Button>
         <p className="video-intro">
           {date} · 全部朋友的完整回顾
           <span>竖屏 1080p · 长文字会分成续页 · 最多保留 24 小时，动态更新后失效</span>
         </p>
         {loading ? (
           <p role="status">
-            <LoaderCircle className="spin" size={18} /> 正在准备样式和音乐…
+            <IslandIcon icon={LoaderCircle} className="spin" size={18} /> 正在准备样式和音乐…
           </p>
         ) : !options ? (
-          <button className="text-button" onClick={() => setReload((n) => n + 1)}>
+          <Button
+            type="text"
+            className="island-control text-button"
+            onClick={() => setReload((n) => n + 1)}
+          >
             重新加载选项
-          </button>
+          </Button>
         ) : job?.status === 'ready' && job.result ? (
           <>
             <video
@@ -256,10 +262,15 @@ export function VideoStep({ date, onBack }: { date: string; onBack: () => void }
         ) : busy ? (
           <div className="video-progress" role="status" aria-live="polite">
             <div className="video-progress-icon">
-              <Film size={36} />
+              <IslandIcon icon={Film} size={36} />
             </div>
             <h3>{job?.phase || (submitting ? '正在提交生成任务' : '正在恢复生成进度')}</h3>
-            <progress max={100} value={job?.progress || 0} aria-label="视频生成进度" />
+            <Progress
+              percent={job?.progress || 0}
+              size="small"
+              showInfo={false}
+              aria-label="视频生成进度"
+            />
             <p>{job?.progress || 0}%</p>
             <p className="small-note">
               可以关闭窗口，稍后回来查看。
@@ -282,10 +293,14 @@ export function VideoStep({ date, onBack }: { date: string; onBack: () => void }
               <p className="small-note">片尾会自动随机搭配，每次新生成都有小惊喜。</p>
               <div className="video-style-grid">
                 {options.styles.map((option) => (
-                  <button
-                    type="button"
+                  <Button
+                    type="text"
+                    htmlType="button"
                     key={option.id}
-                    className={`video-style-option ${styleId === option.id ? 'selected' : ''}`}
+                    className={
+                      'island-control ' +
+                      `video-style-option ${styleId === option.id ? 'selected' : ''}`
+                    }
                     aria-pressed={styleId === option.id}
                     onClick={() => {
                       stop();
@@ -317,49 +332,55 @@ export function VideoStep({ date, onBack }: { date: string; onBack: () => void }
                         <b>今天的小小日常</b>
                         <em>14:30</em>
                       </div>
-                      {styleId === option.id && <Check size={18} className="thumb-check" />}
+                      {styleId === option.id && (
+                        <IslandIcon icon={Check} size={18} className="thumb-check" />
+                      )}
                     </div>
                     <strong>{option.name}</strong>
                     <small>{option.tag}</small>
-                  </button>
+                  </Button>
                 ))}
               </div>
             </fieldset>
             <fieldset className="video-fieldset">
               <legend>
-                <Music2 size={17} /> 背景音乐 <span>24 首 · 自由搭配</span>
+                <IslandIcon icon={Music2} size={17} /> 背景音乐 <span>24 首 · 自由搭配</span>
               </legend>
               <div className="video-music-row">
-                <select
-                  aria-label="背景音乐"
-                  value={musicId}
-                  onChange={(e) => {
-                    stop();
-                    setMusicId(e.target.value);
-                    setJob(undefined);
-                    setJobId('');
-                    preference(key, { jobId: '', styleId, musicId: e.target.value });
-                  }}
-                >
-                  <option value="none">无音乐 · 安静回顾</option>
-                  {options.music.map((music) => (
-                    <option key={music.id} value={music.id}>
-                      {music.title} · {music.tag}
-                      {music.id === style?.defaultMusicId || music.id === style?.secondMusicId
-                        ? ' · 推荐'
-                        : ''}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  className="video-listen"
+                <div className="island-music-select">
+                  <Select
+                    aria-label="背景音乐"
+                    value={musicId}
+                    onChange={(value) => {
+                      stop();
+                      setMusicId(value);
+                      setJob(undefined);
+                      setJobId('');
+                      preference(key, { jobId: '', styleId, musicId: value });
+                    }}
+                    options={[
+                      { key: 'none', label: '无音乐 · 安静回顾' },
+                      ...options.music.map((music) => ({
+                        key: music.id,
+                        label: `${music.title} · ${music.tag}${music.id === style?.defaultMusicId || music.id === style?.secondMusicId ? ' · 推荐' : ''}`,
+                      })),
+                    ]}
+                  />
+                </div>
+                <Button
+                  type="default"
+                  className="island-control video-listen"
                   disabled={!selected}
                   onClick={preview}
                   aria-label={playing ? '停止试听' : '试听背景音乐'}
                 >
-                  {playing ? <Square size={17} /> : <Play size={17} />}
+                  {playing ? (
+                    <IslandIcon icon={Square} size={17} />
+                  ) : (
+                    <IslandIcon icon={Play} size={17} />
+                  )}
                   {playing ? '停止' : '试听'}
-                </button>
+                </Button>
               </div>
             </fieldset>
           </>
@@ -384,24 +405,29 @@ export function VideoStep({ date, onBack }: { date: string; onBack: () => void }
                 mime: 'video/mp4',
               }}
             />
-            <button className="secondary full video-reconfigure" onClick={configure}>
-              <RefreshCw size={16} />
+            <Button
+              type="default"
+              className="island-control secondary full video-reconfigure"
+              onClick={configure}
+            >
+              <IslandIcon icon={RefreshCw} size={16} />
               修改样式与音乐
-            </button>
+            </Button>
           </>
         ) : busy ? (
-          <button className="text-button full" onClick={onBack}>
+          <Button type="text" className="island-control text-button full" onClick={onBack}>
             稍后回来查看
-          </button>
+          </Button>
         ) : (
-          <button
-            className="primary full"
+          <Button
+            type="primary"
+            className="island-control primary full"
             disabled={loading || !options?.available}
             onClick={generate}
           >
-            <Film size={18} />
+            <IslandIcon icon={Film} size={18} />
             {job?.status === 'failed' ? '重新生成视频' : '开始生成视频'}
-          </button>
+          </Button>
         )}
       </div>
     </>

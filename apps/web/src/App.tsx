@@ -1,3 +1,4 @@
+import { Icon as IslandIcon, Button } from 'animal-island-ui';
 import { useEffect, useRef, useState } from 'react';
 import { Plus, Check, LoaderCircle, Clapperboard, CalendarDays } from 'lucide-react';
 import { DateCalendar } from './DateCalendar';
@@ -7,11 +8,8 @@ import { ExportDialog } from './ExportDialog';
 import videoMusic from './config/video-music.json';
 import { Modal } from './Modal';
 import { usePullToRefresh } from './usePullToRefresh';
-import { api, today, dateOf, readPreference, preference, type Entry } from './lib';
+import { api, today, dateOf, type Entry } from './lib';
 export default function App() {
-  const [lastPersonId, setLastPersonId] = useState(() =>
-    readPreference('parallel.lastSubmittedPerson', readPreference('parallel.person', '')),
-  );
   const [date, setDate] = useState(today());
   const [calendarOpen, setCalendarOpen] = useState(false);
   const calendarTrigger = useRef<HTMLButtonElement>(null);
@@ -65,8 +63,6 @@ export default function App() {
   }, [focusId, entries, loading]);
   function saved(entry: Entry) {
     setExportOpen(false);
-    setLastPersonId(entry.personId);
-    preference('parallel.lastSubmittedPerson', entry.personId);
     setComposer(null);
     setDate(dateOf(entry.occurredAt));
     setFocusId(entry.id);
@@ -101,7 +97,7 @@ export default function App() {
         >
           {(pull.distance > 0 || pull.refreshing) && (
             <span>
-              {pull.refreshing && <LoaderCircle size={18} className="spin" />}
+              {pull.refreshing && <IslandIcon icon={LoaderCircle} size={18} className="spin" />}
               {pull.refreshing ? '正在刷新…' : pull.ready ? '松开刷新' : '下拉刷新'}
             </span>
           )}
@@ -127,7 +123,7 @@ export default function App() {
               onClick={() => setCalendarOpen(true)}
             >
               <span>
-                <CalendarDays size={16} />
+                <IslandIcon icon={CalendarDays} size={16} />
                 <strong>
                   {date === today()
                     ? '今天'
@@ -141,7 +137,6 @@ export default function App() {
           </div>
         </header>
         <Timeline
-          lastPersonId={lastPersonId}
           entries={entries}
           loading={loading}
           error={error}
@@ -155,28 +150,32 @@ export default function App() {
           focusId={focusId}
         />
         <footer className="app-footer">
-          <button onClick={() => setCredits(true)}>素材鸣谢</button>
+          <Button className="island-control" type="text" onClick={() => setCredits(true)}>
+            素材鸣谢
+          </Button>
         </footer>
       </main>
       <div className="floating-actions">
-        <button
-          className="floating-create"
+        <Button
+          type="primary"
+          className="island-control floating-create"
           aria-label={date === today() ? '冒个泡' : '补个泡'}
           onClick={() => setComposer({})}
         >
-          <Plus size={20} />
+          <IslandIcon icon={Plus} size={20} />
           {date === today() ? '冒个泡' : '补个泡'}
-        </button>
-        <button
-          className="export-trigger"
+        </Button>
+        <Button
+          type="primary"
+          className="island-control export-trigger"
           aria-label="制作回忆"
           title="手账长图 · 回忆视频 · 素材导出"
           onClick={() => setExportOpen(true)}
           disabled={!entries.length || loading || !!error}
         >
-          <Clapperboard size={18} />
+          <IslandIcon icon={Clapperboard} size={20} />
           <span>制作回忆</span>
-        </button>
+        </Button>
       </div>
       {calendarOpen && (
         <DateCalendar
@@ -212,22 +211,41 @@ export default function App() {
             </p>
           )}
           <div className="confirm-actions">
-            <button
-              className="secondary"
+            <Button
+              type="default"
+              className="island-control secondary"
               disabled={deleting}
               onClick={() => setDeleteEntry(undefined)}
             >
               再想想
-            </button>
-            <button className="danger-button" disabled={deleting} onClick={remove}>
-              {deleting ? <LoaderCircle size={17} className="spin" /> : '确认删除'}
-            </button>
+            </Button>
+            <Button
+              type="default"
+              danger
+              className="island-control danger-button"
+              disabled={deleting}
+              onClick={remove}
+            >
+              {deleting ? (
+                <IslandIcon icon={LoaderCircle} size={17} className="spin" />
+              ) : (
+                '确认删除'
+              )}
+            </Button>
           </div>
         </Modal>
       )}
       {credits && (
         <Modal title="让日常更可爱的朋友们" onClose={() => setCredits(false)}>
           <div className="credits">
+            <p>界面组件：animal-island-ui · guokaigdg</p>
+            <a
+              href="https://github.com/guokaigdg/animal-island-ui"
+              target="_blank"
+              rel="noreferrer"
+            >
+              CC BY-NC 4.0 许可 · 非商业使用
+            </a>
             <p>和朋友的同一时间 © {today().slice(0, 4)}</p>
             <p>谢谢这些让日常更可爱的小伙伴！以下开源图片未经修改。</p>
             <a href="https://github.com/microsoft/fluentui-emoji" target="_blank" rel="noreferrer">
@@ -263,7 +281,7 @@ export default function App() {
       )}
       {toast && (
         <div className="toast" role="status">
-          <Check size={17} />
+          <IslandIcon icon={Check} size={17} />
           {toast}
         </div>
       )}

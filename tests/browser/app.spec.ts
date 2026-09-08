@@ -17,6 +17,35 @@ test.beforeEach(async ({ context }) => {
   ]);
 });
 const time = '2026-08-29T09:30';
+test('Mobile create action stays reachable without safe-area values', async ({ page }) => {
+  // Simulate a WebView that parses env() but does not expose the safe-area variable.
+  await page.route('**/*.css', async (route) => {
+    const response = await route.fetch();
+    await route.fulfill({
+      response,
+      body: (await response.text()).replaceAll('safe-area-inset-bottom', 'unavailable-safe-area'),
+    });
+  });
+  await page.goto('/');
+  const initialDate = (await page.getByLabel('选择日期').getAttribute('title'))!;
+  const button = page.locator('.floating-create');
+  for (const width of [320, 375, 430]) {
+    await page.setViewportSize({ width, height: 740 });
+    await selectDate(page, '2026-08-30');
+    await expect(button).toHaveAccessibleName('补个泡');
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await expect(button).toBeInViewport({ ratio: 1 });
+    await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+    await expect(button).toBeInViewport({ ratio: 1 });
+    await button.click();
+    await expect(page.getByRole('dialog', { name: '谁来冒个泡？' })).toBeVisible();
+    await page.getByRole('button', { name: '关闭', exact: true }).click();
+    await selectDate(page, initialDate);
+    await expect(button).toHaveAccessibleName('冒个泡');
+    await expect(button).toBeInViewport({ ratio: 1 });
+  }
+});
+
 test('Mobile two-step publishing, preserving form, all packs, edit/delete and exports', async ({
   page,
   request,
@@ -297,6 +326,7 @@ test('Photo upload retains input after a failed request; posting resets a differ
   await page.unroute('**/api/entries');
   await page.getByRole('button', { name: '发布' }).click();
   await expect(page.getByText('照片上传测试')).toBeVisible();
+  await page.getByRole('button', { name: /^筛选朋友：/ }).click();
   await page.getByRole('button', { name: '水水', exact: true }).click();
   await page.locator('.floating-create').click();
   await expect(page.getByLabel('发生的时间')).toHaveValue(/2026-08-27T/);
@@ -310,11 +340,12 @@ test('Photo upload retains input after a failed request; posting resets a differ
   await page.getByLabel('发生的时间').fill('2026-08-27T10:31');
   await page.getByRole('button', { name: '发布' }).click();
   await expect(page.getByText('新朋友的表情')).toBeVisible();
+  await expect(page.getByRole('button', { name: '筛选朋友：全部朋友' })).toBeVisible();
+  await page.getByRole('button', { name: /^筛选朋友：/ }).click();
   const filters = page.getByRole('group', { name: '按人物筛选' }).getByRole('button');
-  await expect(filters.nth(0)).toHaveText('全部朋友');
-  await expect(filters.nth(1)).toHaveText(testNickname);
+  await expect(filters).toHaveText(['全部朋友', ...people.map((p) => p.nickname)]);
+  await page.getByRole('button', { name: '关闭', exact: true }).click();
   await page.reload();
-  await expect(filters.nth(1)).toHaveText(testNickname);
   await selectDate(page, '2026-08-27');
   await expect(page.getByText('照片上传测试')).toBeVisible();
   await page.screenshot({ path: 'test-results/timeline-430.png', fullPage: true });
@@ -434,8 +465,9 @@ test('Home shows newest hours and entries first, regardless of person configurat
     [ids[3], ids[1], ids[0], ids[2]].map((id) => `entry-${id}`),
   );
   await expect(page.getByText('2 位朋友的此刻')).toBeVisible();
+  await page.getByRole('button', { name: /^筛选朋友：/ }).click();
   await page.getByRole('button', { name: '水水', exact: true }).click();
-  await expect(page.locator('.timeline-summary')).toContainText('水水 · 2 个瞬间');
+  await expect(page.getByRole('button', { name: '筛选朋友：水水' })).toBeVisible();
   expect(await page.locator('.moment-card').evaluateAll((nodes) => nodes.map((n) => n.id))).toEqual(
     [ids[0], ids[2]].map((id) => `entry-${id}`),
   );
@@ -643,7 +675,7 @@ test('Calendar trigger restores focus without reopening and header stays aligned
   await page.screenshot({ path: 'test-results/header-updated.png' });
 });
 
-test('Friend filters restore the submitted person and ignore invalid saved identities', async ({
+test('Compact friend filter uses default order, closes on selection and restores focus', async ({
   page,
 }) => {
   await page.goto('/');
@@ -652,17 +684,42 @@ test('Friend filters restore the submitted person and ignore invalid saved ident
     localStorage.setItem('parallel.person', JSON.stringify('jia-quan'));
   });
   await page.reload();
-  const filters = page.getByRole('group', { name: '按人物筛选' }).getByRole('button');
-  await expect(filters).toHaveText([
-    '全部朋友',
-    testNickname,
-    ...people.filter((p) => p.id !== 'lu-yuhan').map((p) => p.nickname),
-  ]);
-  await filters.nth(1).click();
-  await expect(filters.nth(1)).toHaveAttribute('aria-pressed', 'true');
-  await page.evaluate(() =>
-    localStorage.setItem('parallel.lastSubmittedPerson', JSON.stringify('removed-person')),
-  );
-  await page.reload();
-  await expect(filters).toHaveText(['全部朋友', ...people.map((p) => p.nickname)]);
+  const trigger = page.getByRole('button', { name: /^筛选朋友：/ });
+  await expect(trigger).toHaveAccessibleName('筛选朋友：全部朋友');
+  await expect(page.locator('.people-panel, .timeline-summary')).toHaveCount(0);
+  for (const width of [320, 375, 1502]) {
+    await page.setViewportSize({ width, height: 812 });
+    await trigger.click();
+    const dialog = page.getByRole('dialog', { name: '选择朋友' });
+    const filters = dialog.getByRole('button', { pressed: true });
+    await expect(filters).toHaveText('全部朋友');
+    await expect(dialog.getByRole('group').getByRole('button')).toHaveText([
+      '全部朋友',
+      ...people.map((p) => p.nickname),
+    ]);
+    await dialog.getByRole('button', { name: '水水', exact: true }).click();
+    await expect(dialog).toHaveCount(0);
+    await expect(trigger).toHaveAccessibleName('筛选朋友：水水');
+    await expect(trigger).toBeFocused();
+    const layout = await page.locator('.timeline-heading').evaluate((row) => {
+      const title = row.querySelector('h2')!.getBoundingClientRect();
+      const button = row.querySelector('button')!.getBoundingClientRect();
+      return (
+        title.right < button.left &&
+        button.right <= innerWidth &&
+        Math.abs(title.y + title.height / 2 - button.y - button.height / 2) < 1
+      );
+    });
+    expect(layout).toBe(true);
+    await trigger.press('Enter');
+    await expect(dialog.getByRole('button', { name: '水水', exact: true })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    await page.keyboard.press('Escape');
+    await expect(trigger).toBeFocused();
+    await trigger.click();
+    await dialog.getByRole('button', { name: '全部朋友', exact: true }).click();
+    await page.screenshot({ path: `test-results/compact-filter-${width}.png`, fullPage: true });
+  }
 });

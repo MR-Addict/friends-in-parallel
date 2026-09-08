@@ -1,5 +1,7 @@
+import { Icon as IslandIcon, Button, Card, Input, Title } from 'animal-island-ui';
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { ArrowRight, KeyRound } from 'lucide-react';
+import { IslandScene } from './IslandScene';
 
 import { accessCode } from './config/app.json';
 const cookieName = 'parallel_access';
@@ -56,9 +58,16 @@ export function AccessGate({ children }: { children: ReactNode }) {
       <a className="brand" href="/">
         和朋友的同一时间
       </a>
-      <section className="access-card">
+      <div className="access-welcome">
+        <Title size="small" color="app-yellow">
+          欢迎来到我们的日常小岛
+        </Title>
+        <IslandScene />
+        <p>收集每一个「想分享给你」的瞬间。</p>
+      </div>
+      <Card className="access-card">
         <span className="access-symbol">
-          <KeyRound size={28} />
+          <IslandIcon icon={KeyRound} size={28} />
         </span>
         <p className="access-eyebrow">朋友们的平行生活手账</p>
         <h1>对个暗号，再一起翻开。</h1>
@@ -68,9 +77,9 @@ export function AccessGate({ children }: { children: ReactNode }) {
             <label className="field-label" htmlFor="access-code">
               访问暗号
             </label>
-            <input
+            <Input
               id="access-code"
-              className="access-input"
+              className="island-access-input"
               type="text"
               autoComplete="off"
               autoCapitalize="none"
@@ -90,9 +99,9 @@ export function AccessGate({ children }: { children: ReactNode }) {
                 {error}
               </p>
             )}
-            <button className="primary full" type="submit">
-              翻开手账 <ArrowRight size={18} />
-            </button>
+            <Button type="primary" className="primary full island-action" htmlType="submit">
+              翻开手账 <IslandIcon icon={ArrowRight} size={18} />
+            </Button>
             <p id="access-help" className="access-help">
               这台设备会记住你 7 天。
             </p>
@@ -102,7 +111,7 @@ export function AccessGate({ children }: { children: ReactNode }) {
             访问暗号尚未设置，请联系手账的主人。
           </p>
         )}
-      </section>
+      </Card>
     </main>
   );
 }

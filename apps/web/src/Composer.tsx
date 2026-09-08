@@ -1,3 +1,4 @@
+import { Input, Icon as IslandIcon, Button } from 'animal-island-ui';
 import { useEffect, useRef, useState } from 'react';
 import {
   ArrowLeft,
@@ -220,48 +221,57 @@ function ComposerEditor({
     >
       {pickerOpen ? (
         <div className="picker-page">
-          <button className="text-button" onClick={() => setPickerOpen(false)}>
-            <ArrowLeft size={16} />
+          <Button
+            type="text"
+            className="island-control text-button"
+            onClick={() => setPickerOpen(false)}
+          >
+            <IslandIcon icon={ArrowLeft} size={16} />
             返回编辑
-          </button>{' '}
+          </Button>{' '}
           <div className="sticker-picker">
             <div className="pack-tabs">
               {packs.map((p) => (
-                <button
-                  type="button"
+                <Button
+                  type="text"
+                  htmlType="button"
                   key={p.id}
-                  className={pack === p.id ? 'active' : ''}
+                  className={'island-control ' + (pack === p.id ? 'active' : '')}
                   onClick={() => setPack(p.id)}
                 >
                   {p.name}
-                </button>
+                </Button>
               ))}
             </div>
             <div className="category-tabs">
               {['全部', '最近', '心情', '吃喝', '工作学习', '休息玩乐'].map((c) => (
-                <button
-                  type="button"
-                  className={category === c ? 'active' : ''}
+                <Button
+                  type="text"
+                  htmlType="button"
+                  className={'island-control ' + (category === c ? 'active' : '')}
                   key={c}
                   onClick={() => setCategory(c)}
                 >
                   {c}
-                </button>
+                </Button>
               ))}
             </div>
             <div className="sticker-grid">
               {filtered.map((s) => (
-                <button
-                  type="button"
+                <Button
+                  type="text"
+                  htmlType="button"
                   key={s.id}
-                  className={stickerId === s.id ? 'selected' : ''}
+                  className={'island-control ' + (stickerId === s.id ? 'selected' : '')}
                   aria-pressed={stickerId === s.id}
                   onClick={() => choose(s)}
                 >
                   <img src={s.file} alt="" loading="lazy" />
                   <span>{s.name}</span>
-                  {stickerId === s.id && <Check className="sticker-check" size={14} />}
-                </button>
+                  {stickerId === s.id && (
+                    <IslandIcon icon={Check} className="sticker-check" size={14} />
+                  )}
+                </Button>
               ))}
               {!filtered.length && (
                 <p className="picker-empty">
@@ -278,10 +288,13 @@ function ComposerEditor({
               <p className="muted person-intro">选好后，下次会直接为你打开编辑页。</p>
               <div className="person-list" role="group" aria-label="选择人物">
                 {people.map((p) => (
-                  <button
+                  <Button
+                    type="text"
                     key={p.id}
                     aria-pressed={personId === p.id}
-                    className={`person-choice ${personId === p.id ? 'selected' : ''}`}
+                    className={
+                      'island-control ' + `person-choice ${personId === p.id ? 'selected' : ''}`
+                    }
                     style={
                       {
                         '--person-color': p.color,
@@ -294,29 +307,33 @@ function ComposerEditor({
                       <img src={`/stickers/fluent/${p.avatar}.png`} alt="" />
                     </span>
                     <span>{p.nickname}</span>
-                    <span className="choice-check">{personId === p.id && <Check size={16} />}</span>
-                  </button>
+                    <span className="choice-check">
+                      {personId === p.id && <IslandIcon icon={Check} size={16} />}
+                    </span>
+                  </Button>
                 ))}
               </div>
               <div className="composer-footer">
-                <button
-                  className="primary full"
+                <Button
+                  type="primary"
+                  className="island-control primary full"
                   disabled={!personId}
                   onClick={() => {
                     preference('parallel.person', personId);
                     setStep(2);
                   }}
                 >
-                  下一步 <ArrowRight size={18} />
-                </button>
+                  下一步 <IslandIcon icon={ArrowRight} size={18} />
+                </Button>
               </div>
             </div>
           ) : (
             <form onSubmit={submit}>
               <div className="editor-fields">
-                <button
-                  type="button"
-                  className="back-person"
+                <Button
+                  type="text"
+                  htmlType="button"
+                  className="island-control back-person"
                   disabled={busy}
                   onClick={() => setStep(1)}
                 >
@@ -331,14 +348,14 @@ function ComposerEditor({
                     <strong>{personOf(personId).nickname}</strong>
                   </span>
                   <span className="change-person">
-                    换一位朋友 <ChevronRight size={15} />
+                    换一位朋友 <IslandIcon icon={ChevronRight} size={15} />
                   </span>
-                </button>
+                </Button>
                 <fieldset disabled={busy} className="editor-sections" aria-label="动态内容">
                   <section className="editor-section">
                     <div className="editor-section-heading">
                       <span className="editor-section-icon">
-                        <ImagePlus size={18} />
+                        <IslandIcon icon={ImagePlus} size={18} />
                       </span>
                       <div>
                         <h3>今天在干嘛？</h3>
@@ -353,19 +370,20 @@ function ComposerEditor({
                           { id: 'sticker', label: '表情', Icon: Smile },
                         ] as const
                       ).map(({ id, label, Icon }) => (
-                        <button
+                        <Button
+                          type="text"
                           key={id}
-                          type="button"
-                          className={type === id ? 'active' : ''}
+                          htmlType="button"
+                          className={'island-control ' + (type === id ? 'active' : '')}
                           aria-pressed={type === id}
                           onClick={() => {
                             setType(id);
                             setError('');
                           }}
                         >
-                          <Icon size={17} />
+                          <IslandIcon icon={Icon} size={17} />
                           {label}
-                        </button>
+                        </Button>
                       ))}
                     </div>
                     {type === 'photo' ? (
@@ -398,13 +416,13 @@ function ComposerEditor({
                               </span>
                             )}
                             <span className="replace-photo">
-                              <Camera size={16} /> 换一张照片
+                              <IslandIcon icon={Camera} size={16} /> 换一张照片
                             </span>
                           </>
                         ) : (
                           <>
                             <span className="upload-icon">
-                              <ImagePlus size={28} />
+                              <IslandIcon icon={ImagePlus} size={28} />
                             </span>
                             <strong>放张照片，让朋友瞅瞅</strong>
                             <small>支持 iPhone 照片 · 最大 20 MB · 上传后自动优化</small>
@@ -417,9 +435,10 @@ function ComposerEditor({
                         )}
                       </label>
                     ) : (
-                      <button
-                        type="button"
-                        className="selected-media"
+                      <Button
+                        type="text"
+                        htmlType="button"
+                        className="island-control selected-media"
                         aria-label={stickerId ? '更换表情' : '选择表情'}
                         onClick={() => setPickerOpen(true)}
                       >
@@ -429,16 +448,16 @@ function ComposerEditor({
                             alt={stickers.find((s) => s.id === stickerId)?.name}
                           />
                         ) : (
-                          <Smile size={32} />
+                          <IslandIcon icon={Smile} size={32} />
                         )}
                         <span>{stickerId ? '更换表情' : '选择表情'}</span>
-                      </button>
+                      </Button>
                     )}
                   </section>
                   <section className="editor-section">
                     <div className="editor-section-heading">
                       <span className="editor-section-icon">
-                        <MessageSquare size={18} />
+                        <IslandIcon icon={MessageSquare} size={18} />
                       </span>
                       <div>
                         <h3>
@@ -463,7 +482,7 @@ function ComposerEditor({
                   <section className="editor-section">
                     <div className="editor-section-heading">
                       <span className="editor-section-icon">
-                        <Clock size={18} />
+                        <IslandIcon icon={Clock} size={18} />
                       </span>
                       <div>
                         <h3>
@@ -473,7 +492,8 @@ function ComposerEditor({
                       </div>
                     </div>
                     <div className="time-input">
-                      <input
+                      <Input
+                        className="island-date-input"
                         required
                         type="datetime-local"
                         id="moment-time"
@@ -481,9 +501,14 @@ function ComposerEditor({
                         value={time}
                         onChange={(e) => setTime(e.target.value)}
                       />
-                      <button type="button" onClick={() => setTime(localTime())}>
+                      <Button
+                        className="island-control"
+                        type="text"
+                        htmlType="button"
+                        onClick={() => setTime(localTime())}
+                      >
                         现在
-                      </button>
+                      </Button>
                     </div>
                   </section>
                 </fieldset>
@@ -498,8 +523,10 @@ function ComposerEditor({
                   <div className="draft-note">
                     <span role="status">{undo ? '草稿已清空 · 10 秒内可撤销' : draftStatus}</span>
                     {undo ? (
-                      <button
-                        type="button"
+                      <Button
+                        className="island-control"
+                        type="text"
+                        htmlType="button"
                         disabled={busy}
                         onClick={() => {
                           const previous = undo.draft;
@@ -514,10 +541,12 @@ function ComposerEditor({
                         }}
                       >
                         撤销清空
-                      </button>
+                      </Button>
                     ) : (
-                      <button
-                        type="button"
+                      <Button
+                        className="island-control"
+                        type="text"
+                        htmlType="button"
                         disabled={busy || (!description && !stickerId && !file)}
                         onClick={() => {
                           const clearedTime = `${date}T${localTime().slice(11)}`;
@@ -534,23 +563,28 @@ function ComposerEditor({
                         }}
                       >
                         清空草稿
-                      </button>
+                      </Button>
                     )}
                   </div>
                 )}
-                <button className="primary full" disabled={busy || !ready} type="submit">
+                <Button
+                  type="primary"
+                  className="island-control primary full"
+                  disabled={busy || !ready}
+                  htmlType="submit"
+                >
                   {busy ? (
                     <>
-                      <LoaderCircle className="spin" size={18} />
+                      <IslandIcon icon={LoaderCircle} className="spin" size={18} />
                       {progress < 100 ? `正在上传 ${progress}%` : '正在优化并保存…'}
                     </>
                   ) : (
                     <>
                       {entry ? '保存修改' : '发布'}
-                      <ArrowRight size={18} />
+                      <IslandIcon icon={ArrowRight} size={18} />
                     </>
                   )}
-                </button>
+                </Button>
               </div>
             </form>
           )}

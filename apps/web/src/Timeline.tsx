@@ -1,11 +1,21 @@
+import { Icon as IslandIcon, Button } from 'animal-island-ui';
 import { ShareButton, entryShare } from './ShareButton';
 import { Photo } from './Photo';
-import { useEffect, useState } from 'react';
-import { Pencil, Trash2, Clock, MoreHorizontal, LoaderCircle, Users } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import {
+  Pencil,
+  Trash2,
+  Clock,
+  MoreHorizontal,
+  LoaderCircle,
+  Users,
+  ChevronDown,
+  Check,
+} from 'lucide-react';
 import { people, personOf, timeOf, mediaSrc, mediaName, today, type Entry } from './lib';
 import { Modal } from './Modal';
+import { Masonry } from './Masonry';
 export function Timeline({
-  lastPersonId,
   entries,
   loading,
   error,
@@ -15,7 +25,6 @@ export function Timeline({
   focusId,
   date,
 }: {
-  lastPersonId: string;
   entries: Entry[];
   loading: boolean;
   error: string;
@@ -25,16 +34,18 @@ export function Timeline({
   focusId: string;
   date: string;
 }) {
+  const [filterOpen, setFilterOpen] = useState(false);
+  const filterTrigger = useRef<HTMLButtonElement>(null);
+  function closeFilter() {
+    setFilterOpen(false);
+    requestAnimationFrame(() => filterTrigger.current?.focus({ preventScroll: true }));
+  }
   const [filter, setFilter] = useState('all'),
     [zoom, setZoom] = useState<Entry>(),
     [actions, setActions] = useState<Entry>();
   useEffect(() => {
     if (focusId) setFilter('all');
   }, [focusId]);
-  const sortedPeople = [
-    ...people.filter((p) => p.id === lastPersonId),
-    ...people.filter((p) => p.id !== lastPersonId),
-  ];
   const visible = entries
     .filter((e) => filter === 'all' || e.personId === filter)
     .sort(
@@ -46,67 +57,86 @@ export function Timeline({
   const hours = [...new Set(visible.map((e) => timeOf(e.occurredAt).slice(0, 2)))].sort().reverse();
   return (
     <section className="timeline-view" aria-labelledby="moments-heading">
-      <section className="people-panel" aria-label="朋友筛选">
-        <div className="people-filter" role="group" aria-label="按人物筛选">
-          <button
-            aria-pressed={filter === 'all'}
-            className={filter === 'all' ? 'active' : ''}
-            onClick={() => setFilter('all')}
-          >
-            <span className="filter-avatar all-friends">
-              <Users size={21} />
-            </span>
-            全部朋友
-          </button>
-          {sortedPeople.map((p) => (
-            <button
-              key={p.id}
-              aria-pressed={filter === p.id}
-              className={filter === p.id ? 'active' : ''}
-              onClick={() => setFilter(p.id)}
-            >
-              <span className="filter-avatar" style={{ background: p.background }}>
-                <img src={`/stickers/fluent/${p.avatar}.png`} alt="" />
-                <i className={entries.some((e) => e.personId === p.id) ? 'has-moments' : ''} />
-              </span>
-              {p.nickname}
-            </button>
-          ))}
-        </div>
-      </section>
       <div className="timeline-heading">
-        <div className="section-heading">
-          <h2 id="moments-heading">{date === today() ? '今天的瞬间' : '这一天的瞬间'}</h2>
-        </div>
-        <div className="timeline-summary" role="status">
-          <span>
-            {loading
-              ? '翻开手账中…'
-              : error
-                ? '暂时没有加载成功'
-                : filter === 'all'
-                  ? `${new Set(entries.map((e) => e.personId)).size} 位朋友 · ${entries.length} 个瞬间`
-                  : `${personOf(filter).nickname} · ${visible.length} 个瞬间`}
+        <h2 id="moments-heading">{date === today() ? '今天的瞬间' : '这一天的瞬间'}</h2>
+        <Button
+          type="text"
+          className="island-control friend-filter-trigger"
+          aria-label={`筛选朋友：${filter === 'all' ? '全部朋友' : personOf(filter).nickname}`}
+          aria-haspopup="dialog"
+          aria-expanded={filterOpen}
+          onClick={(event) => {
+            filterTrigger.current = event.currentTarget;
+            setFilterOpen(true);
+          }}
+        >
+          <span
+            className="filter-avatar"
+            style={filter === 'all' ? undefined : { background: personOf(filter).background }}
+          >
+            {filter === 'all' ? (
+              <IslandIcon icon={Users} size={18} />
+            ) : (
+              <img src={`/stickers/fluent/${personOf(filter).avatar}.png`} alt="" />
+            )}
           </span>
-          {!loading && !error && filter !== 'all' && <span>当天共 {entries.length} 个瞬间</span>}
-        </div>
+          <span className="friend-filter-label">
+            {filter === 'all' ? '全部朋友' : personOf(filter).nickname}
+          </span>
+          <IslandIcon icon={ChevronDown} size={15} />
+        </Button>
       </div>
+      {filterOpen && (
+        <Modal title="选择朋友" onClose={closeFilter}>
+          <div className="friend-filter-options" role="group" aria-label="按人物筛选">
+            {[{ id: 'all', nickname: '全部朋友', avatar: '', background: '' }, ...people].map(
+              (person) => (
+                <Button
+                  key={person.id}
+                  type="text"
+                  className={`island-control friend-filter-option ${filter === person.id ? 'selected' : ''}`}
+                  aria-pressed={filter === person.id}
+                  onClick={() => {
+                    setFilter(person.id);
+                    closeFilter();
+                  }}
+                >
+                  <span
+                    className="avatar"
+                    style={{ background: person.background || 'var(--animal-primary-color-bg)' }}
+                  >
+                    {person.id === 'all' ? (
+                      <IslandIcon icon={Users} size={21} />
+                    ) : (
+                      <img src={`/stickers/fluent/${person.avatar}.png`} alt="" />
+                    )}
+                  </span>
+                  <span>{person.nickname}</span>
+                  <span className="friend-filter-check" aria-hidden="true">
+                    {filter === person.id && <IslandIcon icon={Check} size={18} />}
+                  </span>
+                </Button>
+              ),
+            )}
+          </div>
+        </Modal>
+      )}
       {error ? (
         <div className="empty-state">
           <p role="alert">{error}</p>
-          <button className="secondary" onClick={onRefresh}>
+          <Button type="default" className="island-control secondary" onClick={onRefresh}>
             再试一次
-          </button>
+          </Button>
         </div>
       ) : loading ? (
-        <div className="empty-state">
-          <LoaderCircle size={28} className="spin" />
+        <div className="empty-state" role="status">
+          <IslandIcon icon={LoaderCircle} size={28} className="spin" />
           <p>正在翻到这一天…</p>
         </div>
       ) : !visible.length ? (
         <div className="empty-state">
           <span className="empty-illustration">
-            <Users size={32} />
+            <IslandIcon icon={Users} size={32} />
           </span>
           <h2>
             {filter === 'all'
@@ -145,7 +175,7 @@ export function Timeline({
                     </div>
                   )}
                 </div>
-                <div className="hour-entries">
+                <Masonry>
                   {hourEntries.map((entry) => {
                     const p = personOf(entry.personId);
                     return (
@@ -161,23 +191,28 @@ export function Timeline({
                           <div>
                             <strong>{p.nickname}</strong>
                             <time>
-                              <Clock size={11} />
+                              <IslandIcon icon={Clock} size={11} />
                               {timeOf(entry.occurredAt)}
                             </time>
                           </div>
-                          <button
-                            className="icon-button card-actions"
+                          <Button
+                            type="text"
+                            className="island-control icon-button card-actions"
                             aria-label={`更多操作：${p.nickname} ${timeOf(entry.occurredAt)}`}
                             onClick={() => setActions(entry)}
                           >
-                            <MoreHorizontal size={20} />
-                          </button>
+                            <IslandIcon icon={MoreHorizontal} size={20} />
+                          </Button>
                         </header>
                         <div
                           className={`moment-body ${entry.media.type === 'photo' ? 'photo-body' : 'expression-body'}`}
                         >
-                          <button
-                            className={`moment-media ${entry.media.type === 'photo' ? 'photo' : 'sticker'}`}
+                          <Button
+                            type="text"
+                            className={
+                              'island-control ' +
+                              `moment-media ${entry.media.type === 'photo' ? 'photo' : 'sticker'}`
+                            }
                             aria-label={`查看${mediaName(entry.media)}`}
                             onClick={() => setZoom(entry)}
                           >
@@ -186,7 +221,7 @@ export function Timeline({
                               alt={mediaName(entry.media)}
                               loading="lazy"
                             />
-                          </button>
+                          </Button>
                           {entry.description && (
                             <p className="moment-description">{entry.description}</p>
                           )}
@@ -194,7 +229,7 @@ export function Timeline({
                       </article>
                     );
                   })}
-                </div>
+                </Masonry>
               </section>
             );
           })}
@@ -204,28 +239,31 @@ export function Timeline({
         <Modal title="动态操作" onClose={() => setActions(undefined)}>
           <div className="entry-options">
             {mediaSrc(actions.media) && <ShareButton label="分享图片" {...entryShare(actions)} />}
-            <button
-              className="secondary full"
+            <Button
+              type="default"
+              className="island-control secondary full"
               aria-label={`编辑${personOf(actions.personId).nickname}的动态`}
               onClick={() => {
                 onEdit(actions);
                 setActions(undefined);
               }}
             >
-              <Pencil size={18} />
+              <IslandIcon icon={Pencil} size={18} />
               编辑动态
-            </button>
-            <button
-              className="danger-button full"
+            </Button>
+            <Button
+              type="default"
+              danger
+              className="island-control danger-button full"
               aria-label={`删除${personOf(actions.personId).nickname}的动态`}
               onClick={() => {
                 onDelete(actions);
                 setActions(undefined);
               }}
             >
-              <Trash2 size={18} />
+              <IslandIcon icon={Trash2} size={18} />
               删除动态
-            </button>
+            </Button>
           </div>
         </Modal>
       )}
