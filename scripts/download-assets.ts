@@ -54,7 +54,7 @@ async function save(url: string, rel: string) {
   const r = await get(url);
   await writeFile(dest, Buffer.from(await r.arrayBuffer()));
 }
-const manifestPath = path.join(root, 'apps/web/src/config/asset-sources.json');
+const manifestPath = path.join(root, 'packages/config/src/asset-sources.json');
 let versions: Record<string, string>;
 try {
   versions = JSON.parse(await readFile(manifestPath, 'utf8'));
@@ -145,7 +145,7 @@ await save(
   'fonts/NotoSansCJKsc-Regular.otf',
 );
 await writeFile(
-  path.join(root, 'apps/web/src/config/stickers.json'),
+  path.join(root, 'packages/config/src/stickers.json'),
   JSON.stringify({ packs, stickers }, null, 2) + '\n',
 );
 await writeFile(

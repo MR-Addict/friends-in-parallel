@@ -1,27 +1,5 @@
-export interface VideoStyle {
-  id: string;
-  name: string;
-  tag: string;
-  background: string;
-  accent: string;
-  ink: string;
-  paper: string;
-  transition: string;
-  defaultMusicId: string;
-  secondMusicId: string;
-}
-export interface VideoMusic {
-  id: string;
-  title: string;
-  tag: string;
-  artist: string;
-  isrc: string;
-  duration: number;
-  source: string;
-  license: string;
-  licenseUrl: string;
-  previewUrl: string;
-}
+import type { VideoStyle, VideoMusic } from '@parallel/config';
+export type { VideoStyle, VideoMusic } from '@parallel/config';
 export interface VideoExportOptions {
   styles: VideoStyle[];
   music: VideoMusic[];

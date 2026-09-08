@@ -5,7 +5,7 @@ import { ensureMusic } from './download-music.js';
 await ensureMusic();
 
 // The frontend must finish before the backend copies its static output.
-for (const workspace of ['@parallel/web', '@parallel/server']) {
+for (const workspace of ['@parallel/config', '@parallel/web', '@parallel/server']) {
   const result = spawnSync('pnpm', ['--filter', workspace, 'run', 'build'], {
     cwd: fileURLToPath(new URL('../', import.meta.url)),
     stdio: 'inherit',

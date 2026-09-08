@@ -9,7 +9,7 @@ const digest = (bytes: Buffer) => createHash('sha256').update(bytes).digest('hex
 // The committed manifest is authoritative: normal builds never update checksums.
 export async function ensureMusic(root = projectRoot, download = fetch) {
   const tracks = JSON.parse(
-    await readFile(new URL('apps/web/src/config/video-music.json', root), 'utf8'),
+    await readFile(new URL('packages/config/src/video-music.json', root), 'utf8'),
   ) as { title: string; file: string; download: string; sha256: string }[];
   for (const track of tracks) {
     if (!/^[a-f0-9]{64}$/.test(track.sha256))

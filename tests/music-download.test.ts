@@ -18,8 +18,8 @@ async function fixture(t: { after: (fn: () => Promise<void>) => void }) {
     download: 'https://example.test/music.mp3',
     sha256: createHash('sha256').update(bytes).digest('hex'),
   };
-  const manifest = new URL('apps/web/src/config/video-music.json', root);
-  await mkdir(new URL('apps/web/src/config/', root), { recursive: true });
+  const manifest = new URL('packages/config/src/video-music.json', root);
+  await mkdir(new URL('packages/config/src/', root), { recursive: true });
   const original = JSON.stringify([track], null, 2) + '\n';
   await writeFile(manifest, original);
   return {

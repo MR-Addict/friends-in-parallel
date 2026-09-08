@@ -1,5 +1,5 @@
 import { selectDate } from './calendar';
-import people from '../../apps/web/src/config/people.json' with { type: 'json' };
+import { people } from '@parallel/config';
 const testNickname = people.find((person) => person.id === 'lu-yuhan')!.nickname;
 import { test, expect } from '@playwright/test';
 // Feature tests start with an existing access cookie; access.spec.ts covers the gate itself.

@@ -1,5 +1,5 @@
 import { selectDate } from './calendar';
-import people from '../../apps/web/src/config/people.json' with { type: 'json' };
+import { people } from '@parallel/config';
 import { test, expect } from '@playwright/test';
 
 test.beforeEach(async ({ context }) => {

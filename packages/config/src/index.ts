@@ -1,0 +1,10 @@
+export * from './types.js';
+export { people } from './people.js';
+export { videoStyles } from './video-styles.js';
+export { appConfig } from './app.js';
+import stickerData from './stickers.json' with { type: 'json' };
+import musicData from './video-music.json' with { type: 'json' };
+import type { Sticker, Pack, MusicAsset } from './types.js';
+export const stickers: Sticker[] = stickerData.stickers;
+export const packs: Pack[] = stickerData.packs;
+export const videoMusic: MusicAsset[] = musicData;

@@ -1,9 +1,6 @@
-import peopleConfig from './config/people.json';
-import stickerConfig from './config/stickers.json';
-export const people = peopleConfig;
-export const { stickers, packs } = stickerConfig;
-export type Person = (typeof people)[number];
-export type Sticker = (typeof stickers)[number];
+import { people, stickers } from '@parallel/config';
+export { people, stickers, packs } from '@parallel/config';
+export type { Person, Sticker } from '@parallel/config';
 export type Media =
   | { type: 'photo'; filename: string; mime: string }
   | { type: 'emoji'; emoji: string }

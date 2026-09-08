@@ -1,26 +1,4 @@
-export interface Person {
-  id: string;
-  nickname: string;
-  color: string;
-  background: string;
-  avatar: string;
-}
-export interface Sticker {
-  id: string;
-  packId: string;
-  name: string;
-  category: string;
-  emoji: string;
-  file: string;
-}
-export interface Pack {
-  id: string;
-  name: string;
-  brand: string;
-  license: string;
-  source: string;
-  ext: string;
-}
+export type { Person, Sticker, Pack } from '@parallel/config';
 export type Media =
   | { type: 'photo'; filename: string; mime: string }
   | { type: 'emoji'; emoji: string }

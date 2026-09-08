@@ -118,7 +118,7 @@ IMAGE=friends-in-parallel:local docker compose up -d --pull never
 
 ## 访问暗号
 
-页面使用一个共享暗号作为轻量前端入口，以普通文本输入。暗号直接配置在 `apps/web/src/config/app.json` 的 `accessCode` 字段中，默认是「我们五个要一直在一起」。修改配置后重新构建即可，Docker 构建也会自动包含该配置，无需环境变量或 GitHub secret。未设置暗号时，页面保持锁定并提示联系主人。
+页面使用一个共享暗号作为轻量前端入口，以普通文本输入。暗号直接配置在 `packages/config/src/app.ts` 的 `accessCode` 字段中，默认是「我们五个要一直在一起」。修改配置后重新构建即可，Docker 构建也会自动包含该配置，无需环境变量或 GitHub secret。未设置暗号时，页面保持锁定并提示联系主人。
 
 输入正确暗号后，浏览器写入 `parallel_access` Cookie，有效期从验证成功起固定为 7 天，刷新不会续期。到期后重新输入；已打开的页面也会检查到期状态。Cookie 使用 `Path=/`、`SameSite=Lax`，HTTPS 下附带 `Secure`。清除此 Cookie 可提前退出。
 
@@ -215,15 +215,15 @@ HTML 预览位于 PushPlus 消息详情页，微信会话中的通知卡片展�
 
 ### 人物
 
-编辑 `apps/web/src/config/people.json`：
+编辑 `packages/config/src/people.ts` 中的对应人物：
 
-```json
+```ts
 {
-  "id": "lu-yuhan",
-  "nickname": "陆语涵",
-  "color": "#e5a36c",
-  "background": "#fff0db",
-  "avatar": "1f431"
+  id: 'lu-yuhan',
+  nickname: '陆语涵',
+  color: '#e5a36c',
+  background: '#fff0db',
+  avatar: '1f431',
 }
 ```
 
@@ -231,7 +231,7 @@ HTML 预览位于 PushPlus 消息详情页，微信会话中的通知卡片展�
 
 ### 贴纸
 
-`apps/web/src/config/stickers.json` 管理套餐和 72 张精选贴纸，文件位于 `apps/web/public/stickers`。包含中文名称、分类、Emoji 和许可来源。浏览器记住最近使用的贴纸及上次选择的人物。
+`packages/config/src/stickers.json` 管理套餐和 72 张精选贴纸，文件位于 `apps/web/public/stickers`。包含中文名称、分类、Emoji 和许可来源。浏览器记住最近使用的贴纸及上次选择的人物。
 
 三套素材均随仓库保存，开发、生产运行和导出不需要请求外部素材站：
 
@@ -269,22 +269,22 @@ JSON 通过进程内串行写入和临时文件原子替换保存；构建不会
 
 成功返回 JSON；删除成功为 204；失败为 `{ "error": "中文提示" }`。
 
-| 方法   | 路径                                   | 用途                                                                          |
-| ------ | -------------------------------------- | ----------------------------------------------------------------------------- |
-| GET    | `/api/entry-dates?month=YYYY-MM`       | 查询指定月份每天的记录数量（仅返回有记录的日期）                              |
-| GET    | `/api/entries?date=YYYY-MM-DD`         | 按北京时间查询一天                                                            |
-| POST   | `/api/entries`                         | 发布                                                                          |
-| PATCH  | `/api/entries/:id`                     | 编辑                                                                          |
-| DELETE | `/api/entries/:id`                     | 删除及清理照片                                                                |
-| POST   | `/api/exports/images`                  | `{ "date": "YYYY-MM-DD" }` → `images`, `expiresAt`              |
-| POST | `/api/exports/posts` | `{ "date": "YYYY-MM-DD", "entryId": "..." }` → `images`（一张完整动态 PNG）、`expiresAt` |
-| GET    | `/api/exports/archive?date=YYYY-MM-DD` | 素材 ZIP；加 `check=1` 仅校验素材                                             |
-| GET    | `/api/exports/:token/validity`         | 导出有效性：有效返回 204，版本变化或过期返回 404                              |
-| GET    | `/api/exports/files/:token/:name`      | 最多 24 小时的导出文件，动态更新后失效；`download=1` 强制下载，MP4 支持 Range |
-| GET    | `/api/exports/video-options`           | 12 种样式、24 首音乐、默认样式及视频组件可用状态                              |
-| POST   | `/api/exports/videos`                  | `{date, styleId, musicId}`；`none` 为无音乐，200 命中成品或 202 返回任务      |
-| GET    | `/api/exports/videos/:jobId`           | `status`、`phase`、`progress`，完成后附 `result`，失败附 `error`              |
-| GET    | `/api/exports/music/:musicId`          | 本地配乐试听，支持 Range                                                      |
+| 方法   | 路径                                   | 用途                                                                                     |
+| ------ | -------------------------------------- | ---------------------------------------------------------------------------------------- |
+| GET    | `/api/entry-dates?month=YYYY-MM`       | 查询指定月份每天的记录数量（仅返回有记录的日期）                                         |
+| GET    | `/api/entries?date=YYYY-MM-DD`         | 按北京时间查询一天                                                                       |
+| POST   | `/api/entries`                         | 发布                                                                                     |
+| PATCH  | `/api/entries/:id`                     | 编辑                                                                                     |
+| DELETE | `/api/entries/:id`                     | 删除及清理照片                                                                           |
+| POST   | `/api/exports/images`                  | `{ "date": "YYYY-MM-DD" }` → `images`, `expiresAt`                                       |
+| POST   | `/api/exports/posts`                   | `{ "date": "YYYY-MM-DD", "entryId": "..." }` → `images`（一张完整动态 PNG）、`expiresAt` |
+| GET    | `/api/exports/archive?date=YYYY-MM-DD` | 素材 ZIP；加 `check=1` 仅校验素材                                                        |
+| GET    | `/api/exports/:token/validity`         | 导出有效性：有效返回 204，版本变化或过期返回 404                                         |
+| GET    | `/api/exports/files/:token/:name`      | 最多 24 小时的导出文件，动态更新后失效；`download=1` 强制下载，MP4 支持 Range            |
+| GET    | `/api/exports/video-options`           | 12 种样式、24 首音乐、默认样式及视频组件可用状态                                         |
+| POST   | `/api/exports/videos`                  | `{date, styleId, musicId}`；`none` 为无音乐，200 命中成品或 202 返回任务                 |
+| GET    | `/api/exports/videos/:jobId`           | `status`、`phase`、`progress`，完成后附 `result`，失败附 `error`                         |
+| GET    | `/api/exports/music/:musicId`          | 本地配乐试听，支持 Range                                                                 |
 
 发布 / 编辑字段：`personId`、`description`、带时区的 ISO `occurredAt`、`mediaType`。照片使用 multipart 的 `photo` 文件；编辑保留照片时传原 `filename`，后端只允许引用该动态原有照片。Emoji 使用 `emoji`，贴纸使用 `stickerId`。无文件时也可以提交 JSON。
 
@@ -358,3 +358,5 @@ DATA_DIR="$PWD/data/video-demo-2026-09-07" pnpm dev
 首页「制作回忆」入口可将所选日期的动态生成手账长图、回忆视频，或下载素材 ZIP。单张图片预览和视频结果支持系统分享，按资源类型检测 `navigator.canShare`。有图片的动态操作菜单保留「分享图片」入口；ZIP 不提供分享入口，仍可下载。视频结果使用「分享视频」主按钮和「修改样式与音乐」次按钮，不再提供视频下载按钮；不支持文件分享的浏览器会隐藏分享按钮。
 
 分享文件在点击后才读取。准备完成后按钮恢复原文案，再次点击即可打开系统分享面板。失败提示直接替换按钮文案，不增加额外提示行。关闭页面内弹窗或切换资源会取消准备并释放暂存文件；取消系统分享不显示错误。导出预览不持续轮询，在恢复任务、翻页、下载、播放或分享时检查有效性；即使文件已准备好，再次分享前仍会验证。确认过期后隐藏预览并清除任务 ID，保留视频样式和配乐选择；网络错误允许重试。24 小时到期也会自动隐藏预览。
+
+Shared configuration lives in `packages/config` (`@parallel/config`). Both apps import its typed exports. Edit people, app settings and video styles in TypeScript; generated sticker data and pinned asset manifests remain JSON with typed package exports. `pnpm dev` and unit tests resolve package source via the development condition; `pnpm build` compiles the package before the apps, and production uses its JavaScript output.

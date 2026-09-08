@@ -5,7 +5,7 @@ import { DateCalendar } from './DateCalendar';
 import { Composer } from './Composer';
 import { Timeline } from './Timeline';
 import { ExportDialog } from './ExportDialog';
-import videoMusic from './config/video-music.json';
+import { videoMusic } from '@parallel/config';
 import { Modal } from './Modal';
 import { usePullToRefresh } from './usePullToRefresh';
 import { api, today, dateOf, type Entry } from './lib';
