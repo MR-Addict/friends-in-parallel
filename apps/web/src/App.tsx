@@ -6,6 +6,7 @@ import { Timeline } from './Timeline';
 import { ExportDialog } from './ExportDialog';
 import videoMusic from './config/video-music.json';
 import { Modal } from './Modal';
+import { usePullToRefresh } from './usePullToRefresh';
 import { api, today, dateOf, readPreference, preference, type Entry } from './lib';
 export default function App() {
   const [lastPersonId, setLastPersonId] = useState(() =>
@@ -22,6 +23,7 @@ export default function App() {
   const [loading, setLoading] = useState(false),
     [error, setError] = useState(''),
     [revision, setRevision] = useState(0);
+  const pull = usePullToRefresh(loading, () => setRevision((n) => n + 1));
   const [composer, setComposer] = useState<{ entry?: Entry } | null>(null),
     [exportOpen, setExportOpen] = useState(false),
     [deleteEntry, setDeleteEntry] = useState<Entry>(),
@@ -89,7 +91,21 @@ export default function App() {
   }
   return (
     <>
-      <main className="app-shell">
+      <main className="app-shell" ref={pull.surface}>
+        <div
+          className={`pull-refresh ${pull.distance ? 'pulling' : ''}`}
+          style={{ height: pull.refreshing ? 56 : pull.distance }}
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+        >
+          {(pull.distance > 0 || pull.refreshing) && (
+            <span>
+              {pull.refreshing && <LoaderCircle size={18} className="spin" />}
+              {pull.refreshing ? '正在刷新…' : pull.ready ? '松开刷新' : '下拉刷新'}
+            </span>
+          )}
+        </div>
         <header className="brand-header">
           <div className="brand-copy">
             <h1>

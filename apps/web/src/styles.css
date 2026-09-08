@@ -69,6 +69,35 @@ p {
 button {
   min-height: 44px;
 }
+html.pull-refresh-enabled,
+html.pull-refresh-enabled body {
+  overscroll-behavior-y: none;
+}
+.pull-refresh {
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 13px;
+  transition: height 180ms ease;
+}
+.pull-refresh.pulling {
+  transition: none;
+}
+.pull-refresh > span {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+@media (prefers-reduced-motion: reduce) {
+  .pull-refresh {
+    transition: none;
+  }
+  .pull-refresh .spin {
+    animation: none;
+  }
+}
 .app-shell {
   max-width: 540px;
   min-height: 100dvh;
