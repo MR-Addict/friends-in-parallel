@@ -1,3 +1,4 @@
+import { Icon as IslandIcon, Button } from 'animal-island-ui';
 import { ShareButton } from './ShareButton';
 import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, ArrowDownToLine, Check, Copy, LoaderCircle } from 'lucide-react';
@@ -69,21 +70,26 @@ export function ArchiveStep({
   return (
     <>
       <div className="archive-step">
-        <button className="text-button" disabled={busy} onClick={onBack}>
-          <ArrowLeft size={16} />
+        <Button type="text" className="text-button island-action" disabled={busy} onClick={onBack}>
+          <IslandIcon icon={ArrowLeft} size={16} />
           返回导出选项
-        </button>
+        </Button>
         <div className="archive-prompt-box">
           <div className="archive-prompt-heading">
             <label htmlFor="archive-prompt">AI 提示词</label>
-            <button
-              className="icon-button"
+            <Button
+              type="text"
+              className="icon-button island-action"
               aria-label={copied ? '提示词已复制' : '复制提示词'}
               title={copied ? '提示词已复制' : '复制提示词'}
               onClick={copy}
             >
-              {copied ? <Check size={18} /> : <Copy size={18} />}
-            </button>
+              {copied ? (
+                <IslandIcon icon={Check} size={18} />
+              ) : (
+                <IslandIcon icon={Copy} size={18} />
+              )}
+            </Button>
           </div>
           <textarea
             id="archive-prompt"
@@ -100,10 +106,20 @@ export function ArchiveStep({
         )}
       </div>
       <div className="export-download-bar">
-        <button className="primary full" disabled={busy} aria-busy={busy} onClick={onDownload}>
-          {busy ? <LoaderCircle size={18} className="spin" /> : <ArrowDownToLine size={18} />}
+        <Button
+          type="primary"
+          className="primary full island-action"
+          disabled={busy}
+          aria-busy={busy}
+          onClick={onDownload}
+        >
+          {busy ? (
+            <IslandIcon icon={LoaderCircle} size={18} className="spin" />
+          ) : (
+            <IslandIcon icon={ArrowDownToLine} size={18} />
+          )}
           {busy ? '正在准备压缩包…' : '下载压缩包'}
-        </button>
+        </Button>
         <ShareButton
           label="分享压缩包"
           disabled={busy}

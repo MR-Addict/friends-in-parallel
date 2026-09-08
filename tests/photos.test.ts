@@ -5,7 +5,7 @@ import { readFile } from 'node:fs/promises';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { createRequire } from 'node:module';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { optimizePhoto } from '../apps/server/src/photos.js';
 
 test('Sharp compression errors preserve the original bytes and MIME', async (t) => {
@@ -63,7 +63,7 @@ test('Watch-mode worker reports do not crash uploads or hide conversion failures
     process.execPath,
     [
       '--import',
-      createRequire(import.meta.url).resolve('tsx'),
+      pathToFileURL(createRequire(import.meta.url).resolve('tsx')).href,
       '--input-type=module',
       '-e',
       `

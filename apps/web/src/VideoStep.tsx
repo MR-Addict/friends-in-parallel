@@ -1,3 +1,4 @@
+import { Icon as IslandIcon, Button } from 'animal-island-ui';
 import { ShareButton } from './ShareButton';
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import {
@@ -187,27 +188,32 @@ export function VideoStep({ date, onBack }: { date: string; onBack: () => void }
   return (
     <>
       <div className="export-preview-scroll video-step">
-        <button
-          className="text-button"
+        <Button
+          type="text"
+          className="text-button island-action"
           onClick={() => {
             stop();
             onBack();
           }}
         >
-          <ArrowLeft size={16} />
+          <IslandIcon icon={ArrowLeft} size={16} />
           返回导出选项
-        </button>
+        </Button>
         <p className="video-intro">
           {date} · 全部朋友的完整回顾<span>竖屏 1080p · 长文字会分成续页 · 生成后保留 24 小时</span>
         </p>
         {loading ? (
           <p role="status">
-            <LoaderCircle className="spin" size={18} /> 正在准备样式和音乐…
+            <IslandIcon icon={LoaderCircle} className="spin" size={18} /> 正在准备样式和音乐…
           </p>
         ) : !options ? (
-          <button className="text-button" onClick={() => setReload((n) => n + 1)}>
+          <Button
+            type="text"
+            className="text-button island-action"
+            onClick={() => setReload((n) => n + 1)}
+          >
             重新加载选项
-          </button>
+          </Button>
         ) : job?.status === 'ready' && job.result ? (
           <>
             <video
@@ -240,7 +246,7 @@ export function VideoStep({ date, onBack }: { date: string; onBack: () => void }
         ) : busy ? (
           <div className="video-progress" role="status" aria-live="polite">
             <div className="video-progress-icon">
-              <Film size={36} />
+              <IslandIcon icon={Film} size={36} />
             </div>
             <h3>{job?.phase || (submitting ? '正在提交生成任务' : '正在恢复生成进度')}</h3>
             <progress max={100} value={job?.progress || 0} aria-label="视频生成进度" />
@@ -300,7 +306,9 @@ export function VideoStep({ date, onBack }: { date: string; onBack: () => void }
                         <b>今天的小小日常</b>
                         <em>14:30</em>
                       </div>
-                      {styleId === option.id && <Check size={18} className="thumb-check" />}
+                      {styleId === option.id && (
+                        <IslandIcon icon={Check} size={18} className="thumb-check" />
+                      )}
                     </div>
                     <strong>{option.name}</strong>
                     <small>{option.tag}</small>
@@ -310,7 +318,7 @@ export function VideoStep({ date, onBack }: { date: string; onBack: () => void }
             </fieldset>
             <fieldset className="video-fieldset">
               <legend>
-                <Music2 size={17} /> 背景音乐 <span>24 首 · 自由搭配</span>
+                <IslandIcon icon={Music2} size={17} /> 背景音乐 <span>24 首 · 自由搭配</span>
               </legend>
               <div className="video-music-row">
                 <select
@@ -340,7 +348,11 @@ export function VideoStep({ date, onBack }: { date: string; onBack: () => void }
                   onClick={preview}
                   aria-label={playing ? '停止试听' : '试听背景音乐'}
                 >
-                  {playing ? <Square size={17} /> : <Play size={17} />}
+                  {playing ? (
+                    <IslandIcon icon={Square} size={17} />
+                  ) : (
+                    <IslandIcon icon={Play} size={17} />
+                  )}
                   {playing ? '停止' : '试听'}
                 </button>
               </div>
@@ -373,7 +385,7 @@ export function VideoStep({ date, onBack }: { date: string; onBack: () => void }
           <>
             {!expired && (
               <a className="primary full" href={`${job.result.videoUrl}?download=1`} download>
-                <ArrowDownToLine size={18} />
+                <IslandIcon icon={ArrowDownToLine} size={18} />
                 下载视频
               </a>
             )}
@@ -388,23 +400,24 @@ export function VideoStep({ date, onBack }: { date: string; onBack: () => void }
               />
             )}
             <button className={expired ? 'primary full' : 'text-button full'} onClick={configure}>
-              <RefreshCw size={16} />
+              <IslandIcon icon={RefreshCw} size={16} />
               {expired ? '重新生成视频' : '修改样式与音乐'}
             </button>
           </>
         ) : busy ? (
-          <button className="text-button full" onClick={onBack}>
+          <Button type="text" className="text-button full island-action" onClick={onBack}>
             稍后回来查看
-          </button>
+          </Button>
         ) : (
-          <button
-            className="primary full"
+          <Button
+            type="primary"
+            className="primary full island-action"
             disabled={loading || !options?.available}
             onClick={generate}
           >
-            <Film size={18} />
+            <IslandIcon icon={Film} size={18} />
             {job?.status === 'failed' ? '重新生成视频' : '开始生成视频'}
-          </button>
+          </Button>
         )}
       </div>
     </>

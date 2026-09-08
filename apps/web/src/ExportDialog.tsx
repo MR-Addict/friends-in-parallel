@@ -1,3 +1,4 @@
+import { Icon as IslandIcon, Button } from 'animal-island-ui';
 import { ShareButton } from './ShareButton';
 import { useRef, useState } from 'react';
 import {
@@ -87,16 +88,16 @@ export function ExportDialog({ date, onClose }: { date: string; onClose: () => v
           <div className="export-options">
             <button disabled={!!busy} aria-busy={busy === 'images'} onClick={images}>
               <span className="export-icon peach">
-                <Image size={25} />
+                <IslandIcon icon={Image} size={25} />
               </span>
               <div>
                 <strong>生成手账长图</strong>
                 <small>把大家的瞬间放在一起 · 保存与分享</small>
               </div>
               {busy === 'images' ? (
-                <LoaderCircle size={20} className="spin" />
+                <IslandIcon icon={LoaderCircle} size={20} className="spin" />
               ) : (
-                <ArrowDownToLine size={20} />
+                <IslandIcon icon={ArrowDownToLine} size={20} />
               )}
             </button>
             <button
@@ -107,13 +108,13 @@ export function ExportDialog({ date, onClose }: { date: string; onClose: () => v
               }}
             >
               <span className="export-icon">
-                <Film size={25} />
+                <IslandIcon icon={Film} size={25} />
               </span>
               <div>
                 <strong>生成回忆视频</strong>
                 <small>12 种画面风格 · 24 首配乐 · 收藏完整的一天</small>
               </div>
-              <ArrowDownToLine size={20} />
+              <IslandIcon icon={ArrowDownToLine} size={20} />
             </button>
             <button
               className="export-materials-option"
@@ -124,16 +125,16 @@ export function ExportDialog({ date, onClose }: { date: string; onClose: () => v
               }}
             >
               <span className="export-icon sage">
-                <FolderArchive size={25} />
+                <IslandIcon icon={FolderArchive} size={25} />
               </span>
               <div>
                 <strong>下载素材 ZIP</strong>
                 <small>下一步：复制 AI 提示词，再下载素材</small>
               </div>
               {busy === 'archive' ? (
-                <LoaderCircle size={20} className="spin" />
+                <IslandIcon icon={LoaderCircle} size={20} className="spin" />
               ) : (
-                <ArrowDownToLine size={20} />
+                <IslandIcon icon={ArrowDownToLine} size={20} />
               )}
             </button>
           </div>
@@ -142,10 +143,14 @@ export function ExportDialog({ date, onClose }: { date: string; onClose: () => v
       ) : (
         <>
           <div className="export-preview-scroll" ref={previewRef}>
-            <button className="text-button" onClick={() => setResult(undefined)}>
-              <ArrowLeft size={16} />
+            <Button
+              type="text"
+              className="text-button island-action"
+              onClick={() => setResult(undefined)}
+            >
+              <IslandIcon icon={ArrowLeft} size={16} />
               返回导出选项
-            </button>
+            </Button>
             <div className="export-previews">
               <img
                 key={result.images[pageIndex]}
@@ -157,8 +162,9 @@ export function ExportDialog({ date, onClose }: { date: string; onClose: () => v
           <div className="export-download-bar">
             {result.images.length > 1 && (
               <nav className="export-pagination" aria-label="导出图片翻页">
-                <button
-                  className="icon-button"
+                <Button
+                  type="text"
+                  className="icon-button island-action"
                   aria-label="上一张图片"
                   disabled={pageIndex === 0}
                   onClick={() => {
@@ -166,13 +172,14 @@ export function ExportDialog({ date, onClose }: { date: string; onClose: () => v
                     previewRef.current?.scrollTo(0, 0);
                   }}
                 >
-                  <ChevronLeft size={20} />
-                </button>
+                  <IslandIcon icon={ChevronLeft} size={20} />
+                </Button>
                 <span role="status">
                   第 {pageIndex + 1} / {result.images.length} 张
                 </span>
-                <button
-                  className="icon-button"
+                <Button
+                  type="text"
+                  className="icon-button island-action"
                   aria-label="下一张图片"
                   disabled={pageIndex === result.images.length - 1}
                   onClick={() => {
@@ -180,12 +187,12 @@ export function ExportDialog({ date, onClose }: { date: string; onClose: () => v
                     previewRef.current?.scrollTo(0, 0);
                   }}
                 >
-                  <ChevronRight size={20} />
-                </button>
+                  <IslandIcon icon={ChevronRight} size={20} />
+                </Button>
               </nav>
             )}
             <a className="primary full" href={`${result.images[pageIndex]}?download=1`} download>
-              <ArrowDownToLine size={18} />
+              <IslandIcon icon={ArrowDownToLine} size={18} />
               {result.images.length === 1 ? '下载图片' : '下载当前图片'}
             </a>
             <ShareButton
@@ -208,7 +215,7 @@ export function ExportDialog({ date, onClose }: { date: string; onClose: () => v
             )}
             {result.images.length > 1 && (
               <a href={result.archiveUrl} className="text-button full" download>
-                <FolderArchive size={16} />
+                <IslandIcon icon={FolderArchive} size={16} />
                 下载图片合集
               </a>
             )}

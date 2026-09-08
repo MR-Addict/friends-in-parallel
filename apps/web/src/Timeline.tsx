@@ -1,3 +1,4 @@
+import { Icon as IslandIcon, Button } from 'animal-island-ui';
 import { ShareButton, entryShare } from './ShareButton';
 import { Photo } from './Photo';
 import { useEffect, useState } from 'react';
@@ -52,7 +53,7 @@ export function Timeline({
             onClick={() => setFilter('all')}
           >
             <span className="filter-avatar all-friends">
-              <Users size={21} />
+              <IslandIcon icon={Users} size={21} />
             </span>
             全部朋友
           </button>
@@ -93,19 +94,19 @@ export function Timeline({
       {error ? (
         <div className="empty-state">
           <p role="alert">{error}</p>
-          <button className="secondary" onClick={onRefresh}>
+          <Button type="default" className="secondary island-action" onClick={onRefresh}>
             再试一次
-          </button>
+          </Button>
         </div>
       ) : loading ? (
         <div className="empty-state">
-          <LoaderCircle size={28} className="spin" />
+          <IslandIcon icon={LoaderCircle} size={28} className="spin" />
           <p>正在翻到这一天…</p>
         </div>
       ) : !visible.length ? (
         <div className="empty-state">
           <span className="empty-illustration">
-            <Users size={32} />
+            <IslandIcon icon={Users} size={32} />
           </span>
           <h2>
             {filter === 'all' ? '这一天还没有动态' : `${personOf(filter).nickname}这天还没有记录`}
@@ -158,17 +159,18 @@ export function Timeline({
                           <div>
                             <strong>{p.nickname}</strong>
                             <time>
-                              <Clock size={11} />
+                              <IslandIcon icon={Clock} size={11} />
                               {timeOf(entry.occurredAt)}
                             </time>
                           </div>
-                          <button
-                            className="icon-button card-actions"
+                          <Button
+                            type="text"
+                            className="icon-button card-actions island-action"
                             aria-label={`更多操作：${p.nickname} ${timeOf(entry.occurredAt)}`}
                             onClick={() => setActions(entry)}
                           >
-                            <MoreHorizontal size={20} />
-                          </button>
+                            <IslandIcon icon={MoreHorizontal} size={20} />
+                          </Button>
                         </header>
                         <div
                           className={`moment-body ${entry.media.type === 'photo' ? 'photo-body' : 'expression-body'}`}
@@ -201,28 +203,31 @@ export function Timeline({
         <Modal title="动态操作" onClose={() => setActions(undefined)}>
           <div className="entry-options">
             <ShareButton label="分享动态" {...entryShare(actions)} />
-            <button
-              className="secondary full"
+            <Button
+              type="default"
+              className="secondary full island-action"
               aria-label={`编辑${personOf(actions.personId).nickname}的动态`}
               onClick={() => {
                 onEdit(actions);
                 setActions(undefined);
               }}
             >
-              <Pencil size={18} />
+              <IslandIcon icon={Pencil} size={18} />
               编辑动态
-            </button>
-            <button
-              className="danger-button full"
+            </Button>
+            <Button
+              type="default"
+              danger
+              className="danger-button full island-action"
               aria-label={`删除${personOf(actions.personId).nickname}的动态`}
               onClick={() => {
                 onDelete(actions);
                 setActions(undefined);
               }}
             >
-              <Trash2 size={18} />
+              <IslandIcon icon={Trash2} size={18} />
               删除动态
-            </button>
+            </Button>
           </div>
         </Modal>
       )}

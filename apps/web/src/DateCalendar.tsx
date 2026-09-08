@@ -1,3 +1,4 @@
+import { Icon as IslandIcon, Button } from 'animal-island-ui';
 import { useEffect, useState } from 'react';
 import { ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react';
 import { Modal } from './Modal';
@@ -38,16 +39,18 @@ export function DateCalendar({
   return (
     <Modal title="翻到哪一天？" onClose={onClose} className="calendar-modal">
       <div className="calendar-month">
-        <button
-          className="icon-button"
+        <Button
+          type="text"
+          className="icon-button island-action"
           aria-label="上个月"
           onClick={() => setMonth(moveMonth(month, -1))}
         >
-          <ChevronLeft size={20} />
-        </button>
+          <IslandIcon icon={ChevronLeft} size={20} />
+        </Button>
         <label className="calendar-month-picker">
           <span aria-hidden="true">
-            {month.slice(0, 4)} 年 {Number(month.slice(5))} 月 <ChevronDown size={14} />
+            {month.slice(0, 4)} 年 {Number(month.slice(5))} 月{' '}
+            <IslandIcon icon={ChevronDown} size={14} />
           </span>
           <input
             type="month"
@@ -67,14 +70,15 @@ export function DateCalendar({
             }}
           />
         </label>
-        <button
-          className="icon-button"
+        <Button
+          type="text"
+          className="icon-button island-action"
           aria-label="下个月"
           disabled={month >= today().slice(0, 7)}
           onClick={() => setMonth(moveMonth(month, 1))}
         >
-          <ChevronRight size={20} />
-        </button>
+          <IslandIcon icon={ChevronRight} size={20} />
+        </Button>
       </div>
       <div className="calendar-weekdays" aria-hidden="true">
         {['一', '二', '三', '四', '五', '六', '日'].map((day) => (
@@ -106,9 +110,13 @@ export function DateCalendar({
         {error ? (
           <>
             <span>记录标记加载失败</span>
-            <button className="text-button" onClick={() => setRevision((n) => n + 1)}>
+            <Button
+              type="text"
+              className="text-button island-action"
+              onClick={() => setRevision((n) => n + 1)}
+            >
               重试
-            </button>
+            </Button>
           </>
         ) : !counts ? (
           '正在查看这个月的记录…'
@@ -119,9 +127,13 @@ export function DateCalendar({
           </>
         )}
       </div>
-      <button className="secondary full" onClick={() => onSelect(today())}>
+      <Button
+        type="default"
+        className="secondary full island-action"
+        onClick={() => onSelect(today())}
+      >
         回到今天
-      </button>
+      </Button>
     </Modal>
   );
 }

@@ -1,4 +1,6 @@
+import { Icon as IslandIcon, Button, Card, Title } from 'animal-island-ui';
 import { useEffect, useState } from 'react';
+import { IslandScene } from './IslandScene';
 import {
   Plus,
   Check,
@@ -96,42 +98,59 @@ export default function App() {
             <p>各自生活，也在一起。</p>
           </div>
           <div className="header-actions">
-            <button
-              className="icon-button"
+            <Button
+              type="text"
+              className="icon-button island-action"
               aria-label="刷新时间线"
               onClick={() => setRevision((n) => n + 1)}
               disabled={loading}
             >
-              <RefreshCw size={18} className={loading ? 'spin' : ''} />
-            </button>
-            <button
-              className="export-trigger"
+              <IslandIcon icon={RefreshCw} size={18} className={loading ? 'spin' : ''} />
+            </Button>
+            <Button
+              type="default"
+              className="export-trigger island-action"
               aria-label="生成今日手账"
               title="生成所选日期的手账"
               onClick={() => setExportOpen(true)}
               disabled={!entries.length || loading || !!error}
             >
-              <Download size={16} />
+              <IslandIcon icon={Download} size={16} />
               <span>生成手账</span>
-            </button>
+            </Button>
           </div>
         </header>
+        <Card className="island-welcome">
+          <div className="welcome-copy">
+            <Title size="small" color="app-yellow">
+              我们的日常小岛
+            </Title>
+            <h2>
+              小小的日常，
+              <br />
+              大大的我们。
+            </h2>
+            <p>把普通的一天，装进共同的回忆里。</p>
+          </div>
+          <IslandScene />
+        </Card>
         <section className="day-section" aria-labelledby="browse-date-heading">
           <div className="section-heading">
             <h2 id="browse-date-heading">翻看日常</h2>
             <span>选一天，看看大家的生活</span>
           </div>
           <nav className="day-navigation" aria-label="日期导航">
-            <button
-              className="icon-button"
+            <Button
+              type="text"
+              className="icon-button island-action"
               aria-label="前一天"
               onClick={() => setDate(shiftDate(date, -1))}
             >
-              <ChevronLeft size={20} />
-            </button>
+              <IslandIcon icon={ChevronLeft} size={20} />
+            </Button>
             <label className="date-picker">
               <span>
-                <CalendarDays size={18} />
+                <IslandIcon icon={CalendarDays} size={18} />
                 <strong>{date.replaceAll('-', '/')}</strong>
               </span>
               <input
@@ -156,14 +175,15 @@ export default function App() {
                 }}
               />
             </label>
-            <button
-              className="icon-button"
+            <Button
+              type="text"
+              className="icon-button island-action"
               aria-label="后一天"
               disabled={date >= today()}
               onClick={() => setDate(shiftDate(date, 1))}
             >
-              <ChevronRight size={20} />
-            </button>
+              <IslandIcon icon={ChevronRight} size={20} />
+            </Button>
             <button
               className="today-action"
               aria-label="回到今天"
@@ -192,14 +212,17 @@ export default function App() {
           <button onClick={() => setCredits(true)}>素材鸣谢</button>
         </footer>
       </main>
-      <button
-        className="floating-create"
-        aria-label={date === today() ? '记下一刻' : '补记这一天'}
-        onClick={() => setComposer({})}
-      >
-        <Plus size={20} />
-        {date === today() ? '记下一刻' : '补记这一天'}
-      </button>
+      <div className="create-dock">
+        <Button
+          type="primary"
+          className="floating-create island-action"
+          aria-label={date === today() ? '记下一刻' : '补记这一天'}
+          onClick={() => setComposer({})}
+        >
+          <IslandIcon icon={Plus} size={20} />
+          {date === today() ? '记下一刻' : '补记这一天'}
+        </Button>
+      </div>
       {calendarOpen && (
         <DateCalendar
           date={date}
@@ -228,22 +251,41 @@ export default function App() {
             </p>
           )}
           <div className="confirm-actions">
-            <button
-              className="secondary"
+            <Button
+              type="default"
+              className="secondary island-action"
               disabled={deleting}
               onClick={() => setDeleteEntry(undefined)}
             >
               再想想
-            </button>
-            <button className="danger-button" disabled={deleting} onClick={remove}>
-              {deleting ? <LoaderCircle size={17} className="spin" /> : '确认删除'}
-            </button>
+            </Button>
+            <Button
+              type="default"
+              danger
+              className="danger-button island-action"
+              disabled={deleting}
+              onClick={remove}
+            >
+              {deleting ? (
+                <IslandIcon icon={LoaderCircle} size={17} className="spin" />
+              ) : (
+                '确认删除'
+              )}
+            </Button>
           </div>
         </Modal>
       )}
       {credits && (
         <Modal title="让日常更可爱的朋友们" onClose={() => setCredits(false)}>
           <div className="credits">
+            <p>界面组件：animal-island-ui · guokaigdg</p>
+            <a
+              href="https://github.com/guokaigdg/animal-island-ui"
+              target="_blank"
+              rel="noreferrer"
+            >
+              CC BY-NC 4.0 许可 · 非商业使用
+            </a>
             <p>本项目使用以下开源素材，图片未经修改。</p>
             <a href="https://github.com/microsoft/fluentui-emoji" target="_blank" rel="noreferrer">
               Fluent Emoji · © Microsoft
@@ -264,7 +306,7 @@ export default function App() {
       )}
       {toast && (
         <div className="toast" role="status">
-          <Check size={17} />
+          <IslandIcon icon={Check} size={17} />
           {toast}
         </div>
       )}

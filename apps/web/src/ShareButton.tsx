@@ -1,3 +1,4 @@
+import { Icon as IslandIcon, Button } from 'animal-island-ui';
 import { useEffect, useRef, useState } from 'react';
 import { LoaderCircle, Share2 } from 'lucide-react';
 import { localTime, mediaName, mediaSrc, personOf, type Entry } from './lib';
@@ -137,17 +138,22 @@ function ShareSession({ label, resource, text, disabled }: Props) {
   }
   return (
     <div className="resource-share">
-      <button
-        type="button"
-        className="secondary full"
+      <Button
+        type="default"
+        htmlType="button"
+        className="secondary full island-action"
         disabled={disabled || busy}
         aria-busy={busy}
         aria-live="polite"
         onClick={share}
       >
-        {busy ? <LoaderCircle size={18} className="spin" /> : <Share2 size={18} />}
+        {busy ? (
+          <IslandIcon icon={LoaderCircle} size={18} className="spin" />
+        ) : (
+          <IslandIcon icon={Share2} size={18} />
+        )}
         {busy ? '正在准备分享…' : error || label}
-      </button>
+      </Button>
     </div>
   );
 }

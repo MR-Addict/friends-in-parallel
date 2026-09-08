@@ -1,3 +1,4 @@
+import { Icon as IslandIcon, Button } from 'animal-island-ui';
 import { useEffect, useState } from 'react';
 import {
   ArrowLeft,
@@ -214,10 +215,14 @@ function ComposerEditor({
     >
       {pickerOpen ? (
         <div className="picker-page">
-          <button className="text-button" onClick={() => setPickerOpen(false)}>
-            <ArrowLeft size={16} />
+          <Button
+            type="text"
+            className="text-button island-action"
+            onClick={() => setPickerOpen(false)}
+          >
+            <IslandIcon icon={ArrowLeft} size={16} />
             返回编辑
-          </button>{' '}
+          </Button>{' '}
           <div className="sticker-picker">
             <div className="pack-tabs">
               {packs.map((p) => (
@@ -254,7 +259,9 @@ function ComposerEditor({
                 >
                   <img src={s.file} alt="" loading="lazy" />
                   <span>{s.name}</span>
-                  {stickerId === s.id && <Check className="sticker-check" size={14} />}
+                  {stickerId === s.id && (
+                    <IslandIcon icon={Check} className="sticker-check" size={14} />
+                  )}
                 </button>
               ))}
               {!filtered.length && (
@@ -288,21 +295,24 @@ function ComposerEditor({
                       <img src={`/stickers/fluent/${p.avatar}.png`} alt="" />
                     </span>
                     <span>{p.nickname}</span>
-                    <span className="choice-check">{personId === p.id && <Check size={16} />}</span>
+                    <span className="choice-check">
+                      {personId === p.id && <IslandIcon icon={Check} size={16} />}
+                    </span>
                   </button>
                 ))}
               </div>
               <div className="composer-footer">
-                <button
-                  className="primary full"
+                <Button
+                  type="primary"
+                  className="primary full island-action"
                   disabled={!personId}
                   onClick={() => {
                     preference('parallel.person', personId);
                     setStep(2);
                   }}
                 >
-                  下一步 <ArrowRight size={18} />
-                </button>
+                  下一步 <IslandIcon icon={ArrowRight} size={18} />
+                </Button>
               </div>
             </div>
           ) : (
@@ -325,14 +335,14 @@ function ComposerEditor({
                     <strong>{personOf(personId).nickname}</strong>
                   </span>
                   <span className="change-person">
-                    换一位朋友 <ChevronRight size={15} />
+                    换一位朋友 <IslandIcon icon={ChevronRight} size={15} />
                   </span>
                 </button>
                 <fieldset disabled={busy} className="editor-sections" aria-label="动态内容">
                   <section className="editor-section">
                     <div className="editor-section-heading">
                       <span className="editor-section-icon">
-                        <ImagePlus size={18} />
+                        <IslandIcon icon={ImagePlus} size={18} />
                       </span>
                       <div>
                         <h3>留下此刻</h3>
@@ -388,13 +398,13 @@ function ComposerEditor({
                               </span>
                             )}
                             <span className="replace-photo">
-                              <Camera size={16} /> 换一张照片
+                              <IslandIcon icon={Camera} size={16} /> 换一张照片
                             </span>
                           </>
                         ) : (
                           <>
                             <span className="upload-icon">
-                              <ImagePlus size={28} />
+                              <IslandIcon icon={ImagePlus} size={28} />
                             </span>
                             <strong>点这里，放一张此刻的照片</strong>
                             <small>支持 iPhone 照片 · 最大 20 MB · 上传后自动优化</small>
@@ -419,7 +429,7 @@ function ComposerEditor({
                             alt={stickers.find((s) => s.id === stickerId)?.name}
                           />
                         ) : (
-                          <Smile size={32} />
+                          <IslandIcon icon={Smile} size={32} />
                         )}
                         <span>{stickerId ? '更换表情' : '选择表情'}</span>
                       </button>
@@ -428,7 +438,7 @@ function ComposerEditor({
                   <section className="editor-section">
                     <div className="editor-section-heading">
                       <span className="editor-section-icon">
-                        <MessageSquare size={18} />
+                        <IslandIcon icon={MessageSquare} size={18} />
                       </span>
                       <div>
                         <h3>
@@ -453,7 +463,7 @@ function ComposerEditor({
                   <section className="editor-section">
                     <div className="editor-section-heading">
                       <span className="editor-section-icon">
-                        <Clock size={18} />
+                        <IslandIcon icon={Clock} size={18} />
                       </span>
                       <div>
                         <h3>
@@ -528,19 +538,24 @@ function ComposerEditor({
                     )}
                   </div>
                 )}
-                <button className="primary full" disabled={busy || !ready} type="submit">
+                <Button
+                  type="primary"
+                  className="primary full island-action"
+                  disabled={busy || !ready}
+                  htmlType="submit"
+                >
                   {busy ? (
                     <>
-                      <LoaderCircle className="spin" size={18} />
+                      <IslandIcon icon={LoaderCircle} className="spin" size={18} />
                       {progress < 100 ? `正在上传 ${progress}%` : '正在优化并保存…'}
                     </>
                   ) : (
                     <>
                       {entry ? '保存修改' : '发布'}
-                      <ArrowRight size={18} />
+                      <IslandIcon icon={ArrowRight} size={18} />
                     </>
                   )}
-                </button>
+                </Button>
               </div>
             </form>
           )}

@@ -14,6 +14,34 @@ test.beforeEach(async ({ context }) => {
   ]);
 });
 const time = '2026-08-29T09:30';
+test('Mobile create action stays reachable without safe-area values', async ({ page }) => {
+  // Simulate a WebView that parses env() but does not expose the safe-area variable.
+  await page.route('**/*.css', async (route) => {
+    const response = await route.fetch();
+    await route.fulfill({
+      response,
+      body: (await response.text()).replaceAll('safe-area-inset-bottom', 'unavailable-safe-area'),
+    });
+  });
+  await page.goto('/');
+  const button = page.locator('.floating-create');
+  for (const width of [320, 375, 430]) {
+    await page.setViewportSize({ width, height: 740 });
+    await page.getByLabel('选择日期').fill('2026-08-30');
+    await expect(button).toHaveAccessibleName('补记这一天');
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await expect(button).toBeInViewport({ ratio: 1 });
+    await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+    await expect(button).toBeInViewport({ ratio: 1 });
+    await button.click();
+    await expect(page.getByRole('dialog', { name: '这一刻，属于谁' })).toBeVisible();
+    await page.getByRole('button', { name: '关闭', exact: true }).click();
+    await page.getByRole('button', { name: '回到今天', exact: true }).click();
+    await expect(button).toHaveAccessibleName('记下一刻');
+    await expect(button).toBeInViewport({ ratio: 1 });
+  }
+});
+
 test('Mobile two-step publishing, preserving form, all packs, edit/delete and exports', async ({
   page,
   request,

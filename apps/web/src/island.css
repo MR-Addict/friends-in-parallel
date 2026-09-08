@@ -1,0 +1,902 @@
+@import './styles.css' layer(legacy);
+
+/* Animal Island visual layer. Domain state, media and export templates stay in their owners. */
+:root {
+  --animal-primary-color: #36836c;
+  --animal-primary-color-hover: #296e58;
+  --animal-primary-color-active: #245c4a;
+  --animal-primary-color-bg: #e8f3e8;
+  --animal-text-color: #654d35;
+  --animal-text-color-secondary: #817058;
+  --animal-bg-color: #fffdf3;
+  --animal-bg-color-secondary: #f1ead6;
+  --animal-border-color: #d8ccb2;
+  --animal-border-color-light: #e9dfc7;
+  --animal-island-sky: #e9f3e7;
+  --animal-island-grass: #b9d59b;
+  --animal-island-hill: #d3e3ad;
+  --animal-island-yellow: #f7cd67;
+  --animal-island-peach: #f5dfcc;
+  --animal-island-rose: #f5e1dc;
+  --paper: var(--animal-bg-color);
+  --ink: var(--animal-text-color);
+  --muted: var(--animal-text-color-secondary);
+  --line: var(--animal-border-color-light);
+  --accent: var(--animal-primary-color);
+  font-family: var(--animal-font-family);
+  color: var(--ink);
+  background: var(--animal-bg-color-secondary);
+}
+body {
+  font-weight: 500;
+  background-image: radial-gradient(var(--animal-border-color) 0.8px, transparent 0.8px);
+  background-size: 18px 18px;
+}
+button,
+input,
+select,
+textarea {
+  font-family: var(--animal-font-family);
+}
+button,
+input,
+select {
+  border-radius: 50px;
+}
+button:focus-visible,
+a:focus-visible,
+textarea:focus-visible {
+  outline: 3px solid var(--animal-primary-color);
+  outline-offset: 3px;
+}
+input:focus-visible,
+.date-picker:focus-within,
+.calendar-month-picker:focus-within,
+.photo-upload:focus-within {
+  outline-color: var(--animal-island-yellow);
+  border-radius: 24px;
+}
+.app-shell {
+  max-width: 900px;
+  padding: 30px 36px 132px;
+}
+.brand-header {
+  padding-bottom: 20px;
+  margin-bottom: 20px;
+  border-bottom: 2px dashed var(--animal-border-color);
+}
+.brand {
+  color: var(--ink);
+  font-size: 24px;
+  font-weight: 900;
+  letter-spacing: 1px;
+}
+.brand-copy p {
+  font-size: 12px;
+}
+.header-actions {
+  gap: 8px;
+}
+.island-action {
+  min-height: 44px;
+  flex-shrink: 0;
+}
+.island-action > span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.island-action.full {
+  width: 100%;
+}
+.island-action.icon-button {
+  width: 44px;
+  min-width: 44px;
+  padding: 0;
+}
+.island-action.export-trigger {
+  padding: 0 14px;
+  font-size: 12px;
+}
+.island-action.text-button {
+  padding: 0 10px;
+  font-size: 13px;
+}
+.island-welcome {
+  display: flex;
+  align-items: center;
+  min-height: 244px;
+  margin-bottom: 28px;
+  padding: 26px 32px;
+  overflow: hidden;
+}
+.welcome-copy {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+}
+.welcome-copy h2 {
+  margin: 18px 0 10px;
+  font-size: 32px;
+  line-height: 1.5;
+  font-weight: 900;
+  letter-spacing: 1px;
+}
+.welcome-copy p {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.8;
+}
+.island-scene {
+  width: 310px;
+  height: 220px;
+  flex-shrink: 0;
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border-radius: 45% 45% 30% 30%;
+  background: var(--animal-island-sky);
+}
+.island-sun {
+  position: absolute;
+  top: 18px;
+  right: 60px;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: var(--animal-island-yellow);
+  border: 6px solid var(--paper);
+}
+.island-cloud {
+  position: absolute;
+  width: 66px;
+  height: 16px;
+  border-radius: 30px;
+  background: var(--paper);
+}
+.island-cloud::before,
+.island-cloud::after {
+  content: '';
+  position: absolute;
+  bottom: 4px;
+  width: 25px;
+  height: 25px;
+  border-radius: 50%;
+  background: var(--paper);
+}
+.island-cloud::before {
+  left: 10px;
+}
+.island-cloud::after {
+  left: 28px;
+  width: 30px;
+  height: 30px;
+}
+.cloud-one {
+  top: 56px;
+  left: 28px;
+}
+.cloud-two {
+  top: 90px;
+  right: -10px;
+  transform: scale(0.7);
+}
+.island-hill {
+  position: absolute;
+  border-radius: 50% 50% 0 0;
+  width: 120%;
+  height: 130px;
+  bottom: -36px;
+}
+.hill-back {
+  left: -48px;
+  bottom: -4px;
+  transform: rotate(-12deg);
+  background: var(--animal-island-hill);
+}
+.hill-front {
+  right: -46px;
+  background: var(--animal-island-grass);
+  transform: rotate(10deg);
+}
+.island-friends {
+  position: absolute;
+  inset: 0;
+}
+.island-friend {
+  position: absolute;
+  width: 66px;
+  height: 72px;
+  display: grid;
+  place-items: center;
+  background: var(--paper);
+  border: 2px solid var(--animal-border-color-light);
+  border-radius: 24px 24px 20px 20px;
+}
+.island-friend img {
+  width: 52px;
+  height: 52px;
+  object-fit: contain;
+}
+.friend-0 {
+  left: 54px;
+  top: 83px;
+  transform: rotate(-12deg);
+}
+.friend-1 {
+  left: 128px;
+  top: 64px;
+  transform: rotate(8deg);
+}
+.friend-2 {
+  right: 31px;
+  top: 105px;
+  transform: rotate(14deg);
+}
+.friend-3 {
+  left: 88px;
+  top: 129px;
+  transform: rotate(5deg);
+}
+.friend-4 {
+  left: 166px;
+  top: 133px;
+  transform: rotate(-8deg);
+}
+.island-caption {
+  position: absolute;
+  bottom: 9px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--animal-primary-color-active);
+}
+.section-heading h2 {
+  font-size: 16px;
+  font-weight: 700;
+}
+.section-heading > span {
+  font-size: 12px;
+}
+.day-section {
+  margin-bottom: 20px;
+}
+.day-navigation {
+  padding: 8px;
+  border: 2px solid var(--line);
+  border-radius: 50px;
+  background: var(--paper);
+}
+.day-navigation .date-picker {
+  color: var(--ink);
+}
+.date-picker strong {
+  font-size: 19px;
+  letter-spacing: 1px;
+  font-weight: 900;
+}
+.today-action {
+  border: 0;
+  background: var(--animal-primary-color-bg);
+  padding: 0 18px;
+  border-radius: 50px;
+}
+.today-action:disabled {
+  color: var(--muted);
+}
+.people-panel {
+  border: 2px solid var(--line);
+  border-radius: 28px;
+  padding: 18px 18px 10px;
+  background: var(--paper);
+}
+.people-filter {
+  gap: 8px;
+  padding-top: 10px;
+}
+.people-filter button {
+  padding: 12px 4px;
+  border-radius: 24px;
+  font-size: 12px;
+  gap: 10px;
+  transition: background var(--animal-motion-duration-fast) var(--animal-motion-ease);
+}
+.people-filter button.active {
+  background: var(--animal-primary-color-bg);
+  color: var(--accent);
+}
+.filter-avatar {
+  width: 48px;
+  height: 48px;
+}
+.filter-avatar img {
+  width: 36px;
+  height: 36px;
+}
+.people-filter button.active .filter-avatar {
+  outline: 2px dashed var(--accent);
+  outline-offset: 4px;
+}
+.filter-avatar .has-moments {
+  background: var(--accent);
+  border-color: var(--paper);
+  width: 10px;
+  height: 10px;
+}
+.all-friends {
+  background: var(--animal-bg-color-secondary);
+  color: var(--ink);
+}
+.timeline-heading {
+  margin: 28px 4px 20px;
+}
+.timeline-summary {
+  font-size: 12px;
+  margin-top: 10px;
+}
+.hour-heading > time {
+  background: var(--animal-island-peach);
+  color: var(--ink);
+  padding: 6px 13px;
+  border-radius: 50px;
+  font-size: 14px;
+}
+.hour-line {
+  height: 0;
+  background: none;
+  border-top: 2px dashed var(--animal-border-color);
+}
+.hour-entries {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  align-items: start;
+}
+.moment-card {
+  background: var(--paper);
+  border: 2px solid var(--line);
+  border-radius: 26px;
+  padding: 18px;
+  margin: 0;
+  box-shadow: none;
+}
+.moment-card::before {
+  content: '';
+  position: absolute;
+  top: -7px;
+  right: 60px;
+  width: 45px;
+  height: 13px;
+  background: var(--animal-island-yellow);
+  opacity: 0.65;
+  transform: rotate(4deg);
+  pointer-events: none;
+}
+.card-header strong {
+  font-size: 15px;
+}
+.card-header .avatar {
+  width: 42px;
+  height: 42px;
+}
+.card-header .avatar img {
+  width: 30px;
+  height: 30px;
+}
+.moment-media,
+.moment-media::after {
+  border-radius: 24px;
+}
+.moment-media.photo img {
+  border-radius: 16px;
+}
+.moment-media:focus-visible::after {
+  outline-color: var(--accent);
+}
+.moment-description {
+  font-size: 14px;
+}
+.timeline-view > .empty-state {
+  padding: 36px 20px;
+  border: 2px dashed var(--animal-border-color);
+  border-radius: 28px;
+  background: var(--paper);
+}
+.empty-illustration {
+  background: var(--animal-primary-color-bg);
+  color: var(--accent);
+  border-radius: 28px;
+}
+.empty-state h2 {
+  font-weight: 700;
+}
+.create-dock {
+  position: fixed;
+  z-index: 4;
+  /* Some mobile WebViews do not expose safe-area values. Keep a valid fixed inset. */
+  bottom: 16px;
+  bottom: max(16px, env(safe-area-inset-bottom, 0px));
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(calc(100% - 32px), 420px);
+  padding: 5px 7px 10px;
+  background: var(--animal-primary-color);
+  border-radius: 50px;
+}
+.island-action.floating-create {
+  position: relative;
+  inset: auto;
+  transform: none;
+  width: 100%;
+  min-height: 48px;
+  font-size: 16px;
+  font-weight: 700;
+}
+.app-footer {
+  margin-top: 36px;
+  border-top: 2px dashed var(--animal-border-color);
+}
+.app-footer button {
+  color: var(--accent);
+  padding: 0 10px;
+}
+.sheet-modal {
+  color: var(--ink);
+  background: var(--paper);
+  border: 2px solid var(--animal-border-color);
+  border-radius: 32px;
+}
+.sheet-modal::backdrop {
+  background: color-mix(in srgb, var(--animal-text-color) 38%, transparent);
+  backdrop-filter: blur(4px);
+}
+.sheet-heading {
+  padding: 14px 16px 14px 22px;
+  border-bottom: 2px dashed var(--line);
+  background: var(--animal-primary-color-bg);
+}
+.sheet-heading h2 {
+  font-weight: 700;
+}
+.sheet-content {
+  background: var(--paper);
+}
+.composer-modal .sheet-content {
+  background: var(--animal-bg-color-secondary);
+}
+.composer-footer,
+.export-download-bar {
+  background: var(--paper);
+  border-top: 2px dashed var(--line);
+  padding-bottom: max(20px, env(safe-area-inset-bottom));
+}
+.person-choice,
+.back-person,
+.editor-section,
+.sticker-picker {
+  border: 2px solid var(--line);
+  background: var(--paper);
+  border-radius: 24px;
+}
+.person-choice {
+  padding: 12px 16px;
+}
+.person-choice.selected {
+  background: var(--animal-primary-color-bg);
+  border-color: var(--accent);
+}
+.selected .choice-check {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--paper);
+}
+.editor-section-icon {
+  color: var(--accent);
+  background: var(--animal-primary-color-bg);
+  border-radius: 16px;
+}
+.field-badge {
+  background: var(--animal-island-peach);
+  color: var(--ink);
+  border-radius: 50px;
+}
+.field-badge.optional {
+  background: var(--animal-bg-color-secondary);
+}
+.media-tabs,
+.pack-tabs {
+  background: var(--animal-bg-color-secondary);
+  border-radius: 50px;
+}
+.media-tabs button,
+.pack-tabs button,
+.category-tabs button {
+  border-radius: 50px;
+}
+.media-tabs .active,
+.pack-tabs .active,
+.category-tabs button.active {
+  background: var(--animal-primary-color-bg);
+  color: var(--accent);
+  box-shadow: none;
+}
+.selected-media,
+.photo-upload {
+  background: var(--animal-bg-color);
+  border: 2px dashed var(--animal-border-color);
+  border-radius: 24px;
+  color: var(--accent);
+}
+.upload-icon {
+  background: var(--animal-primary-color-bg);
+  border-radius: 20px;
+}
+.description-input {
+  border-radius: 20px;
+  background: var(--animal-bg-color);
+  border-color: var(--animal-border-color);
+  padding: 12px;
+}
+.time-input {
+  border-radius: 50px;
+  background: var(--animal-bg-color);
+  border-color: var(--animal-border-color);
+  padding: 0 12px;
+}
+.time-input button {
+  min-height: 44px;
+  border: 0;
+}
+.sticker-grid button {
+  border-radius: 20px;
+}
+.sticker-grid .selected {
+  background: var(--animal-primary-color-bg);
+  border-color: var(--accent);
+}
+.error-banner {
+  color: var(--animal-error-color-active);
+  background: var(--animal-island-rose);
+  border-radius: 18px;
+}
+.toast {
+  background: var(--animal-primary-color-active);
+  color: var(--paper);
+  border-radius: 50px;
+  bottom: 108px;
+}
+.export-date {
+  padding: 12px 16px;
+  background: var(--animal-bg-color-secondary);
+  border-radius: 18px;
+}
+.export-options button {
+  border: 2px solid var(--line);
+  background: var(--animal-bg-color);
+  border-radius: 24px;
+  padding: 20px 14px;
+}
+.export-options button:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+.export-options button > div {
+  min-width: 0;
+}
+.export-options small {
+  line-height: 1.7;
+  display: block;
+}
+.export-icon {
+  background: var(--animal-primary-color-bg);
+  width: 44px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border-radius: 18px;
+  flex-shrink: 0;
+}
+.export-options button:nth-child(2) .export-icon {
+  background: var(--animal-island-peach);
+  color: var(--ink);
+}
+.export-options button:nth-child(3) .export-icon {
+  background: var(--animal-island-yellow);
+  color: var(--ink);
+}
+a.primary {
+  background: var(--accent);
+  color: var(--paper);
+  border-radius: 50px;
+}
+a.secondary {
+  background: var(--animal-bg-color-secondary);
+  border-radius: 50px;
+}
+.archive-prompt-box {
+  border: 2px solid var(--line);
+  border-radius: 24px;
+  background: var(--animal-bg-color-secondary);
+}
+.video-music-row select,
+.video-listen {
+  background: var(--paper);
+  color: var(--ink);
+  border-radius: 50px;
+  border-color: var(--animal-border-color);
+}
+.video-listen {
+  padding: 8px 12px;
+}
+.video-style-thumb {
+  border-radius: 18px;
+}
+.video-progress-icon {
+  background: var(--animal-primary-color-bg);
+  border-radius: 30px;
+}
+.calendar-month-picker {
+  border-radius: 50px;
+}
+.calendar-days button {
+  border-radius: 50px;
+}
+.calendar-days button[aria-current='date'] {
+  box-shadow: none;
+  outline: 1px dashed var(--accent);
+  outline-offset: -3px;
+}
+.calendar-days button[aria-pressed='true'] {
+  background: var(--accent);
+  color: var(--paper);
+}
+.calendar-days .has-records,
+.calendar-status > .has-records {
+  background: var(--accent);
+}
+.calendar-days button[aria-pressed='true'] .has-records {
+  background: var(--paper);
+}
+.access-shell {
+  max-width: 1000px;
+  min-height: 100dvh;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-content: center;
+  align-items: center;
+  gap: 32px 48px;
+  padding: 48px 36px;
+}
+.access-shell > .brand {
+  grid-column: 1 / -1;
+  padding-bottom: 24px;
+  border-bottom: 2px dashed var(--animal-border-color);
+}
+.access-welcome {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+  text-align: center;
+}
+.access-welcome .island-scene {
+  width: 330px;
+  height: 240px;
+}
+.access-welcome > p {
+  font-size: 13px;
+  color: var(--muted);
+}
+.access-card {
+  margin: 0;
+  padding: 32px;
+}
+.access-symbol {
+  color: var(--accent);
+  background: var(--animal-primary-color-bg);
+  border-radius: 24px;
+}
+.access-card h1 {
+  font-weight: 900;
+  font-size: 24px;
+}
+.access-eyebrow {
+  color: var(--accent);
+  margin-top: 20px;
+}
+.island-access-input {
+  width: 100%;
+}
+.access-card form {
+  margin-top: 24px;
+}
+.access-help {
+  line-height: 1.8;
+}
+@media (max-width: 700px) {
+  .app-shell {
+    max-width: 560px;
+    padding: 20px 16px 126px;
+  }
+  .brand {
+    font-size: 21px;
+  }
+  .brand-header {
+    gap: 8px;
+    margin-bottom: 16px;
+    padding-bottom: 16px;
+  }
+  .header-actions {
+    gap: 2px;
+  }
+  .island-action.export-trigger {
+    padding: 0 10px;
+  }
+  .island-welcome {
+    min-height: 202px;
+    padding: 20px;
+    margin-bottom: 24px;
+    position: relative;
+  }
+  .welcome-copy h2 {
+    font-size: 26px;
+    margin-top: 16px;
+  }
+  .welcome-copy p {
+    max-width: 170px;
+    font-size: 11px;
+  }
+  .island-welcome .island-scene {
+    width: 158px;
+    height: 190px;
+    position: absolute;
+    right: -6px;
+    bottom: -8px;
+  }
+  .island-welcome .island-friends {
+    transform: translate(0, 55px) scale(0.5);
+    transform-origin: top left;
+    width: 290px;
+  }
+  .island-welcome .island-sun {
+    right: 62px;
+    top: 24px;
+    width: 35px;
+    height: 35px;
+  }
+  .island-welcome .island-caption,
+  .island-welcome .cloud-two {
+    display: none;
+  }
+  .island-welcome .cloud-one {
+    left: 14px;
+    top: 62px;
+    transform: scale(0.7);
+  }
+  .section-heading > span {
+    font-size: 11px;
+  }
+  .people-panel {
+    padding: 16px 10px 8px;
+    border-radius: 24px;
+  }
+  .people-filter {
+    gap: 2px;
+  }
+  .people-filter button {
+    font-size: 10px;
+    padding: 10px 2px;
+  }
+  .filter-avatar {
+    width: 36px;
+    height: 36px;
+  }
+  .filter-avatar img {
+    width: 28px;
+    height: 28px;
+  }
+  .date-picker strong {
+    font-size: 16px;
+    letter-spacing: 0;
+  }
+  .day-navigation {
+    padding: 5px;
+  }
+  .today-action {
+    padding: 0 12px;
+    margin-left: 0;
+  }
+  .hour-entries {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+  }
+  .timeline-heading {
+    margin-top: 24px;
+  }
+  .moment-card {
+    padding: 16px;
+  }
+  .access-shell {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 22px;
+    padding: 24px 20px 36px;
+  }
+  .access-shell > .brand {
+    align-self: stretch;
+    padding-bottom: 18px;
+  }
+  .access-welcome {
+    gap: 14px;
+  }
+  .access-welcome .island-scene {
+    width: 290px;
+    height: 190px;
+  }
+  .access-welcome .island-friends {
+    transform: translateY(-24px);
+  }
+  .access-welcome .island-caption {
+    display: none;
+  }
+  .access-welcome > p {
+    display: none;
+  }
+  .access-card {
+    width: 100%;
+    max-width: 440px;
+    padding: 24px;
+  }
+  .access-symbol {
+    display: none;
+  }
+  .access-eyebrow {
+    margin-top: 0;
+  }
+  .access-card h1 {
+    font-size: 22px;
+  }
+}
+@media (max-width: 600px) {
+  /* Keep the native dialog's focus, top-layer and visual-viewport keyboard handling. */
+  .sheet-modal {
+    border-radius: 28px 28px 0 0;
+    border-bottom: 0;
+  }
+  .sheet-heading {
+    padding: 12px 14px 12px 20px;
+  }
+}
+@media (max-width: 360px) {
+  .brand-header {
+    flex-wrap: wrap;
+  }
+  .header-actions {
+    margin-left: auto;
+  }
+  .island-welcome {
+    padding: 16px;
+  }
+  .island-welcome .island-scene {
+    right: -62px;
+  }
+  .day-navigation .icon-button {
+    min-width: 40px;
+    width: 40px;
+  }
+  .today-action {
+    padding: 0 8px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition: none !important;
+    animation: none !important;
+    scroll-behavior: auto !important;
+  }
+}

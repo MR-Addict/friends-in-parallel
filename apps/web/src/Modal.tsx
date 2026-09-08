@@ -1,3 +1,4 @@
+import { Icon as IslandIcon, Button } from 'animal-island-ui';
 import { useEffect, useRef, type ReactNode } from 'react';
 import { X } from 'lucide-react';
 export function Modal({
@@ -70,9 +71,15 @@ export function Modal({
       <div className="sheet-inner">
         <header className="sheet-heading">
           <h2>{title}</h2>
-          <button className="icon-button" aria-label="关闭" onClick={onClose} disabled={busy}>
-            <X size={21} />
-          </button>
+          <Button
+            type="text"
+            className="icon-button island-action"
+            aria-label="关闭"
+            onClick={onClose}
+            disabled={busy}
+          >
+            <IslandIcon icon={X} size={21} />
+          </Button>
         </header>
         <div className="sheet-content">{children}</div>
       </div>
