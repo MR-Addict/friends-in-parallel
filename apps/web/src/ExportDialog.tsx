@@ -40,18 +40,6 @@ export function ExportDialog({ date, onClose }: { date: string; onClose: () => v
     },
     setError,
   );
-  async function download(event: React.MouseEvent<HTMLAnchorElement>) {
-    event.preventDefault();
-    const href = event.currentTarget.href;
-    if (await validate()) {
-      const link = document.createElement('a');
-      link.href = href;
-      link.download = '';
-      document.body.append(link);
-      link.click();
-      link.remove();
-    }
-  }
   async function images() {
     setPageIndex(0);
     setBusy('images');
@@ -156,8 +144,8 @@ export function ExportDialog({ date, onClose }: { date: string; onClose: () => v
                 <FolderArchive size={25} />
               </span>
               <div>
-                <strong>下载素材 ZIP</strong>
-                <small>下一步：复制 AI 提示词，再下载素材</small>
+                <strong>素材 ZIP</strong>
+                <small>下一步：复制 AI 提示词，分享素材</small>
               </div>
               {busy === 'archive' ? (
                 <LoaderCircle size={20} className="spin" />
@@ -215,17 +203,10 @@ export function ExportDialog({ date, onClose }: { date: string; onClose: () => v
                 </button>
               </nav>
             )}
-            <a
-              onClick={download}
-              className="primary full"
-              href={`${result.images[pageIndex]}?download=1`}
-              download
-            >
-              <ArrowDownToLine size={18} />
-              {result.images.length === 1 ? '下载图片' : '下载当前图片'}
-            </a>
             <ShareButton
               validity={shareValidity}
+              variant="primary"
+              download={{ url: `${result.images[pageIndex]}?download=1`, validate }}
               label={result.images.length === 1 ? '分享图片' : '分享当前图片'}
               resource={{
                 url: result.images[pageIndex],
@@ -234,10 +215,16 @@ export function ExportDialog({ date, onClose }: { date: string; onClose: () => v
               }}
             />
             {result.images.length > 1 && (
-              <a onClick={download} href={result.archiveUrl} className="text-button full" download>
-                <FolderArchive size={16} />
-                下载图片合集
-              </a>
+              <ShareButton
+                label="分享图片合集"
+                validity={shareValidity}
+                download={{ url: result.archiveUrl, validate }}
+                resource={{
+                  url: result.archiveUrl,
+                  filename: `和朋友的同一时间-${date}-手账合集.zip`,
+                  mime: 'application/zip',
+                }}
+              />
             )}
           </div>
         </>

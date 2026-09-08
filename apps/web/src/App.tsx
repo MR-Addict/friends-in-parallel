@@ -154,7 +154,7 @@ export default function App() {
         <button
           className="export-trigger"
           aria-label="制作回忆"
-          title="手账长图 · 回忆视频 · 素材下载"
+          title="手账长图 · 回忆视频 · 素材导出"
           onClick={() => setExportOpen(true)}
           disabled={!entries.length || loading || !!error}
         >

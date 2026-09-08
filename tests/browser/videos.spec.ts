@@ -46,7 +46,7 @@ for (const width of [375, 430, 1100]) {
     await selectDate(page, date);
     await page.getByRole('button', { name: '制作回忆' }).click();
     const labels = await page.locator('.export-options strong').allTextContents();
-    expect(labels).toEqual(['生成手账长图', '生成回忆视频', '下载素材 ZIP']);
+    expect(labels).toEqual(['生成手账长图', '生成回忆视频', '素材 ZIP']);
     await page.getByRole('button', { name: /生成回忆视频/ }).click();
     await expect(page.locator('.video-style-option')).toHaveCount(12);
     await expect(page.getByRole('dialog')).not.toContainText(/Kevin MacLeod|CC BY|署名|许可/);

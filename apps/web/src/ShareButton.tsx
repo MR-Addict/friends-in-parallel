@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useShareValidity, type ShareValidity } from './useShareValidity';
-import { LoaderCircle, Share2 } from 'lucide-react';
+import { ArrowDownToLine, LoaderCircle, Share2 } from 'lucide-react';
 import { localTime, mediaName, mediaSrc, personOf, type Entry } from './lib';
 
 type Resource = { url: string; filename: string; mime: string };
@@ -10,6 +10,7 @@ type Props = {
   text?: string;
   disabled?: boolean;
   validity?: ShareValidity;
+  download?: { url?: string; validate?: () => Promise<boolean>; onDownload?: () => Promise<void> };
   variant?: 'primary' | 'secondary';
 };
 
@@ -79,7 +80,15 @@ export function ShareButton(props: Props) {
   );
 }
 
-function ShareSession({ label, resource, text, disabled, validity, variant = 'secondary' }: Props) {
+function ShareSession({
+  label,
+  resource,
+  text,
+  disabled,
+  validity,
+  download,
+  variant = 'secondary',
+}: Props) {
   const [supported] = useState(() =>
     canShare(
       resource ? { files: [new File([], resource.filename, { type: resource.mime })] } : { text },
@@ -91,6 +100,7 @@ function ShareSession({ label, resource, text, disabled, validity, variant = 'se
   const [attempt, setAttempt] = useState(0);
   const [progress, setProgress] = useState<number>();
   const [sharing, setSharing] = useState(false);
+  const [downloading, setDownloading] = useState(false);
   const [error, setError] = useState('');
   const file = useRef<File | undefined>(undefined);
   const locked = useRef(false);
@@ -172,7 +182,61 @@ function ShareSession({ label, resource, text, disabled, validity, variant = 'se
     };
   }, [supported, resource?.url, resource?.filename, resource?.mime, text, disabled, attempt]);
 
-  if (!supported) return null;
+  const fallback = !supported || status === 'unsupported';
+  if (fallback) {
+    if (!resource) return null;
+    return (
+      <div className="resource-share">
+        <a
+          className={`${variant} full`}
+          href={download?.url || resource.url}
+          download={resource.filename}
+          aria-disabled={disabled || downloading}
+          aria-busy={downloading}
+          onClick={async (event) => {
+            if (disabled || locked.current) {
+              event.preventDefault();
+              return;
+            }
+            if (!download?.validate && !download?.onDownload) return;
+            event.preventDefault();
+            locked.current = true;
+            setDownloading(true);
+            setError('');
+            try {
+              if (download.onDownload) await download.onDownload();
+              else if (await download.validate!()) {
+                if (!alive.current) return;
+                const link = document.createElement('a');
+                link.href = download.url || resource.url;
+                link.download = resource.filename;
+                document.body.append(link);
+                link.click();
+                link.remove();
+              }
+            } catch {
+              if (alive.current) setError('下载失败，请重试');
+            } finally {
+              locked.current = false;
+              if (alive.current) setDownloading(false);
+            }
+          }}
+        >
+          {downloading ? (
+            <LoaderCircle size={18} className="spin" />
+          ) : (
+            <ArrowDownToLine size={18} />
+          )}
+          {downloading ? '正在准备下载…' : label.replace(/^分享/, '下载')}
+        </a>
+        {error && (
+          <p className="small-note" role="alert">
+            {error}
+          </p>
+        )}
+      </div>
+    );
+  }
   async function share() {
     if (locked.current || disabled || status !== 'ready') return;
     if (!check.isFresh()) {
@@ -182,6 +246,7 @@ function ShareSession({ label, resource, text, disabled, validity, variant = 'se
     const data = { ...(file.current ? { files: [file.current] } : {}), ...(text ? { text } : {}) };
     if (resource && !file.current) return;
     if (!canShare(data)) {
+      setError('');
       setStatus('unsupported');
       return;
     }
@@ -191,8 +256,14 @@ function ShareSession({ label, resource, text, disabled, validity, variant = 'se
     try {
       await navigator.share(data);
     } catch (e) {
-      if (alive.current && !(e instanceof DOMException && e.name === 'AbortError'))
-        setError('分享失败，点击重试');
+      if (!alive.current || (e instanceof DOMException && e.name === 'AbortError')) return;
+      if (
+        (e instanceof DOMException && ['NotAllowedError', 'NotSupportedError'].includes(e.name)) ||
+        e instanceof TypeError
+      ) {
+        setError('');
+        setStatus('unsupported');
+      } else setError('分享失败，点击重试');
     } finally {
       locked.current = false;
       if (alive.current) setSharing(false);
@@ -205,21 +276,19 @@ function ShareSession({ label, resource, text, disabled, validity, variant = 'se
     ? `正在准备分享…${progress === undefined ? '' : ` ${progress}%`}`
     : status === 'failed'
       ? '准备失败，点击重试'
-      : status === 'unsupported'
-        ? '暂不支持分享'
-        : checking
-          ? '正在检查有效性…'
-          : check.state === 'failed'
-            ? '重新检查'
-            : sharing
-              ? '正在分享…'
-              : error || label;
+      : checking
+        ? '正在检查有效性…'
+        : check.state === 'failed'
+          ? '重新检查'
+          : sharing
+            ? '正在分享…'
+            : error || label;
   return (
     <div className="resource-share">
       <button
         type="button"
         className={`${variant} full`}
-        disabled={disabled || busy || status === 'unsupported'}
+        disabled={disabled || busy}
         aria-busy={busy}
         aria-live="polite"
         onClick={() => {

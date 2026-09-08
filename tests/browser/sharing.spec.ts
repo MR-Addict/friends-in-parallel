@@ -22,6 +22,7 @@ async function mockShare(page: Page, mode = 'ok') {
           : (data: ShareData) => {
               return !(
                 state.mode === 'unsupported' ||
+                (state.mode === 'zip-unsupported' && data.files?.[0]?.type === 'application/zip') ||
                 (state.mode === 'actual' && data.files?.[0]?.size)
               );
             },
@@ -30,6 +31,7 @@ async function mockShare(page: Page, mode = 'ok') {
       configurable: true,
       value: async (data: ShareData) => {
         if (state.mode === 'cancel') throw new DOMException('Cancelled', 'AbortError');
+        if (state.mode === 'denied') throw new DOMException('Blocked', 'NotAllowedError');
         if (state.mode === 'failure') throw new DOMException('Failed', 'DataError');
         state.calls.push({
           text: data.text,
@@ -95,6 +97,27 @@ test.beforeEach(async ({ context, page }) => {
       },
     }),
   );
+  await page.route('**/api/exports/archive?date=*', (route) =>
+    route.fulfill({
+      body: 'materials-zip',
+      contentType: 'application/zip',
+      headers: {
+        'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(`和朋友的同一时间-${date}-素材包.zip`)}`,
+      },
+    }),
+  );
+  await page.route('**/api/exports/archive?date=*&check=1', (route) =>
+    route.fulfill({ json: { count: 1 } }),
+  );
+  await page.route('**/share/single.png?download=1', (route) =>
+    route.fulfill({
+      contentType: 'image/png',
+      body: 'image-content',
+      headers: {
+        'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(`和朋友的同一时间-${date}-手账-01.png`)}`,
+      },
+    }),
+  );
   await page.route('**/share/single.png', (route) =>
     route.fulfill({
       contentType: 'image/png',
@@ -124,7 +147,7 @@ for (const mode of ['missing', 'unsupported']) {
   });
 }
 for (const width of [375, 430]) {
-  test(`preload image and share with one click, keeping download at ${width}px`, async ({
+  test(`preload image and share with one click, hiding download at ${width}px`, async ({
     page,
   }) => {
     let reads = 0;
@@ -136,7 +159,7 @@ for (const width of [375, 430]) {
     await openImage(page);
     await expect(page.getByRole('button', { name: '分享图片' })).toBeInViewport();
     expect(reads).toBe(1);
-    await expect(page.getByRole('link', { name: '下载图片', exact: true })).toBeInViewport();
+    await expect(page.getByRole('link', { name: '下载图片', exact: true })).toHaveCount(0);
     await page.getByRole('button', { name: '分享图片' }).click();
     await expect
       .poll(() => calls(page))
@@ -165,34 +188,30 @@ test('prepared file is reused after successful sharing', async ({ page }) => {
   await expect.poll(async () => (await calls(page)).length).toBe(2);
 });
 
-for (const mode of ['actual', 'cancel', 'failure']) {
-  test(`handle ${mode} without losing download`, async ({ page }) => {
+test('unsupported actual file falls back to download after preparation', async ({ page }) => {
+  await mockShare(page, 'actual');
+  await openImage(page);
+  await expect(page.getByRole('link', { name: '下载图片', exact: true })).toBeEnabled();
+  await expect(page.locator('.resource-share button')).toHaveCount(0);
+  expect(await calls(page)).toHaveLength(0);
+});
+
+for (const mode of ['cancel', 'failure']) {
+  test(`handle ${mode} while keeping share and reusing the file`, async ({ page }) => {
     await mockShare(page, mode);
     await openImage(page);
-    await page.setViewportSize({ width: 375, height: 812 });
-    await page.evaluate(() => document.fonts.ready);
     const button = page.locator('.resource-share button');
-    await expect(button).toHaveText(mode === 'actual' ? '暂不支持分享' : '分享图片');
-    const before = await button.boundingBox();
-    if (mode !== 'actual') {
-      await button.click();
-      await expect(button).toBeEnabled();
-    } else await expect(button).toBeDisabled();
-    await expect(button).toHaveText(
-      mode === 'cancel' ? '分享图片' : mode === 'actual' ? '暂不支持分享' : '分享失败，点击重试',
-    );
-    expect(await button.boundingBox()).toEqual(before);
-    await expect(page.locator('.resource-share p')).toHaveCount(0);
-    if (mode === 'failure' || mode === 'cancel') {
-      await page.route('**/share/single.png', (route) => route.abort());
-      await page.evaluate(() => {
-        (window as any).sharing.mode = 'ok';
-      });
-      await button.click();
-      await expect.poll(async () => (await calls(page)).length).toBe(1);
-      await expect(button).toHaveText('分享图片');
-    }
-    await expect(page.getByRole('link', { name: '下载图片', exact: true })).toBeEnabled();
+    await expect(button).toHaveText('分享图片');
+    await button.click();
+    await expect(button).toBeEnabled();
+    await expect(button).toHaveText(mode === 'cancel' ? '分享图片' : '分享失败，点击重试');
+    await expect(page.getByRole('link', { name: '下载图片', exact: true })).toHaveCount(0);
+    await page.route('**/share/single.png', (route) => route.abort());
+    await page.evaluate(() => {
+      (window as any).sharing.mode = 'ok';
+    });
+    await button.click();
+    await expect.poll(async () => (await calls(page)).length).toBe(1);
   });
 }
 
@@ -247,8 +266,10 @@ test('paginated image and collection share use current resource', async ({ page 
   await expect
     .poll(async () => (await calls(page))[0]?.files[0])
     .toEqual({ name: `和朋友的同一时间-${date}-手账-02.png`, type: 'image/png', body: 'page2' });
-  await expect(page.getByRole('button', { name: '分享图片合集' })).toHaveCount(0);
-  await expect(page.getByRole('link', { name: '下载图片合集' })).toBeVisible();
+  await expect(page.getByRole('button', { name: '分享图片合集' })).toBeEnabled();
+  await expect(page.getByRole('link', { name: '下载图片合集' })).toHaveCount(0);
+  await page.getByRole('button', { name: '分享图片合集' }).click();
+  await expect.poll(async () => (await calls(page))[1]?.files[0]?.type).toBe('application/zip');
   await page.route('**/api/exports/*/validity', (route) => route.fulfill({ status: 404 }));
   await page.getByRole('button', { name: '上一张图片' }).click();
   await expect(page.locator('.export-previews')).toHaveCount(0);
@@ -302,67 +323,80 @@ test('entry menu and photo detail share the original image', async ({ page }) =>
   await expect(page.getByRole('button', { name: '分享图片' })).toHaveCount(0);
 });
 
-test('video file shares with server filename and disappears after expiry', async ({ page }) => {
-  await mockShare(page);
-  await page.route('**/api/exports/video-options', (route) =>
-    route.fulfill({
-      json: {
-        available: true,
-        styles: [{ id: 'paper', name: '手账', defaultMusicId: 'none' }],
-        music: [],
-      },
-    }),
-  );
-  const result = {
-    videoUrl: '/share/video.mp4',
-    coverUrl: '/share/cover.png',
-    duration: 20,
-    expiresAt: new Date(Date.now() + 120000).toISOString(),
-  };
-  await page.route('**/api/exports/videos/saved', (route) =>
-    route.fulfill({
-      json: { jobId: 'saved', status: 'ready', styleId: 'paper', musicId: 'none', result },
-    }),
-  );
-  await page.route('**/share/video.mp4*', (route) =>
-    route.fulfill({
-      contentType: 'video/mp4',
-      body: 'video-content',
-      headers: {
-        'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(`和朋友的同一时间-${date}-回忆视频.mp4`)}`,
-      },
-    }),
-  );
-  await page.goto('/');
-  await page.evaluate(
-    (date) =>
-      localStorage.setItem(
-        `parallel-video:${date}`,
-        JSON.stringify({ jobId: 'saved', styleId: 'paper', musicId: 'none' }),
-      ),
-    date,
-  );
-  await selectDate(page, date);
-  await page.getByRole('button', { name: '制作回忆' }).click();
-  await page.getByRole('button', { name: '生成回忆视频' }).click();
-  await expect(page.getByRole('link', { name: '下载视频' })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: '分享视频' })).toHaveClass(/primary/);
-  await expect(page.getByRole('button', { name: '修改样式与音乐' })).toHaveClass(/secondary/);
-  await page.getByRole('button', { name: '分享视频' }).click();
-  await expect
-    .poll(async () => (await calls(page))[0]?.files[0])
-    .toEqual({
-      name: `和朋友的同一时间-${date}-回忆视频.mp4`,
-      type: 'video/mp4',
-      body: 'video-content',
-    });
-  await page.getByRole('button', { name: '关闭', exact: true }).click();
-  result.expiresAt = new Date(Date.now() - 1000).toISOString();
-  await page.getByRole('button', { name: '制作回忆' }).click();
-  await page.getByRole('button', { name: '生成回忆视频' }).click();
-  await expect(page.getByRole('button', { name: '开始生成视频' })).toBeVisible();
-  await expect(page.getByRole('button', { name: '分享视频' })).toHaveCount(0);
-});
+for (const mode of ['ok', 'missing']) {
+  test(`video export uses ${mode === 'ok' ? 'sharing' : 'download fallback'} and disappears after expiry`, async ({
+    page,
+  }) => {
+    await mockShare(page, mode);
+    await page.route('**/api/exports/video-options', (route) =>
+      route.fulfill({
+        json: {
+          available: true,
+          styles: [{ id: 'paper', name: '手账', defaultMusicId: 'none' }],
+          music: [],
+        },
+      }),
+    );
+    const result = {
+      videoUrl: '/share/video.mp4',
+      coverUrl: '/share/cover.png',
+      duration: 20,
+      expiresAt: new Date(Date.now() + 120000).toISOString(),
+    };
+    await page.route('**/api/exports/videos/saved', (route) =>
+      route.fulfill({
+        json: { jobId: 'saved', status: 'ready', styleId: 'paper', musicId: 'none', result },
+      }),
+    );
+    await page.route('**/share/video.mp4*', (route) =>
+      route.fulfill({
+        contentType: 'video/mp4',
+        body: 'video-content',
+        headers: {
+          'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(`和朋友的同一时间-${date}-回忆视频.mp4`)}`,
+        },
+      }),
+    );
+    await page.goto('/');
+    await page.evaluate(
+      (date) =>
+        localStorage.setItem(
+          `parallel-video:${date}`,
+          JSON.stringify({ jobId: 'saved', styleId: 'paper', musicId: 'none' }),
+        ),
+      date,
+    );
+    await selectDate(page, date);
+    await page.getByRole('button', { name: '制作回忆' }).click();
+    await page.getByRole('button', { name: '生成回忆视频' }).click();
+    if (mode === 'ok') {
+      await expect(page.getByRole('link', { name: '下载视频' })).toHaveCount(0);
+      await expect(page.getByRole('button', { name: '分享视频' })).toHaveClass(/primary/);
+      await expect(page.getByRole('button', { name: '修改样式与音乐' })).toHaveClass(/secondary/);
+      await page.getByRole('button', { name: '分享视频' }).click();
+      await expect
+        .poll(async () => (await calls(page))[0]?.files[0])
+        .toEqual({
+          name: `和朋友的同一时间-${date}-回忆视频.mp4`,
+          type: 'video/mp4',
+          body: 'video-content',
+        });
+    } else {
+      const link = page.getByRole('link', { name: '下载视频' });
+      await expect(link).toHaveAttribute('href', '/share/video.mp4?download=1');
+      await expect(page.getByRole('button', { name: '分享视频' })).toHaveCount(0);
+      const download = page.waitForEvent('download');
+      await link.click();
+      expect((await download).suggestedFilename()).toBe(`和朋友的同一时间-${date}-回忆视频.mp4`);
+    }
+    await page.getByRole('button', { name: '关闭', exact: true }).click();
+    result.expiresAt = new Date(Date.now() - 1000).toISOString();
+    await page.getByRole('button', { name: '制作回忆' }).click();
+    await page.getByRole('button', { name: '生成回忆视频' }).click();
+    await expect(page.getByRole('button', { name: '开始生成视频' })).toBeVisible();
+    await expect(page.getByRole('button', { name: '分享视频' })).toHaveCount(0);
+  });
+}
 
 test('sticker shares original SVG with its MIME type', async ({ page }) => {
   await mockShare(page);
@@ -409,7 +443,7 @@ test('canShare alone does not expose sharing without share', async ({ page }) =>
   await expect(page.getByRole('button', { name: '分享图片' })).toHaveCount(0);
 });
 
-test('materials ZIP has download only and home creation card is visible', async ({ page }) => {
+test('materials ZIP prefers sharing and home creation card is visible', async ({ page }) => {
   await mockShare(page);
   await page.setViewportSize({ width: 375, height: 812 });
   await page.goto('/');
@@ -418,15 +452,23 @@ test('materials ZIP has download only and home creation card is visible', async 
   await expect(page.getByRole('button', { name: '制作回忆', exact: true })).toBeInViewport();
   await expect(page.getByRole('button', { name: '制作回忆', exact: true })).toHaveAttribute(
     'title',
-    '手账长图 · 回忆视频 · 素材下载',
+    '手账长图 · 回忆视频 · 素材导出',
   );
   expect((await page.locator('.moment-card').first().boundingBox())!.y).toBeLessThan(310);
   await expect(page.locator('.moment-card').first()).toBeInViewport();
   await page.screenshot({ path: 'test-results/creation-home-375.png' });
   await page.getByRole('button', { name: '制作回忆' }).click();
-  await page.getByRole('button', { name: '下载素材 ZIP' }).click();
-  await expect(page.getByRole('button', { name: '下载压缩包', exact: true })).toBeEnabled();
-  await expect(page.locator('.resource-share')).toHaveCount(0);
+  await page.getByRole('button', { name: '素材 ZIP' }).click();
+  await expect(page.getByRole('button', { name: '分享压缩包', exact: true })).toBeEnabled();
+  await expect(page.getByRole('link', { name: '下载压缩包' })).toHaveCount(0);
+  await page.getByRole('button', { name: '分享压缩包' }).click();
+  await expect
+    .poll(async () => (await calls(page))[0]?.files[0])
+    .toEqual({
+      name: `和朋友的同一时间-${date}-素材包.zip`,
+      type: 'application/zip',
+      body: 'materials-zip',
+    });
 });
 
 for (const width of [375, 430]) {
@@ -471,7 +513,7 @@ test('a prepared image is discarded by the next periodic validity check', async 
 test('validation network failures keep the image for retry; confirmed expiry hides it on download', async ({
   page,
 }) => {
-  await mockShare(page);
+  await mockShare(page, 'missing');
   await openImage(page);
   await page.route('**/api/exports/*/validity', (route) => route.fulfill({ status: 503 }));
   await page.getByRole('link', { name: '下载图片', exact: true }).click();
@@ -619,6 +661,9 @@ test('switching pages during preparation discards the old request', async ({ pag
       .fulfill({ body: first ? 'old-page' : 'new-page', contentType: 'image/png' })
       .catch(() => {});
   });
+  await page.route('**/share/all.zip', (route) =>
+    route.fulfill({ body: 'collection', contentType: 'application/zip' }),
+  );
   await openImage(page);
   await expect(page.getByRole('button', { name: /正在准备分享/ })).toBeDisabled();
   await page.getByRole('button', { name: '下一张图片' }).click();
@@ -635,4 +680,64 @@ test('a missing export during preparation immediately clears its result', async 
   await expect(page.getByRole('alert')).toContainText('重新生成');
   await expect(page.locator('.export-previews')).toHaveCount(0);
   expect(await calls(page)).toHaveLength(0);
+});
+
+test('permission-denied sharing becomes a validated download without auto-downloading', async ({
+  page,
+}) => {
+  await mockShare(page, 'denied');
+  let downloads = 0;
+  page.on('download', () => downloads++);
+  await openImage(page);
+  await page.getByRole('button', { name: '分享图片', exact: true }).click();
+  const fallback = page.getByRole('link', { name: '下载图片', exact: true });
+  await expect(fallback).toBeEnabled();
+  expect(downloads).toBe(0);
+  await expect(page.locator('.resource-share button')).toHaveCount(0);
+  const downloaded = page.waitForEvent('download');
+  await fallback.click();
+  expect((await downloaded).suggestedFilename()).toBe(`和朋友的同一时间-${date}-手账-01.png`);
+});
+
+test('ZIP unsupported browsers keep image sharing and offer collection download', async ({
+  page,
+}) => {
+  await mockShare(page, 'zip-unsupported');
+  let zipReads = 0;
+  page.on('request', (req) => {
+    if (req.url().endsWith('/share/all.zip')) zipReads++;
+  });
+  await page.route('**/api/exports/images', (route) =>
+    route.fulfill({
+      json: {
+        images: ['/share/single.png', '/share/second.png'],
+        archiveUrl: '/share/all.zip',
+        expiresAt: new Date(Date.now() + 60000).toISOString(),
+      },
+    }),
+  );
+  await openImage(page);
+  await expect(page.getByRole('button', { name: '分享当前图片' })).toBeEnabled();
+  await expect(page.getByRole('link', { name: '下载图片合集' })).toBeEnabled();
+  await expect(page.getByRole('button', { name: '分享图片合集' })).toHaveCount(0);
+  expect(zipReads).toBe(0);
+});
+
+test('unsupported materials sharing offers a working download without prefetch', async ({
+  page,
+}) => {
+  await mockShare(page, 'zip-unsupported');
+  let reads = 0;
+  page.on('request', (req) => {
+    if (req.url().includes('/api/exports/archive')) reads++;
+  });
+  await openExport(page);
+  await page.getByRole('button', { name: '素材 ZIP' }).click();
+  const fallback = page.getByRole('link', { name: '下载压缩包' });
+  await expect(fallback).toBeEnabled();
+  await expect(page.getByRole('button', { name: '分享压缩包' })).toHaveCount(0);
+  expect(reads).toBe(0);
+  const downloaded = page.waitForEvent('download');
+  await fallback.click();
+  expect((await downloaded).url()).toBe(`http://127.0.0.1:3101/api/exports/archive?date=${date}`);
 });

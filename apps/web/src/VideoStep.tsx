@@ -375,6 +375,7 @@ export function VideoStep({ date, onBack }: { date: string; onBack: () => void }
           <>
             <ShareButton
               validity={shareValidity}
+              download={{ url: `${job.result.videoUrl}?download=1`, validate }}
               label="分享视频"
               variant="primary"
               resource={{

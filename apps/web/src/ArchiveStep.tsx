@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, ArrowDownToLine, Check, Copy, LoaderCircle } from 'lucide-react';
+import { ShareButton } from './ShareButton';
+import { ArrowLeft, Check, Copy } from 'lucide-react';
 
 function archivePrompt(date: string) {
   return `请阅读我上传的「和朋友的同一时间」素材 ZIP，为 ${date} 这一天的朋友动态创作图片或视频。
@@ -36,7 +37,7 @@ export function ArchiveStep({
   date: string;
   busy: boolean;
   onBack: () => void;
-  onDownload: () => void;
+  onDownload: () => Promise<void>;
 }) {
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState('');
@@ -98,10 +99,17 @@ export function ArchiveStep({
         )}
       </div>
       <div className="export-download-bar">
-        <button className="primary full" disabled={busy} aria-busy={busy} onClick={onDownload}>
-          {busy ? <LoaderCircle size={18} className="spin" /> : <ArrowDownToLine size={18} />}
-          {busy ? '正在准备压缩包…' : '下载压缩包'}
-        </button>
+        <ShareButton
+          label="分享压缩包"
+          variant="primary"
+          disabled={busy}
+          download={{ onDownload }}
+          resource={{
+            url: `/api/exports/archive?date=${date}`,
+            filename: `和朋友的同一时间-${date}-素材包.zip`,
+            mime: 'application/zip',
+          }}
+        />
       </div>
     </>
   );

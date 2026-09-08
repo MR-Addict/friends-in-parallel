@@ -100,12 +100,12 @@ test('Mobile two-step publishing, preserving form, all packs, edit/delete and ex
   await page.getByRole('button', { name: '返回导出选项' }).click();
   let archiveDownloads = 0;
   page.on('download', () => archiveDownloads++);
-  await page.getByRole('button', { name: /下载素材 ZIP/ }).click();
+  await page.getByRole('button', { name: /素材 ZIP/ }).click();
   const prompt = page.getByLabel('AI 提示词', { exact: true });
   await expect(prompt).toHaveValue(/manifest.json/);
   await expect(prompt).toHaveValue(/2026-08-29/);
   expect(archiveDownloads).toBe(0);
-  const archiveDownload = page.getByRole('button', { name: '下载压缩包', exact: true });
+  const archiveDownload = page.getByRole('link', { name: '下载压缩包', exact: true });
   await expect(archiveDownload).toBeInViewport({ ratio: 1 });
   const downloadPosition = await archiveDownload.boundingBox();
   await prompt.evaluate((el) => (el.scrollTop = el.scrollHeight));
@@ -155,7 +155,7 @@ test('Mobile two-step publishing, preserving form, all packs, edit/delete and ex
   ).toBe((await prompt.inputValue()).length);
   await expect(archiveDownload).toBeInViewport({ ratio: 1 });
   const downloadPromise = page.waitForEvent('download');
-  await page.getByRole('button', { name: '下载压缩包', exact: true }).click();
+  await page.getByRole('link', { name: '下载压缩包', exact: true }).click();
   const download = await downloadPromise;
   expect(download.suggestedFilename()).toBe('和朋友的同一时间-2026-08-29-素材包.zip');
   await page.getByRole('button', { name: '关闭', exact: true }).click();
