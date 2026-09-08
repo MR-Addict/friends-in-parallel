@@ -58,13 +58,13 @@ export default function App() {
   }, [toast]);
   useEffect(() => {
     if (!focusId || loading) return;
-    const id = setTimeout(
-      () =>
-        document
-          .getElementById(`entry-${focusId}`)
-          ?.scrollIntoView({ behavior: 'smooth', block: 'center' }),
-      150,
-    );
+    const id = setTimeout(() => {
+      document
+        .getElementById(`entry-${focusId}`)
+        ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      // Consume the save target so later refreshes don't scroll to it again.
+      setFocusId('');
+    }, 150);
     return () => clearTimeout(id);
   }, [focusId, entries, loading]);
   function saved(entry: Entry) {
