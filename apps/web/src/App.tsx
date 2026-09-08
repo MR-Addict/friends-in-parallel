@@ -7,11 +7,8 @@ import { Timeline } from './Timeline';
 import { ExportDialog } from './ExportDialog';
 import videoMusic from './config/video-music.json';
 import { Modal } from './Modal';
-import { api, today, dateOf, readPreference, preference, type Entry } from './lib';
+import { api, today, dateOf, type Entry } from './lib';
 export default function App() {
-  const [lastPersonId, setLastPersonId] = useState(() =>
-    readPreference('parallel.lastSubmittedPerson', readPreference('parallel.person', '')),
-  );
   const [date, setDate] = useState(today());
   const [calendarOpen, setCalendarOpen] = useState(false);
   const calendarTrigger = useRef<HTMLButtonElement>(null);
@@ -64,8 +61,6 @@ export default function App() {
   }, [focusId, entries, loading]);
   function saved(entry: Entry) {
     setExportOpen(false);
-    setLastPersonId(entry.personId);
-    preference('parallel.lastSubmittedPerson', entry.personId);
     setComposer(null);
     setDate(dateOf(entry.occurredAt));
     setFocusId(entry.id);
@@ -126,7 +121,6 @@ export default function App() {
           </div>
         </header>
         <Timeline
-          lastPersonId={lastPersonId}
           entries={entries}
           loading={loading}
           error={error}

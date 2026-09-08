@@ -287,55 +287,80 @@ input:focus-visible,
 .today-action:disabled {
   color: var(--muted);
 }
-.people-panel {
-  border: 2px solid var(--line);
-  border-radius: 28px;
-  padding: 18px 18px 10px;
-  background: var(--paper);
+.timeline-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: nowrap;
+  gap: 12px;
+  margin: 12px 0 20px;
 }
-.people-filter {
+.timeline-heading h2 {
+  flex-shrink: 0;
+  font-size: 18px;
+  line-height: 1.5;
+  font-weight: 700;
+}
+.friend-filter-trigger {
+  min-width: 0;
+  padding: 6px 10px;
   gap: 8px;
-  padding-top: 10px;
+  font-size: 13px;
 }
-.people-filter button {
-  padding: 12px 4px;
-  border-radius: 24px;
-  font-size: 12px;
-  gap: 10px;
-  transition: background var(--animal-motion-duration-fast) var(--animal-motion-ease);
+.friend-filter-trigger .filter-avatar {
+  display: grid;
+  place-items: center;
+  flex: 0 0 28px;
+  height: 28px;
+  border-radius: 50%;
+  color: var(--accent);
 }
-.people-filter button.active {
+.friend-filter-trigger .filter-avatar img {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+}
+.friend-filter-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.friend-filter-trigger svg {
+  flex-shrink: 0;
+}
+.friend-filter-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.friend-filter-option {
+  width: 100%;
+  padding: 12px 16px;
+  gap: 12px;
+  justify-content: flex-start;
+  text-align: left;
+}
+.friend-filter-option.selected {
   background: var(--animal-primary-color-bg);
   color: var(--accent);
 }
-.filter-avatar {
-  width: 48px;
-  height: 48px;
+.friend-filter-check {
+  margin-left: auto;
+  width: 18px;
+  flex-shrink: 0;
 }
-.filter-avatar img {
-  width: 36px;
-  height: 36px;
-}
-.people-filter button.active .filter-avatar {
-  outline: 2px dashed var(--accent);
-  outline-offset: 4px;
-}
-.filter-avatar .has-moments {
-  background: var(--accent);
-  border-color: var(--paper);
-  width: 10px;
-  height: 10px;
-}
-.all-friends {
-  background: var(--animal-bg-color-secondary);
-  color: var(--ink);
-}
-.timeline-heading {
-  margin: 28px 4px 20px;
-}
-.timeline-summary {
-  font-size: 12px;
-  margin-top: 10px;
+@media (max-width: 360px) {
+  .timeline-heading {
+    gap: 8px;
+  }
+  .timeline-heading h2 {
+    font-size: 16px;
+  }
+  .friend-filter-trigger {
+    font-size: 12px;
+    padding: 6px;
+    gap: 6px;
+  }
 }
 .hour-heading > time {
   background: var(--animal-island-peach);
@@ -354,6 +379,14 @@ input:focus-visible,
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
   align-items: start;
+}
+.hour-entries[data-masonry] {
+  position: relative;
+  display: block;
+}
+.hour-entries[data-masonry] > .moment-card {
+  position: absolute;
+  width: calc((100% - 16px) / 2);
 }
 .moment-card {
   background: var(--paper);
@@ -591,7 +624,13 @@ input:focus-visible,
   background: var(--animal-primary-color-bg);
 }
 .sheet-heading h2 {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  line-height: 1.5;
   font-weight: 700;
+}
+.sheet-heading > button {
+  flex-shrink: 0;
 }
 .sheet-content {
   background: var(--paper);
@@ -603,7 +642,7 @@ input:focus-visible,
 .export-download-bar {
   background: var(--paper);
   border-top: 2px dashed var(--line);
-  padding-bottom: max(20px, env(safe-area-inset-bottom));
+  padding-bottom: max(20px, env(safe-area-inset-bottom, 0px));
 }
 .person-choice,
 .back-person,
@@ -698,7 +737,13 @@ input:focus-visible,
   background: var(--animal-primary-color-active);
   color: var(--paper);
   border-radius: 50px;
-  bottom: 108px;
+  bottom: calc(108px + env(safe-area-inset-bottom, 0px));
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.6;
+}
+.toast > svg {
+  flex-shrink: 0;
 }
 .export-date {
   padding: 12px 16px;
@@ -792,6 +837,7 @@ a.secondary {
   background: var(--paper);
 }
 .access-shell {
+  width: min(100%, 1000px);
   max-width: 1000px;
   min-height: 100dvh;
   display: grid;
@@ -802,6 +848,7 @@ a.secondary {
   padding: 48px 36px;
 }
 .access-shell > .brand {
+  margin-bottom: 0;
   grid-column: 1 / -1;
   padding-bottom: 24px;
   border-bottom: 2px dashed var(--animal-border-color);
@@ -814,6 +861,7 @@ a.secondary {
   text-align: center;
 }
 .access-welcome .island-scene {
+  max-width: 100%;
   width: 330px;
   height: 240px;
 }
@@ -840,6 +888,11 @@ a.secondary {
 }
 .island-access-input {
   width: 100%;
+}
+.island-access-input input,
+.island-date-input input {
+  font-size: 16px;
+  min-width: 0;
 }
 .access-card form {
   margin-top: 24px;
@@ -910,26 +963,6 @@ a.secondary {
   .section-heading > span {
     font-size: 11px;
   }
-  .people-panel {
-    padding: 8px 10px;
-    border-radius: 24px;
-  }
-  .people-filter {
-    gap: 2px;
-    padding: 4px 0;
-  }
-  .people-filter button {
-    font-size: 10px;
-    padding: 10px 2px;
-  }
-  .filter-avatar {
-    width: 36px;
-    height: 36px;
-  }
-  .filter-avatar img {
-    width: 28px;
-    height: 28px;
-  }
   .date-picker strong {
     font-size: 16px;
     letter-spacing: 0;
@@ -998,6 +1031,31 @@ a.secondary {
   .sheet-modal {
     border-radius: 28px 28px 0 0;
     border-bottom: 0;
+    max-height: var(--viewport-height, 100dvh);
+  }
+  .sheet-inner {
+    max-height: calc(var(--viewport-height, 100dvh) - 2px);
+  }
+  .sheet-content {
+    padding-bottom: max(20px, env(safe-area-inset-bottom, 0px));
+  }
+  .composer-modal .sheet-content,
+  .export-result-modal .sheet-content {
+    padding-bottom: 0;
+  }
+  .time-input {
+    flex-wrap: wrap;
+    border: 0;
+    border-radius: 24px;
+    padding: 0;
+    background: transparent;
+  }
+  .time-input > .island-date-input {
+    flex: 1 1 100%;
+    width: 100%;
+  }
+  .time-input > button {
+    margin: 0 0 0 auto;
   }
   .sheet-heading {
     padding: 12px 14px 12px 20px;
@@ -1047,5 +1105,14 @@ a.secondary {
     transition: none !important;
     animation: none !important;
     scroll-behavior: auto !important;
+  }
+}
+
+@media (max-height: 500px) and (min-width: 601px) {
+  .sheet-modal {
+    max-height: calc(var(--viewport-height, 100dvh) - 16px);
+  }
+  .sheet-inner {
+    max-height: calc(var(--viewport-height, 100dvh) - 20px);
   }
 }

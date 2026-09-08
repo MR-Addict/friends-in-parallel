@@ -381,7 +381,7 @@ function ComposerEditor({
                             setError('');
                           }}
                         >
-                          <Icon size={17} />
+                          <IslandIcon icon={Icon} size={17} />
                           {label}
                         </Button>
                       ))}

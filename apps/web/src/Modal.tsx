@@ -44,6 +44,7 @@ export function Modal({
       revealInput();
     };
     resize();
+    window.addEventListener('resize', resize);
     viewport?.addEventListener('resize', resize);
     viewport?.addEventListener('scroll', resize);
     const previous = document.body.style.overflow;
@@ -51,6 +52,7 @@ export function Modal({
     return () => {
       cancelAnimationFrame(frame);
       el.removeEventListener('focusin', revealInput);
+      window.removeEventListener('resize', resize);
       viewport?.removeEventListener('resize', resize);
       viewport?.removeEventListener('scroll', resize);
       el.close();

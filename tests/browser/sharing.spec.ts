@@ -481,8 +481,10 @@ for (const width of [375, 430]) {
     await expect(first).toBeVisible();
     await expect.poll(async () => (await first.boundingBox())?.y ?? Infinity).toBeLessThan(310);
     await expect(page.getByRole('button', { name: '制作回忆', exact: true })).toBeInViewport();
+    await page.getByRole('button', { name: /^筛选朋友：/ }).click();
     const filters = page.getByRole('group', { name: '按人物筛选' });
     await filters.getByRole('button').last().click();
+    await page.getByRole('button', { name: /^筛选朋友：/ }).click();
     await expect(filters.getByRole('button').last()).toHaveAttribute('aria-pressed', 'true');
     await filters.getByRole('button', { name: '全部朋友' }).click();
     await expect(first).toBeVisible();
