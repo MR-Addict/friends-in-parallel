@@ -156,14 +156,14 @@ export default function App() {
           {date === today() ? '冒个泡' : '补个泡'}
         </Button>
         <Button
-          type="default"
+          type="primary"
           className="island-control export-trigger"
           aria-label="制作回忆"
           title="手账长图 · 回忆视频 · 素材导出"
           onClick={() => setExportOpen(true)}
           disabled={!entries.length || loading || !!error}
         >
-          <IslandIcon icon={Clapperboard} size={18} />
+          <IslandIcon icon={Clapperboard} size={20} />
           <span>制作回忆</span>
         </Button>
       </div>
