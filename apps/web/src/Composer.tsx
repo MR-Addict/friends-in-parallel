@@ -366,7 +366,7 @@ function ComposerEditor({
                       </div>
                       <span className="field-badge">必选</span>
                     </div>
-                    <div className="media-tabs">
+                    <div className="media-tabs" data-media={type}>
                       {(
                         [
                           { id: 'photo', label: '照片', Icon: ImagePlus },
@@ -379,7 +379,11 @@ function ComposerEditor({
                           htmlType="button"
                           className={'island-control ' + (type === id ? 'active' : '')}
                           aria-pressed={type === id}
-                          onClick={() => {
+                          onClick={(event) => {
+                            event.currentTarget.parentElement?.setAttribute(
+                              'data-instant',
+                              String(event.detail === 0),
+                            );
                             setType(id);
                             setError('');
                           }}
