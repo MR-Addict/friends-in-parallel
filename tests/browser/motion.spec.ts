@@ -1,4 +1,42 @@
 import { test, expect } from '@playwright/test';
+import { people } from '@parallel/config';
+
+for (const width of [375, 1280]) {
+  test(`media tabs slide without changing layout at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 812 });
+    await page.goto('/');
+    await page.locator('.floating-create').click();
+    await page
+      .getByRole('dialog')
+      .getByRole('button', { name: people[0].nickname, exact: true })
+      .click();
+    await page.getByRole('button', { name: '下一步' }).click();
+    const tabs = page.locator('.media-tabs');
+    await tabs.scrollIntoViewIfNeeded();
+    const before = await tabs.boundingBox();
+    await tabs.getByRole('button', { name: '表情', exact: true }).click();
+    await expect(tabs).toHaveAttribute('data-media', 'sticker');
+    await expect
+      .poll(() =>
+        tabs.evaluate((element) => {
+          const matrix = new DOMMatrixReadOnly(getComputedStyle(element, '::before').transform);
+          return Math.abs(matrix.m41 - (element.clientWidth - 2) / 2) < 1;
+        }),
+      )
+      .toBe(true);
+    expect((await tabs.boundingBox())?.width).toBe(before?.width);
+    await page.screenshot({ path: `test-results/media-tabs-${width}.png` });
+    await tabs.getByRole('button', { name: '照片', exact: true }).focus();
+    await page.keyboard.press('Enter');
+    await expect(tabs).toHaveAttribute('data-instant', 'true');
+    await expect(tabs).toHaveAttribute('data-media', 'photo');
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await tabs.getByRole('button', { name: '表情', exact: true }).click();
+    expect(
+      await tabs.evaluate((element) => getComputedStyle(element, '::before').transitionDuration),
+    ).toBe('0s');
+  });
+}
 
 test.beforeEach(async ({ context }) => {
   await context.addCookies([

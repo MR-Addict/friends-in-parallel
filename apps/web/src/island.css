@@ -744,6 +744,39 @@ input:focus-visible,
   background: transparent;
   box-shadow: none;
 }
+.composer-modal .media-tabs {
+  position: relative;
+  isolation: isolate;
+}
+.composer-modal .media-tabs::before {
+  content: '';
+  position: absolute;
+  inset: 4px auto 4px 4px;
+  width: calc((100% - 14px) / 2);
+  border-radius: inherit;
+  background: #296e58;
+  pointer-events: none;
+  transition: transform var(--motion-panel) var(--ease-out);
+}
+.composer-modal .media-tabs[data-media='sticker']::before {
+  transform: translateX(calc(100% + 6px));
+}
+.composer-modal .media-tabs button {
+  position: relative;
+  z-index: 1;
+  transition: color var(--motion-fast) ease;
+}
+.composer-modal .media-tabs button.active,
+.composer-modal .media-tabs button.active:hover:not(:disabled) {
+  background: transparent;
+}
+.composer-modal .media-tabs button:active:not(:disabled) {
+  transform: none;
+}
+.composer-modal .media-tabs[data-instant='true']::before,
+.composer-modal .media-tabs[data-instant='true'] button {
+  transition: none;
+}
 .composer-modal .time-input > .island-date-input:hover {
   border-color: #296e58;
   box-shadow: none;
