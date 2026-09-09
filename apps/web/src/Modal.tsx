@@ -1,6 +1,14 @@
 import { Icon as IslandIcon, Button } from 'animal-island-ui';
-import { useEffect, useRef, useState, type MutableRefObject, type ReactNode } from 'react';
+import {
+  createContext,
+  useEffect,
+  useRef,
+  useState,
+  type MutableRefObject,
+  type ReactNode,
+} from 'react';
 import { X } from 'lucide-react';
+export const ModalClosingContext = createContext(false);
 export function Modal({
   title,
   onClose,
@@ -99,24 +107,26 @@ export function Modal({
         if (e.target === ref.current) requestClose();
       }}
     >
-      <div className="sheet-inner" inert={closing}>
-        <header className="sheet-heading">
-          <h2>{title}</h2>
-          <div className="sheet-heading-actions">
-            {headerActions}
-            <Button
-              type="text"
-              className="island-control icon-button"
-              aria-label="关闭"
-              onClick={(event) => requestClose(event.detail === 0)}
-              disabled={busy}
-            >
-              <IslandIcon icon={X} size={21} />
-            </Button>
-          </div>
-        </header>
-        <div className="sheet-content">{children}</div>
-      </div>
+      <ModalClosingContext.Provider value={closing}>
+        <div className="sheet-inner" inert={closing}>
+          <header className="sheet-heading">
+            <h2>{title}</h2>
+            <div className="sheet-heading-actions">
+              {headerActions}
+              <Button
+                type="text"
+                className="island-control icon-button"
+                aria-label="关闭"
+                onClick={(event) => requestClose(event.detail === 0)}
+                disabled={busy}
+              >
+                <IslandIcon icon={X} size={21} />
+              </Button>
+            </div>
+          </header>
+          <div className="sheet-content">{children}</div>
+        </div>
+      </ModalClosingContext.Provider>
     </dialog>
   );
 }

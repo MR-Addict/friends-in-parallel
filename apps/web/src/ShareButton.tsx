@@ -1,5 +1,6 @@
 import { Icon as IslandIcon, Button } from 'animal-island-ui';
-import { useEffect, useRef, useState } from 'react';
+import { useContext, useEffect, useRef, useState } from 'react';
+import { ModalClosingContext } from './Modal';
 import type { ShareValidity } from './shareValidity';
 import { ArrowDownToLine, LoaderCircle, Share2 } from 'lucide-react';
 import { localTime, mediaName, mediaSrc, personOf, type Entry } from './lib';
@@ -135,6 +136,13 @@ function ShareSession({
   latestValidity.current = validity;
   const alive = useRef(true);
   const request = useRef<AbortController | undefined>(undefined);
+  const closing = useContext(ModalClosingContext);
+
+  useEffect(() => {
+    if (!closing) return;
+    alive.current = false;
+    request.current?.abort();
+  }, [closing]);
 
   useEffect(() => {
     alive.current = true;

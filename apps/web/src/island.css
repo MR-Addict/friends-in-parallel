@@ -1192,6 +1192,19 @@ a.secondary {
   clip-path: inset(50%);
   white-space: nowrap;
 }
+.pull-refresh:not(.pulling) {
+  transition:
+    height var(--motion-panel) var(--ease-drawer),
+    color var(--motion-fast) ease;
+}
+.pull-refresh > span > svg {
+  transform: rotate(180deg);
+  transition: transform var(--motion-panel) var(--ease-out);
+}
+.pull-refresh.ready > span > svg {
+  transform: rotate(0deg);
+}
+.resource-share :is(button, a),
 .island-control,
 .compact-date-picker {
   transition:
@@ -1199,6 +1212,7 @@ a.secondary {
     background-color var(--motion-fast) ease,
     box-shadow var(--motion-fast) ease;
 }
+.resource-share :is(button, a):active:not(:disabled):not([aria-disabled='true']),
 .island-control:active:not(:disabled),
 .compact-date-picker:active:not(:disabled) {
   transform: scale(0.97);
@@ -1225,6 +1239,10 @@ a.secondary {
   }
 }
 @media (prefers-reduced-motion: reduce) {
+  .pull-refresh > span > svg,
+  .resource-share :is(button, a):active:not(:disabled):not([aria-disabled='true']) {
+    transform: none;
+  }
   .sheet-modal::backdrop {
     transition: none;
   }
