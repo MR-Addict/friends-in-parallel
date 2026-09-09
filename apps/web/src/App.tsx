@@ -1,6 +1,7 @@
 import { Icon as IslandIcon, Button } from 'animal-island-ui';
 import { useEffect, useRef, useState } from 'react';
-import { Plus, Check, LoaderCircle, Clapperboard, CalendarDays } from 'lucide-react';
+import { Plus, LoaderCircle, Clapperboard, CalendarDays } from 'lucide-react';
+import { Toast } from './Toast';
 import { DateCalendar } from './DateCalendar';
 import { Composer } from './Composer';
 import { Timeline } from './Timeline';
@@ -54,9 +55,12 @@ export default function App() {
     if (!focusId || loading) return;
     const id = setTimeout(
       () =>
-        document
-          .getElementById(`entry-${focusId}`)
-          ?.scrollIntoView({ behavior: 'smooth', block: 'center' }),
+        document.getElementById(`entry-${focusId}`)?.scrollIntoView({
+          behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches
+            ? 'instant'
+            : 'smooth',
+          block: 'center',
+        }),
       150,
     );
     return () => clearTimeout(id);
@@ -279,12 +283,7 @@ export default function App() {
           </div>
         </Modal>
       )}
-      {toast && (
-        <div className="toast" role="status">
-          <IslandIcon icon={Check} size={17} />
-          {toast}
-        </div>
-      )}
+      <Toast message={toast} />
     </>
   );
 }

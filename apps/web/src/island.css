@@ -2,6 +2,10 @@
 
 /* Animal Island visual layer. Domain state, media and export templates stay in their owners. */
 :root {
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+  --motion-fast: 140ms;
+  --motion-panel: 200ms;
   --animal-primary-color: #36836c;
   --animal-primary-color-hover: #296e58;
   --animal-primary-color-active: #245c4a;
@@ -1098,7 +1102,98 @@ a.secondary {
     padding: 0 8px;
   }
 }
+.sheet-modal {
+  opacity: 1;
+  transform: none;
+  transition:
+    opacity var(--motion-panel) var(--ease-out),
+    transform var(--motion-panel) var(--ease-out);
+}
+.sheet-modal[data-closing] {
+  opacity: 0;
+  transform: translateY(8px) scale(0.98);
+}
+.sheet-modal::backdrop {
+  opacity: 1;
+  transition: opacity var(--motion-panel) var(--ease-out);
+}
+.sheet-modal[data-closing]::backdrop {
+  opacity: 0;
+}
+@starting-style {
+  .sheet-modal[open] {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  .sheet-modal[open]::backdrop {
+    opacity: 0;
+  }
+}
+.toast {
+  opacity: 0;
+  visibility: hidden;
+  transform: translate(-50%, 8px);
+  pointer-events: none;
+  transition:
+    opacity var(--motion-panel) var(--ease-out),
+    transform var(--motion-panel) var(--ease-out),
+    visibility 0s var(--motion-panel);
+}
+.toast[data-visible='true'] {
+  opacity: 1;
+  visibility: visible;
+  transform: translate(-50%, 0);
+  transition-delay: 0s;
+}
+.motion-announcement {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.island-control,
+.compact-date-picker {
+  transition:
+    transform var(--motion-fast) var(--ease-out),
+    background-color var(--motion-fast) ease,
+    box-shadow var(--motion-fast) ease;
+}
+.island-control:active:not(:disabled),
+.compact-date-picker:active:not(:disabled) {
+  transform: scale(0.97);
+}
+@media (hover: hover) and (pointer: fine) {
+  .floating-actions .island-control:hover:not(:disabled) {
+    transform: translateY(-2px);
+  }
+  .floating-actions .island-control:active:not(:disabled) {
+    transform: scale(0.97);
+  }
+}
+@media (max-width: 600px) {
+  .sheet-modal {
+    transition-timing-function: var(--ease-drawer);
+  }
+  .sheet-modal[data-closing] {
+    transform: translateY(24px);
+  }
+  @starting-style {
+    .sheet-modal[open] {
+      transform: translateY(24px);
+    }
+  }
+}
 @media (prefers-reduced-motion: reduce) {
+  .sheet-modal::backdrop {
+    transition: none;
+  }
+  .island-control:active:not(:disabled),
+  .compact-date-picker:active:not(:disabled),
+  .floating-actions .island-control:hover:not(:disabled) {
+    transform: none;
+  }
   *,
   *::before,
   *::after {
