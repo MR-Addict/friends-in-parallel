@@ -725,6 +725,45 @@ input:focus-visible,
   min-height: 44px;
   border: 0;
 }
+.composer-modal :is(.media-tabs, .pack-tabs, .category-tabs) button {
+  color: var(--ink);
+}
+.composer-modal :is(.media-tabs, .pack-tabs, .category-tabs) button:hover:not(:disabled) {
+  background: #ded2b8;
+  color: #493822;
+}
+.composer-modal :is(.media-tabs, .pack-tabs, .category-tabs) button.active {
+  background: #296e58;
+  color: #ffffff;
+}
+.composer-modal :is(.media-tabs, .pack-tabs, .category-tabs) button.active:hover:not(:disabled) {
+  background: #245c4a;
+  color: #ffffff;
+}
+.composer-modal .time-input > .island-date-input {
+  background: transparent;
+  box-shadow: none;
+}
+.composer-modal .time-input > .island-date-input:hover {
+  border-color: #296e58;
+  box-shadow: none;
+}
+.composer-modal .time-input > .island-date-input:focus-within {
+  outline: 2px solid #296e58;
+  outline-offset: 2px;
+}
+.composer-modal .time-input input {
+  color: #493822;
+  -webkit-text-fill-color: #493822;
+  color-scheme: light;
+}
+.composer-modal .time-input button:hover:not(:disabled),
+.composer-modal .selected-media:hover:not(:disabled),
+.composer-modal .photo-upload:hover {
+  background: #d6e8d9;
+  color: #245c4a;
+  border-color: #296e58;
+}
 .sticker-grid button {
   border-radius: 20px;
 }

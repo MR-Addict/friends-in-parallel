@@ -9,8 +9,10 @@ export function Modal({
   busy = false,
   className = '',
   cancelGuard,
+  headerActions,
 }: {
   title: string;
+  headerActions?: ReactNode;
   onClose: () => void;
   children: ReactNode;
   wide?: boolean;
@@ -100,15 +102,18 @@ export function Modal({
       <div className="sheet-inner" inert={closing}>
         <header className="sheet-heading">
           <h2>{title}</h2>
-          <Button
-            type="text"
-            className="island-control icon-button"
-            aria-label="关闭"
-            onClick={(event) => requestClose(event.detail === 0)}
-            disabled={busy}
-          >
-            <IslandIcon icon={X} size={21} />
-          </Button>
+          <div className="sheet-heading-actions">
+            {headerActions}
+            <Button
+              type="text"
+              className="island-control icon-button"
+              aria-label="关闭"
+              onClick={(event) => requestClose(event.detail === 0)}
+              disabled={busy}
+            >
+              <IslandIcon icon={X} size={21} />
+            </Button>
+          </div>
         </header>
         <div className="sheet-content">{children}</div>
       </div>

@@ -11,7 +11,7 @@
     "build": "tsx scripts/build.ts",
     "start": "pnpm --filter @parallel/server start",
     "typecheck": "tsc -p tsconfig.scripts.json && pnpm -r run typecheck",
-    "test": "tsx scripts/download-music.ts && tsx --test tests/*.test.ts",
+    "test": "tsx scripts/download-music.ts && node --conditions=development --import tsx --test tests/*.test.ts",
     "test:e2e": "playwright test",
     "setup:browser": "playwright install chromium",
     "assets:icons": "tsx scripts/generate-icons.ts",
@@ -29,5 +29,8 @@
     "typescript": "^5.9.0",
     "sharp": "^0.35.4"
   },
-  "packageManager": "pnpm@12.3.4"
+  "packageManager": "pnpm@12.3.4",
+  "dependencies": {
+    "@parallel/config": "workspace:*"
+  }
 }

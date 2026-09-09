@@ -3,7 +3,8 @@ import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { ArrowRight, KeyRound } from 'lucide-react';
 import { IslandScene } from './IslandScene';
 
-import { accessCode } from './config/app.json';
+import { appConfig } from '@parallel/config';
+const { accessCode } = appConfig;
 const cookieName = 'parallel_access';
 const weekSeconds = 7 * 24 * 60 * 60;
 function readExpiry() {

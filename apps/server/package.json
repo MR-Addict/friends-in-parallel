@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "node --env-file-if-exists=../../.env --watch --import tsx src/index.ts",
+    "dev": "node --conditions=development --env-file-if-exists=../../.env --watch --import tsx src/index.ts",
     "build": "tsc && tsx ../../scripts/copy-web.ts",
     "start": "node --env-file-if-exists=../../.env dist/index.js",
     "typecheck": "tsc --noEmit"
@@ -15,7 +15,8 @@
     "heic-convert": "^2.1.0",
     "multer": "^2.0.2",
     "playwright": "^1.55.0",
-    "sharp": "^0.35.4"
+    "sharp": "^0.35.4",
+    "@parallel/config": "workspace:*"
   },
   "devDependencies": {
     "@types/archiver": "^6.0.0",

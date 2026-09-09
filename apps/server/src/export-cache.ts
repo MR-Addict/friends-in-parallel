@@ -7,7 +7,7 @@ import type { SnapshotItem } from './exports.js';
 
 export const EXPORT_TTL = 86_400_000;
 const TOKEN = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/;
-const FILE = /^(?:[1-9]\d*\.png|images\.zip|video\.mp4|cover\.jpg)$/;
+const FILE = /^(?:[1-9]\d*\.png|video\.mp4|cover\.jpg)$/;
 export interface CacheRecord<T = unknown> {
   version: 2;
   sourceRevision: string;
@@ -118,7 +118,7 @@ export class ExportCache {
         if (!info.isFile() || info.size !== file.size) return;
       }
       if (meta.kind === 'video' && (!meta.files['video.mp4'] || !meta.files['cover.jpg'])) return;
-      if (meta.kind === 'images' && (!meta.files['1.png'] || !meta.files['images.zip'])) return;
+      if (meta.kind === 'images' && !meta.files['1.png']) return;
       const result = meta.result;
       const prefix = `/api/exports/files/${token}/`;
       if (typeof result !== 'object' || result.expiresAt !== meta.expiresAt) return;
@@ -139,8 +139,8 @@ export class ExportCache {
         if (
           !Array.isArray(result.images) ||
           !result.images.length ||
-          files.length !== result.images.length + 1 ||
-          result.archiveUrl !== `${prefix}images.zip` ||
+          files.length !== result.images.length ||
+          'archiveUrl' in result ||
           !result.images.every(
             (url: unknown, index: number) =>
               url === `${prefix}${index + 1}.png` && !!meta.files[`${index + 1}.png`],

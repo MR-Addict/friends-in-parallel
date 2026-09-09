@@ -1,5 +1,5 @@
 import { Icon as IslandIcon, Button } from 'animal-island-ui';
-import { ShareButton, entryShare } from './ShareButton';
+import { PostShare } from './PostShare';
 import { Photo } from './Photo';
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -111,7 +111,19 @@ export function Timeline({
                       <img src={`/stickers/fluent/${person.avatar}.png`} alt="" />
                     )}
                   </span>
-                  <span>{person.nickname}</span>
+                  <span>
+                    {person.nickname}
+                    {!loading && !error && (
+                      <span className="friend-post-count">
+                        {' '}
+                        （
+                        {person.id === 'all'
+                          ? entries.length
+                          : entries.filter((entry) => entry.personId === person.id).length}
+                        条）
+                      </span>
+                    )}
+                  </span>
                   <span className="friend-filter-check" aria-hidden="true">
                     {filter === person.id && <IslandIcon icon={Check} size={18} />}
                   </span>
@@ -121,14 +133,15 @@ export function Timeline({
           </div>
         </Modal>
       )}
-      {error ? (
+      {error && (
         <div className="empty-state">
           <p role="alert">{error}</p>
           <Button type="default" className="island-control secondary" onClick={onRefresh}>
             再试一次
           </Button>
         </div>
-      ) : loading ? (
+      )}
+      {loading ? (
         <div className="empty-state" role="status">
           <IslandIcon icon={LoaderCircle} size={28} className="spin" />
           <p>正在翻到这一天…</p>
@@ -238,7 +251,7 @@ export function Timeline({
       {actions && (
         <Modal title="动态操作" onClose={() => setActions(undefined)}>
           <div className="entry-options">
-            {mediaSrc(actions.media) && <ShareButton label="分享图片" {...entryShare(actions)} />}
+            {mediaSrc(actions.media) && <PostShare entry={actions} />}
             <Button
               type="default"
               className="island-control secondary full"
@@ -269,17 +282,13 @@ export function Timeline({
       )}
       {zoom && (
         <Modal
+          className="post-modal"
           title={`${personOf(zoom.personId).nickname} · ${timeOf(zoom.occurredAt)}`}
           onClose={() => setZoom(undefined)}
         >
-          <Photo className="zoom-image" src={mediaSrc(zoom.media)} alt={mediaName(zoom.media)} />
-          {mediaSrc(zoom.media) && (
-            <ShareButton
-              label={zoom.media.type === 'photo' ? '分享照片' : '分享图片'}
-              {...entryShare(zoom)}
-            />
-          )}
           {zoom.description && <p className="moment-description">{zoom.description}</p>}
+          <Photo className="zoom-image" src={mediaSrc(zoom.media)} alt={mediaName(zoom.media)} />
+          {mediaSrc(zoom.media) && <PostShare entry={zoom} />}
         </Modal>
       )}
     </section>

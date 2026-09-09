@@ -1,5 +1,5 @@
 import { selectDate } from './calendar';
-import people from '../../apps/web/src/config/people.json' with { type: 'json' };
+import { people } from '@parallel/config';
 const testNickname = people.find((person) => person.id === 'lu-yuhan')!.nickname;
 import { test, expect } from '@playwright/test';
 // Feature tests start with an existing access cookie; access.spec.ts covers the gate itself.
@@ -231,8 +231,18 @@ test('Backend PNG is 1080px, wraps safely and paginates long days; every archive
     });
     expect(r.status()).toBe(201);
   }
-  const result = await request.post('/api/exports/images', { data: { date }, timeout: 110000 });
-  expect(result.status()).toBe(200);
+  // A card prepared in the preceding interaction may still own the shared renderer.
+  let result = await request.post('/api/exports/images', { data: { date }, timeout: 110000 });
+  await expect
+    .poll(
+      async () => {
+        if (result.status() === 429)
+          result = await request.post('/api/exports/images', { data: { date }, timeout: 110000 });
+        return result.status();
+      },
+      { timeout: 110000 },
+    )
+    .toBe(200);
   const data = await result.json();
   expect(data.images.length).toBeGreaterThan(1);
   const { default: sharp } = await import('sharp');
@@ -249,7 +259,7 @@ test('Backend PNG is 1080px, wraps safely and paginates long days; every archive
       await fs.writeFile('test-results/long-export.png', buffer);
     }
   }
-  expect((await request.get(data.archiveUrl)).status()).toBe(200);
+  expect(data).not.toHaveProperty('archiveUrl');
   await page.setViewportSize({ width: 430, height: 932 });
   await page.goto('/');
   await selectDate(page, date);
@@ -272,19 +282,7 @@ test('Backend PNG is 1080px, wraps safely and paginates long days; every archive
   const currentDownload = page.waitForEvent('download');
   await downloadLink.click();
   expect((await currentDownload).suggestedFilename()).toBe(`和朋友的同一时间-${date}-手账-02.png`);
-  const imageZipPromise = page.waitForEvent('download');
-  await page.getByRole('link', { name: '下载图片合集', exact: true }).click();
-  const imageZip = await imageZipPromise;
-  expect(imageZip.suggestedFilename()).toBe(`和朋友的同一时间-${date}-手账合集.zip`);
-  const { readFile } = await import('node:fs/promises');
-  const { unzipSync } = await import('fflate');
-  const imageFiles = unzipSync(new Uint8Array(await readFile((await imageZip.path())!)));
-  expect(Object.keys(imageFiles).filter((name) => name.endsWith('.png'))).toEqual(
-    preview.images.map(
-      (_: string, i: number) =>
-        `和朋友的同一时间-${date}-手账-${String(i + 1).padStart(2, '0')}.png`,
-    ),
-  );
+  await expect(page.getByRole('link', { name: '下载图片合集', exact: true })).toHaveCount(0);
   await page.screenshot({ path: 'test-results/export-paginated-430.png' });
   await page.getByRole('button', { name: '上一张图片' }).click();
   await expect(downloadLink).toHaveAttribute('href', preview.images[0] + '?download=1');

@@ -72,9 +72,12 @@ function ComposerEditor({
     entry ? (entry.media.type === 'photo' ? 'photo' : 'sticker') : draft?.type || 'photo',
   );
   const [description, setDescription] = useState(entry?.description ?? draft?.description ?? ''),
-    [time, setTime] = useState(
-      entry ? localTime(entry.occurredAt) : draft?.time || `${date}T${localTime().slice(11)}`,
-    );
+    [time, setTime] = useState(() => {
+      if (entry) return localTime(entry.occurredAt);
+      // Empty drafts should start at the current time whenever the form reopens.
+      const hasContent = draft && (draft.description.trim() || draft.file || draft.stickerId);
+      return (hasContent && draft.time) || `${date}T${localTime().slice(11)}`;
+    });
   const [pickerOpen, setPickerOpen] = useState(false);
   const filePickerOpen = useRef(false);
   const legacyEmoji = entry?.media.type === 'emoji' ? entry.media.emoji : '';

@@ -7,12 +7,13 @@ RUN npm install --global pnpm@12.3.4
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/web/package.json ./apps/web/package.json
 COPY apps/server/package.json ./apps/server/package.json
+COPY packages/config/package.json ./packages/config/package.json
 
 # Music is downloaded from pinned URLs/checksums, independently of app changes.
 FROM node:24-bookworm-slim AS music-assets
 WORKDIR /app
 COPY scripts/download-music.ts ./scripts/download-music.ts
-COPY apps/web/src/config/video-music.json ./apps/web/src/config/video-music.json
+COPY packages/config/src/video-music.json ./packages/config/src/video-music.json
 RUN node --experimental-strip-types scripts/download-music.ts
 
 FROM dependencies AS build
@@ -20,6 +21,7 @@ RUN --mount=type=cache,id=parallel-pnpm,target=/pnpm/store \
     pnpm install --frozen-lockfile --store-dir=/pnpm/store
 COPY scripts ./scripts
 COPY apps ./apps
+COPY packages ./packages
 COPY --from=music-assets /app/apps/web/public/music ./apps/web/public/music
 RUN pnpm build
 
@@ -73,6 +75,8 @@ COPY --from=production-dependencies /app/apps/server/package.json ./apps/server/
 
 # Copy application output last so source edits reuse dependencies and Chromium.
 COPY --from=build /app/apps/server/dist ./apps/server/dist
+COPY --from=build /app/packages/config/package.json ./packages/config/package.json
+COPY --from=build /app/packages/config/dist ./packages/config/dist
 ENV PORT=4500
 
 USER node

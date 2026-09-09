@@ -79,6 +79,7 @@ try {
   await checkPort(frontendPort);
   await ensureMusic();
   start(server, [
+    '--conditions=development',
     '--env-file-if-exists=../../.env',
     '--watch',
     '--import',

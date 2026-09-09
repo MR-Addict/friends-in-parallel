@@ -1,12 +1,12 @@
 import { Icon as IslandIcon, Button } from 'animal-island-ui';
 import { useEffect, useRef, useState } from 'react';
-import { Plus, LoaderCircle, Clapperboard, CalendarDays } from 'lucide-react';
+import { Plus, LoaderCircle, Clapperboard, CalendarDays, ArrowUp } from 'lucide-react';
 import { Toast } from './Toast';
 import { DateCalendar } from './DateCalendar';
 import { Composer } from './Composer';
 import { Timeline } from './Timeline';
 import { ExportDialog } from './ExportDialog';
-import videoMusic from './config/video-music.json';
+import { videoMusic } from '@parallel/config';
 import { Modal } from './Modal';
 import { usePullToRefresh } from './usePullToRefresh';
 import { api, today, dateOf, type Entry } from './lib';
@@ -19,6 +19,8 @@ export default function App() {
     requestAnimationFrame(() => calendarTrigger.current?.focus({ preventScroll: true }));
   }
   const [entries, setEntries] = useState<Entry[]>([]);
+  const [loadedDate, setLoadedDate] = useState('');
+  const initialLoading = loadedDate !== date;
   const [loading, setLoading] = useState(false),
     [error, setError] = useState(''),
     [revision, setRevision] = useState(0);
@@ -35,11 +37,15 @@ export default function App() {
     const controller = new AbortController();
     setLoading(true);
     setError('');
-    setEntries([]);
+
     api<Entry[]>(`/api/entries?date=${date}`, { signal: controller.signal })
-      .then(setEntries)
+      .then((value) => {
+        if (controller.signal.aborted) return;
+        setEntries(value);
+        setLoadedDate(date);
+      })
       .catch((e) => {
-        if (e.name !== 'AbortError') setError(e.message);
+        if (!controller.signal.aborted) setError(e.message);
       })
       .finally(() => {
         if (!controller.signal.aborted) setLoading(false);
@@ -53,16 +59,16 @@ export default function App() {
   }, [toast]);
   useEffect(() => {
     if (!focusId || loading) return;
-    const id = setTimeout(
-      () =>
-        document.getElementById(`entry-${focusId}`)?.scrollIntoView({
-          behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches
-            ? 'instant'
-            : 'smooth',
-          block: 'center',
-        }),
-      150,
-    );
+    const id = setTimeout(() => {
+      document.getElementById(`entry-${focusId}`)?.scrollIntoView({
+        behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches
+          ? 'instant'
+          : 'smooth',
+        block: 'center',
+      });
+      // Consume the save target so later refreshes don't scroll to it again.
+      setFocusId('');
+    }, 150);
     return () => clearTimeout(id);
   }, [focusId, entries, loading]);
   function saved(entry: Entry) {
@@ -93,16 +99,16 @@ export default function App() {
     <>
       <main className="app-shell" ref={pull.surface}>
         <div
-          className={`pull-refresh ${pull.distance ? 'pulling' : ''}`}
-          style={{ height: pull.refreshing ? 56 : pull.distance }}
+          className={`pull-refresh ${pull.distance ? 'pulling' : ''} ${pull.ready ? 'ready' : ''}`}
+          style={{ height: pull.distance }}
           role="status"
           aria-live="polite"
           aria-atomic="true"
         >
-          {(pull.distance > 0 || pull.refreshing) && (
+          {pull.distance > 0 && (
             <span>
-              {pull.refreshing && <IslandIcon icon={LoaderCircle} size={18} className="spin" />}
-              {pull.refreshing ? '正在刷新…' : pull.ready ? '松开刷新' : '下拉刷新'}
+              <IslandIcon icon={ArrowUp} size={20} />
+              {pull.ready ? '松开刷新' : '下拉刷新'}
             </span>
           )}
         </div>
@@ -141,8 +147,8 @@ export default function App() {
           </div>
         </header>
         <Timeline
-          entries={entries}
-          loading={loading}
+          entries={loadedDate === date ? entries : []}
+          loading={initialLoading && !error}
           error={error}
           onRefresh={() => setRevision((n) => n + 1)}
           onEdit={(entry) => setComposer({ entry })}

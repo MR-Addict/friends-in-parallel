@@ -452,7 +452,7 @@ for (const invalidation of ['changed day', 'expired files']) {
         work.dir = path.join(f.dir, `stage-${work.token}`);
         await mkdir(cache.dir, { recursive: true });
         await mkdir(work.dir, { recursive: true });
-        const names = kind === 'images' ? ['1.png', 'images.zip'] : ['video.mp4', 'cover.jpg'];
+        const names = kind === 'images' ? ['1.png'] : ['video.mp4', 'cover.jpg'];
         for (const name of names) await writeFile(path.join(work.dir, name), 'fixture');
         await cache.publish(
           work,
@@ -463,7 +463,7 @@ for (const invalidation of ['changed day', 'expired files']) {
           (expiresAt) => {
             const prefix = `/api/exports/files/${work.token}/`;
             return kind === 'images'
-              ? { images: [prefix + '1.png'], archiveUrl: prefix + 'images.zip', expiresAt }
+              ? { images: [prefix + '1.png'], expiresAt }
               : {
                   videoUrl: prefix + 'video.mp4',
                   coverUrl: prefix + 'cover.jpg',
@@ -522,7 +522,7 @@ for (const invalidation of ['changed day', 'expired files']) {
       }
       for (const token of tokens) {
         assert.equal((await fetch(`${f.origin}/api/exports/${token}/validity`)).status, 404);
-        for (const name of ['1.png', 'images.zip', 'video.mp4', 'cover.jpg']) {
+        for (const name of ['1.png', 'video.mp4', 'cover.jpg']) {
           const response = await fetch(`${f.origin}/api/exports/files/${token}/${name}`, {
             headers: {
               'If-None-Match': etags.get(`${token}/${name}`) || '*',
@@ -540,3 +540,45 @@ for (const invalidation of ['changed day', 'expired files']) {
     }
   });
 }
+
+test('post exports isolate one entry, cache PNGs only and invalidate after edits', async () => {
+  const f = await fixture();
+  try {
+    const { entry } = await post(f.origin);
+    const { entry: broken } = await post(f.origin);
+    // A missing asset belonging to another post must not block this export.
+    await f.store.save(
+      { ...broken, media: { type: 'photo', filename: 'missing.png', mime: 'image/png' } },
+      Buffer.from('temporary asset'),
+      broken.id,
+    );
+    await rm(path.join(f.store.uploads, 'missing.png'));
+    const generate = (entryId: unknown = entry.id) =>
+      fetch(f.origin + '/api/exports/posts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ date, entryId }),
+      });
+    assert.equal((await generate(null)).status, 400);
+    assert.equal((await generate('missing')).status, 404);
+    const response = await generate();
+    assert.equal(response.status, 200);
+    const result = await response.json();
+    assert.equal(result.images.length, 1);
+    assert.equal('archiveUrl' in result, false);
+    assert.deepEqual(await (await generate()).json(), result);
+    const png = await fetch(f.origin + result.images[0]);
+    assert.equal(png.status, 200);
+    assert.equal((await sharp(Buffer.from(await png.arrayBuffer())).metadata()).width, 1080);
+    assert.equal(
+      (await fetch(f.origin + result.images[0].replace('1.png', 'images.zip'))).status,
+      404,
+    );
+    await f.store.save({ ...entry, description: '已修改' }, undefined, entry.id);
+    assert.equal((await fetch(f.origin + result.images[0])).status, 404);
+    await f.store.delete(entry.id);
+    assert.equal((await generate()).status, 404);
+  } finally {
+    await f.close();
+  }
+});

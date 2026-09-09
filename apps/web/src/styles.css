@@ -79,7 +79,7 @@ html.pull-refresh-enabled body {
   overflow: hidden;
   color: var(--muted);
   font-size: 13px;
-  transition: height 180ms ease;
+  transition: height 220ms ease;
 }
 .pull-refresh.pulling {
   transition: none;
@@ -1710,10 +1710,59 @@ textarea {
 .resource-share {
   margin-top: 8px;
 }
+.friend-post-count {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 400;
+}
 .resource-share button {
   line-height: 1.5;
   white-space: nowrap;
 }
 .entry-options > .resource-share {
   margin-top: 0;
+}
+.post-modal .sheet-heading {
+  padding: 8px 16px 8px 20px;
+  border-bottom: 1px solid var(--line);
+}
+.post-modal .moment-description {
+  margin: 0 0 16px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.post-modal .zoom-image {
+  width: auto;
+  max-width: 100%;
+  border-radius: 16px;
+}
+.sheet-heading-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+.sheet-heading-actions .resource-share {
+  margin-top: 0;
+}
+.sheet-heading-actions .share-icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ink);
+  box-shadow: none;
+}
+.sheet-heading-actions .share-icon-button:hover {
+  background: var(--animal-bg-color-secondary);
+}
+
+.pull-refresh.ready {
+  color: var(--accent);
 }

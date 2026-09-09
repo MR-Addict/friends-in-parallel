@@ -118,7 +118,7 @@ IMAGE=friends-in-parallel:local docker compose up -d --pull never
 
 ## 访问暗号
 
-页面使用一个共享暗号作为轻量前端入口，以普通文本输入。暗号直接配置在 `apps/web/src/config/app.json` 的 `accessCode` 字段中，默认是「我们五个要一直在一起」。修改配置后重新构建即可，Docker 构建也会自动包含该配置，无需环境变量或 GitHub secret。未设置暗号时，页面保持锁定并提示联系主人。
+页面使用一个共享暗号作为轻量前端入口，以普通文本输入。暗号直接配置在 `packages/config/src/app.ts` 的 `accessCode` 字段中，默认是「我们五个要一直在一起」。修改配置后重新构建即可，Docker 构建也会自动包含该配置，无需环境变量或 GitHub secret。未设置暗号时，页面保持锁定并提示联系主人。
 
 输入正确暗号后，浏览器写入 `parallel_access` Cookie，有效期从验证成功起固定为 7 天，刷新不会续期。到期后重新输入；已打开的页面也会检查到期状态。Cookie 使用 `Path=/`、`SameSite=Lax`，HTTPS 下附带 `Secure`。清除此 Cookie 可提前退出。
 
@@ -130,7 +130,7 @@ IMAGE=friends-in-parallel:local docker compose up -d --pull never
 
 首次记录选择人物后进入编辑页，后续直接使用上次人物，仍可随时更换。照片、表情、描述和时间按浏览日期自动保存为此设备的草稿；关闭或刷新后重新选择该日期即可继续。草稿使用浏览器 IndexedDB（含照片），不会同步到其他设备；存储不可用时界面会提示仅暂存于当前页面。发布成功会清理对应草稿，也可在编辑器底部清空。清空后 10 秒内可撤销，恢复照片、表情、文字和时间；重新输入或关闭编辑器后撤销入口结束。编辑已发布动态不使用新记录草稿。编辑页直接展示最近使用的表情，更多素材可进入完整选择页。
 
-「表情」统一包含三套素材，编辑器保留一个选择／更换入口，独立选择页提供套餐、分类和最近使用，选好即返回编辑器；新动态使用 `sticker` 存储。旧 `emoji` 动态仍可展示和导出，编辑保存时转为对应的微软素材，无需迁移历史数据。点击动态卡片的素材、文字或留白均可打开预览，编辑、删除入口独立保留在「更多操作」菜单。首页按发生时间从新到旧排列，小时及小时内的动态均倒序，不受人物配置顺序影响。表情与描述横向排列，照片保留完整大图。导出预览底部固定「下载图片」主按钮，多张时可翻页并下载当前图片，并提供图片合集下载。
+「表情」统一包含三套素材，编辑器保留一个选择／更换入口，独立选择页提供套餐、分类和最近使用，选好即返回编辑器；新动态使用 `sticker` 存储。旧 `emoji` 动态仍可展示和导出，编辑保存时转为对应的微软素材，无需迁移历史数据。点击动态卡片的素材、文字或留白均可打开预览，编辑、删除入口独立保留在「更多操作」菜单。首页按发生时间从新到旧排列，小时及小时内的动态均倒序，不受人物配置顺序影响。表情与描述横向排列，照片保留完整大图。导出预览底部固定「下载图片」主按钮，多张时可翻页并下载当前图片，每次仅分享或下载当前图片。
 
 - 人物：陆语涵、水水、童浩然、蔡建文、甲醛。
 - 照片：JPEG、PNG、WebP、HEIC/HEIF，服务端上传上限 20 MB；HEIC 必须转换为可显示的格式才会保存，压缩失败可以继续上传。损坏的图片会被拒绝，暂不支持动画 GIF。
@@ -164,11 +164,11 @@ HTML 预览位于 PushPlus 消息详情页，微信会话中的通知卡片展�
 
 ### 分享手账长图
 
-服务端使用 Playwright + Chromium、项目内的 Noto 中文字体和图片渲染独立模板。输出宽度 1080px，超过 12000px 时按完整卡片拆成多页；支持单张预览、保存、手机长按保存和图片合集 ZIP。字体及素材加载失败会报错，不静默漏图。
+服务端使用 Playwright + Chromium、项目内的 Noto 中文字体和图片渲染独立模板。输出宽度 1080px，超过 12000px 时按完整卡片拆成多页；支持单张预览、保存、手机长按保存，每次仅分享或下载一张图片。字体及素材加载失败会报错，不静默漏图。
 
 相同日期、相同内容优先复用已生成的长图和合集 ZIP，不重复启动 Chromium。缓存指纹包含动态内容、人物配置、素材字节、字体、渲染代码及许可文件；内容发生变化、缓存过期或文件缺失时重新生成，服务重启后仍可复用有效缓存。每次成功保存或删除动态都会更新当天版本，使当天全部旧导出失效；跨日期修改同时影响原日期和新日期，内容改回原样也不恢复旧导出。
 
-相同内容的并发请求共用一次生成；长图与视频共用一个渲染名额，其他未命中缓存的请求会收到 429 稍后重试提示，已有缓存仍可立即使用。长图渲染最长约 90 秒，失败清理临时文件；长图与图片合集自生成完成起最多缓存 24 小时，动态更新后提前失效，复用和下载不会延长有效期。
+相同内容的并发请求共用一次生成；长图与视频共用一个渲染名额，其他未命中缓存的请求会收到 429 稍后重试提示，已有缓存仍可立即使用。长图渲染最长约 90 秒，失败清理临时文件；长图与动态卡片自生成完成起最多缓存 24 小时，动态更新后提前失效，复用和下载不会延长有效期。
 
 长图按小时形成最多六条的自适应拼版区块，超量均衡拆分；连续小时各一条时合并，空白小时或多条动态的小时中断。区块按时段纵向串联，内部按照片比例、贴纸和文字选择稳定随机布局。照片完整展示，贴纸区域紧凑；正文至少 28px，姓名和时间至少 24px。单张保持 1080px 宽、最高 12000px，优先保留完整时段，必要时在区块间分图并标注续页；极长文字按实际高度续页，不截断内容。
 
@@ -190,7 +190,7 @@ HTML 预览位于 PushPlus 消息详情页，微信会话中的通知卡片展�
 
 ### 共享导出缓存
 
-`ExportCache` 为长图、图片合集、视频和封面管理同一个 `DATA_DIR/exports` 目录。成品写入临时目录，全部校验成功后记录完成时间与固定的 24 小时过期时间，再原子发布。缓存指纹包含日期版本、实际内容、素材、字体、相关渲染代码与许可；视频额外包含样式及所选配乐字节。日期版本与动态记录在 `entries.json` 中原子保存，兼容旧数组格式；任何成功保存或删除都会更换受影响日期的版本。旧格式缓存一律过期，生成中的旧版本会中止，发布时在 Store 锁内再次校验版本。
+`ExportCache` 为长图、动态卡片、视频和封面管理同一个 `DATA_DIR/exports` 目录。成品写入临时目录，全部校验成功后记录完成时间与固定的 24 小时过期时间，再原子发布。缓存指纹包含日期版本、实际内容、素材、字体、相关渲染代码与许可；视频额外包含样式及所选配乐字节。日期版本与动态记录在 `entries.json` 中原子保存，兼容旧数组格式；任何成功保存或删除都会更换受影响日期的版本。旧格式缓存一律过期，生成中的旧版本会中止，发布时在 Store 锁内再次校验版本。
 
 每次 `/api/exports` 请求（选项、生成、状态、试听、预览或下载）都会触发清理；并发请求共享正在执行的扫描，没有定时清理器。动态保存成功也会触发清理。清理依据日期版本和元数据的 `expiresAt`，不会因读取或目录时间变化续期。正在生成及传输的目录受保护，传输结束后释放并清理过期文件。损坏元数据、缺失或大小不匹配的文件、旧格式缓存与崩溃遗留临时目录都会回收；旧链接需重新生成。没有动态写入或导出请求时不会主动扫描磁盘，下一次导出请求会清理过期文件。
 
@@ -215,15 +215,15 @@ HTML 预览位于 PushPlus 消息详情页，微信会话中的通知卡片展�
 
 ### 人物
 
-编辑 `apps/web/src/config/people.json`：
+编辑 `packages/config/src/people.ts` 中的对应人物：
 
-```json
+```ts
 {
-  "id": "lu-yuhan",
-  "nickname": "陆语涵",
-  "color": "#e5a36c",
-  "background": "#fff0db",
-  "avatar": "1f431"
+  id: 'lu-yuhan',
+  nickname: '陆语涵',
+  color: '#e5a36c',
+  background: '#fff0db',
+  avatar: '1f431',
 }
 ```
 
@@ -231,7 +231,7 @@ HTML 预览位于 PushPlus 消息详情页，微信会话中的通知卡片展�
 
 ### 贴纸
 
-`apps/web/src/config/stickers.json` 管理套餐和 72 张精选贴纸，文件位于 `apps/web/public/stickers`。包含中文名称、分类、Emoji 和许可来源。浏览器记住最近使用的贴纸及上次选择的人物。
+`packages/config/src/stickers.json` 管理套餐和 72 张精选贴纸，文件位于 `apps/web/public/stickers`。包含中文名称、分类、Emoji 和许可来源。浏览器记住最近使用的贴纸及上次选择的人物。
 
 三套素材均随仓库保存，开发、生产运行和导出不需要请求外部素材站：
 
@@ -269,21 +269,22 @@ JSON 通过进程内串行写入和临时文件原子替换保存；构建不会
 
 成功返回 JSON；删除成功为 204；失败为 `{ "error": "中文提示" }`。
 
-| 方法   | 路径                                   | 用途                                                                          |
-| ------ | -------------------------------------- | ----------------------------------------------------------------------------- |
-| GET    | `/api/entry-dates?month=YYYY-MM`       | 查询指定月份每天的记录数量（仅返回有记录的日期）                              |
-| GET    | `/api/entries?date=YYYY-MM-DD`         | 按北京时间查询一天                                                            |
-| POST   | `/api/entries`                         | 发布                                                                          |
-| PATCH  | `/api/entries/:id`                     | 编辑                                                                          |
-| DELETE | `/api/entries/:id`                     | 删除及清理照片                                                                |
-| POST   | `/api/exports/images`                  | `{ "date": "YYYY-MM-DD" }` → `images`, `archiveUrl`, `expiresAt`              |
-| GET    | `/api/exports/archive?date=YYYY-MM-DD` | 素材 ZIP；加 `check=1` 仅校验素材                                             |
-| GET    | `/api/exports/:token/validity`         | 导出有效性：有效返回 204，版本变化或过期返回 404                              |
-| GET    | `/api/exports/files/:token/:name`      | 最多 24 小时的导出文件，动态更新后失效；`download=1` 强制下载，MP4 支持 Range |
-| GET    | `/api/exports/video-options`           | 12 种样式、24 首音乐、默认样式及视频组件可用状态                              |
-| POST   | `/api/exports/videos`                  | `{date, styleId, musicId}`；`none` 为无音乐，200 命中成品或 202 返回任务      |
-| GET    | `/api/exports/videos/:jobId`           | `status`、`phase`、`progress`，完成后附 `result`，失败附 `error`              |
-| GET    | `/api/exports/music/:musicId`          | 本地配乐试听，支持 Range                                                      |
+| 方法   | 路径                                   | 用途                                                                                     |
+| ------ | -------------------------------------- | ---------------------------------------------------------------------------------------- |
+| GET    | `/api/entry-dates?month=YYYY-MM`       | 查询指定月份每天的记录数量（仅返回有记录的日期）                                         |
+| GET    | `/api/entries?date=YYYY-MM-DD`         | 按北京时间查询一天                                                                       |
+| POST   | `/api/entries`                         | 发布                                                                                     |
+| PATCH  | `/api/entries/:id`                     | 编辑                                                                                     |
+| DELETE | `/api/entries/:id`                     | 删除及清理照片                                                                           |
+| POST   | `/api/exports/images`                  | `{ "date": "YYYY-MM-DD" }` → `images`, `expiresAt`                                       |
+| POST   | `/api/exports/posts`                   | `{ "date": "YYYY-MM-DD", "entryId": "..." }` → `images`（一张完整动态 PNG）、`expiresAt` |
+| GET    | `/api/exports/archive?date=YYYY-MM-DD` | 素材 ZIP；加 `check=1` 仅校验素材                                                        |
+| GET    | `/api/exports/:token/validity`         | 导出有效性：有效返回 204，版本变化或过期返回 404                                         |
+| GET    | `/api/exports/files/:token/:name`      | 最多 24 小时的导出文件，动态更新后失效；`download=1` 强制下载，MP4 支持 Range            |
+| GET    | `/api/exports/video-options`           | 12 种样式、24 首音乐、默认样式及视频组件可用状态                                         |
+| POST   | `/api/exports/videos`                  | `{date, styleId, musicId}`；`none` 为无音乐，200 命中成品或 202 返回任务                 |
+| GET    | `/api/exports/videos/:jobId`           | `status`、`phase`、`progress`，完成后附 `result`，失败附 `error`                         |
+| GET    | `/api/exports/music/:musicId`          | 本地配乐试听，支持 Range                                                                 |
 
 发布 / 编辑字段：`personId`、`description`、带时区的 ISO `occurredAt`、`mediaType`。照片使用 multipart 的 `photo` 文件；编辑保留照片时传原 `filename`，后端只允许引用该动态原有照片。Emoji 使用 `emoji`，贴纸使用 `stickerId`。无文件时也可以提交 JSON。
 
@@ -357,3 +358,5 @@ DATA_DIR="$PWD/data/video-demo-2026-09-07" pnpm dev
 首页「制作回忆」入口可将所选日期的动态生成手账长图、回忆视频，或下载素材 ZIP。单张图片预览和视频结果支持系统分享，按资源类型检测 `navigator.canShare`。有图片的动态操作菜单保留「分享图片」入口；ZIP 不提供分享入口，仍可下载。视频结果使用「分享视频」主按钮和「修改样式与音乐」次按钮，不再提供视频下载按钮；不支持文件分享的浏览器会隐藏分享按钮。
 
 分享文件在点击后才读取。准备完成后按钮恢复原文案，再次点击即可打开系统分享面板。失败提示直接替换按钮文案，不增加额外提示行。关闭页面内弹窗或切换资源会取消准备并释放暂存文件；取消系统分享不显示错误。导出预览不持续轮询，在恢复任务、翻页、下载、播放或分享时检查有效性；即使文件已准备好，再次分享前仍会验证。确认过期后隐藏预览并清除任务 ID，保留视频样式和配乐选择；网络错误允许重试。24 小时到期也会自动隐藏预览。
+
+Shared configuration lives in `packages/config` (`@parallel/config`). Both apps import its typed exports. Edit people, app settings and video styles in TypeScript; generated sticker data and pinned asset manifests remain JSON with typed package exports. `pnpm dev` and unit tests resolve package source via the development condition; `pnpm build` compiles the package before the apps, and production uses its JavaScript output.

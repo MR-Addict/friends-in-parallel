@@ -1,5 +1,5 @@
 import { selectDate } from './calendar';
-import people from '../../apps/web/src/config/people.json' with { type: 'json' };
+import { people } from '@parallel/config';
 import { test, expect } from '@playwright/test';
 
 test.beforeEach(async ({ context }) => {
@@ -107,7 +107,8 @@ for (const width of [375, 430, 1100]) {
     await expect(page.getByRole('link', { name: '下载视频' })).toHaveCount(0);
     await expect(page.getByRole('button', { name: '分享视频' })).toHaveClass(/primary/);
     await page.getByRole('button', { name: '分享视频' }).click();
-    await expect(page.getByRole('button', { name: '分享视频' })).toBeEnabled();
+    await expect(page.getByRole('button', { name: '已准备好，再次点击分享' })).toBeEnabled();
+    await page.getByRole('button', { name: '已准备好，再次点击分享' }).click();
     await expect
       .poll(() => page.evaluate(() => (window as any).sharedVideo))
       .toBe(`和朋友的同一时间-${date}-回忆视频.mp4`);
@@ -116,15 +117,11 @@ for (const width of [375, 430, 1100]) {
       const videoUrl = await video.getAttribute('src');
       await request.delete(`/api/entries/${latest[0].id}`);
       expect((await request.get(videoUrl!)).status()).toBe(404);
-      // Returning to the page revalidates the prepared file immediately.
+      // Prepared bytes remain shareable until expiry, even after source edits.
       await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
-      await expect(video).toHaveCount(0);
-      await expect(page.getByRole('alert')).toContainText('重新生成');
-      const saved = await page.evaluate(
-        (date) => JSON.parse(localStorage.getItem(`parallel-video:${date}`)!),
-        date,
-      );
-      expect(saved.jobId).toBe('');
+      await expect(video).toBeVisible();
+      await page.getByRole('button', { name: '已准备好，再次点击分享' }).click();
+      await page.getByRole('button', { name: '修改样式与音乐' }).click();
     } else {
       await page.getByRole('button', { name: '修改样式与音乐' }).click();
     }

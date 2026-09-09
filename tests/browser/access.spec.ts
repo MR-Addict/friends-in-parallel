@@ -1,9 +1,6 @@
 import { test, expect } from '@playwright/test';
-import { readFileSync } from 'node:fs';
-
-const { accessCode: code } = JSON.parse(
-  readFileSync(new URL('../../apps/web/src/config/app.json', import.meta.url), 'utf8'),
-);
+import { appConfig } from '@parallel/config';
+const { accessCode: code } = appConfig;
 
 test('Access gate validates code and keeps a fixed seven-day cookie across reloads', async ({
   page,
